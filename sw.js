@@ -13,9 +13,8 @@ const ASSETS = [
   "./icon-192.png",
   "./icon-512.png",
   "./icon-180.png"
-  // Grafikpaket: hier die Dateien aus assets/planes/ eintragen, damit sie
-  // auch offline verfügbar sind, z. B.
-  // , "./assets/planes/a20n-base.png", "./assets/planes/a20n-mask.png"
+  // Bilder aus assets/planes/ müssen hier nicht stehen: sie werden beim
+  // ersten Aufruf automatisch in den Offline-Speicher übernommen.
 ];
 
 self.addEventListener("install", e => {
@@ -48,7 +47,12 @@ self.addEventListener("fetch", e => {
         caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
         return res;
       })
-      .catch(() => caches.match(e.request).then(r => r || caches.match("./index.html")))
+      .catch(() => caches.match(e.request).then(r => {
+        if (r) return r;
+        // Nur bei Seitenaufrufen auf die Startseite ausweichen, nicht bei Bildern
+        if (e.request.mode === "navigate") return caches.match("./index.html");
+        return new Response("", { status: 504, statusText: "offline" });
+      }))
   );
 });
 

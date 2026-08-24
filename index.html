@@ -903,6 +903,9 @@ function layerSVG(l, r){
                        font-size="${l.size||30}" font-weight="700" letter-spacing="${l.ls||1}"
                        fill="${col}">${esc(l.text||"TEXT")}</text>`;
       case "decal":  { const D=DECALS[l.id]; return D ? `<g transform="scale(${(l.dsc||1.6).toFixed(2)})">${D.f(col)}</g>` : ""; }
+      case "img":    { const wI=l.iw||64, hI=l.ih||64;
+                       return `<image href="${esc(l.url||"")}" x="${-wI/2}" y="${-hI/2}" width="${wI}" height="${hI}"
+                         preserveAspectRatio="xMidYMid meet" opacity="${l.op==null?1:l.op}"/>`; }
       default: return "";
     }
   })();
@@ -917,59 +920,339 @@ function layerBox(l){
     case "line":   return {w:(l.w||120)*sc, h:Math.max((l.h||4)*sc,14)};
     case "text":   return {w:((l.text||"TEXT").length*(l.size||30)*0.55)*sc, h:(l.size||30)*sc};
     case "decal":  return {w:24*(l.dsc||1.6)*sc, h:24*(l.dsc||1.6)*sc};
+    case "img":    return {w:(l.iw||64)*sc, h:(l.ih||64)*sc};
     default: return {w:30,h:30};
   }
 }
 
 
-/* ================================================= Externe Grafikpakete ==
-   Sobald das Spiel auf einem Server liegt, kann es fertige Zeichnungen aus
-   dem Ordner assets/planes/ verwenden. Je Muster braucht es zwei bis drei
-   PNG mit Alphakanal, alle in derselben Bildgrösse und Ausrichtung:
 
-     <id>-base.png    das komplett weisse Flugzeug mit allen Details
-     <id>-mask.png    weiss dort, wo die Hausfarbe liegen darf, sonst schwarz
-     <id>-tail.png    (freiwillig) dasselbe für die Leitwerksfläche
-     <id>-shade.png   (freiwillig) halbdurchsichtige Schatten und Glanzlichter
 
-   Fehlt eine Datei, zeichnet das Spiel das Muster weiterhin selbst. Der
-   Eintrag legt fest, welche Muster überhaupt gesucht werden — so entsteht
-   kein Netzverkehr für Dateien, die es nicht gibt. */
-const ASSET_DIR = "assets/planes/";
-const PLANE_ASSETS = {
-  /* Beispiel — Zeile einkommentieren, sobald die Dateien im Ordner liegen:
-  a20n: {base:1, mask:1, tail:1, shade:1, w:1600, h:520},
-  b789: {base:1, mask:1, tail:1, shade:1, w:1600, h:520},
-  */
+/* ============================================== Flughafenskizze ==========
+   Ein schematischer Platzplan aus den vorhandenen Daten: Pistenlänge
+   massstäblich, Ausrichtung wo bekannt, dazu Vorfeld und Terminal. Dadurch
+   sehen alle 279 Flughäfen gleich aus — was mit gesammelten Fotos nie
+   gelänge — und es entstehen keine Lizenzfragen. */
+const RUNWAY_HDG = {   // Hauptpiste in Grad, wo verlässlich bekannt
+  ZRH:140, GVA:40, BSL:150, BRN:140, LUG:10, SIR:250, ACH:100,
+  LHR:90, LGW:80, STN:40, LTN:70, LCY:90, MAN:50, EDI:60, DUB:100, BFS:70,
+  CDG:80, ORY:60, LYS:180, MRS:130, NCE:40, TLS:140, BOD:50,
+  FRA:70, MUC:80, BER:70, DUS:50, HAM:50, STR:70, CGN:140, HAJ:90, NUE:100,
+  AMS:180, EIN:30, BRU:70, LUX:60,
+  MAD:140, BCN:60, PMI:60, AGP:130, ALC:100, VLC:120, LIS:30, OPO:170,
+  FCO:160, MXP:350, LIN:180, NAP:60, VCE:40, BLQ:120, CTA:80, PMO:70,
+  VIE:110, PRG:60, WAW:110, BUD:130, OTP:80, SOF:90, ATH:30, SKG:160,
+  CPH:40, ARN:10, OSL:190, HEL:220, KEF:200, RIX:180, TLL:80, VNO:20,
+  IST:170, SAW:60, AYT:180, TLV:120, DXB:120, DOH:160, AUH:130,
+  JFK:130, EWR:40, BOS:40, ORD:100, ATL:90, LAX:70, SFO:280, SEA:160,
+  MIA:90, DFW:180, DEN:170, YYZ:60, YVR:80, YUL:60,
+  GRU:90, GIG:100, EZE:110, SCL:170, LIM:150, BOG:130, MEX:50,
+  HND:340, NRT:160, ICN:150, PEK:180, PVG:170, HKG:70, SIN:20, BKK:190,
+  KUL:140, CGK:70, DEL:100, BOM:90, SYD:160, MEL:160, AKL:230,
+  JNB:30, CPT:10, NBO:60, CAI:50, CMN:170, ADD:70
 };
-const ASSET_STATE = {};          // geprüfte Verfügbarkeit je Muster
+function rwyHeading(a){
+  if(RUNWAY_HDG[a.iata]!=null) return {deg:RUNWAY_HDG[a.iata], real:true};
+  let h=0; for(let i=0;i<a.iata.length;i++) h=(h*33+a.iata.charCodeAt(i))>>>0;
+  return {deg:(h%18)*10, real:false};
+}
+function rwyLabel(deg){
+  const a=Math.round(deg/10)%36 || 36;
+  const b=Math.round(((deg+180)%360)/10)%36 || 36;
+  return [String(a).padStart(2,"0"), String(b).padStart(2,"0")];
+}
+/** Platzplan eines Flughafens. */
+function airportChartSVG(a){
+  const W=560, H=320, cx=W/2, cy=H/2;
+  const hd=rwyHeading(a), deg=hd.deg;
+  const maxLen=4900, len=clamp(a.runway/maxLen,0.18,1)*400;
+  const lbl=rwyLabel(deg);
+  const wide=a.pax>25, second=a.pax>18;
+  const night=(typeof S!=="undefined"&&S&&S.mapStyle==="tag")?false:true;
+  const grass=night?"#16241a":"#dfe7d3";
+  const asph=night?"#232c36":"#8f96a0";
+  const line=night?"#e8eef6":"#ffffff";
+  const build=night?"#2f3b4a":"#c9ccd2";
+  const txt=night?"#a9bdd6":"#40505f";
+  const runway=(off,l)=>`
+    <g transform="rotate(${deg} ${cx} ${cy}) translate(${off},0)">
+      <rect x="${cx-l/2}" y="${cy-9}" width="${l}" height="18" rx="2" fill="${asph}"/>
+      <rect x="${cx-l/2}" y="${cy-0.9}" width="${l}" height="1.8" fill="${line}" opacity=".65"
+        stroke-dasharray="14 10"/>
+      ${[0,1].map(i=>`<g transform="translate(${i? l/2-16 : -l/2+4},0)">
+        ${[0,1,2,3].map(j=>`<rect x="${cx-2}" y="${cy-7+j*4}" width="12" height="2" fill="${line}" opacity=".8"/>`).join("")}
+      </g>`).join("")}
+    </g>`;
+  const taxi=`<g transform="rotate(${deg} ${cx} ${cy})">
+      <rect x="${cx-len/2+20}" y="${cy+26}" width="${len-40}" height="9" rx="2" fill="${asph}" opacity=".8"/>
+      ${[0.2,0.5,0.8].map(f=>`<rect x="${cx-len/2+len*f}" y="${cy+9}" width="8" height="18" fill="${asph}" opacity=".8"/>`).join("")}
+    </g>`;
+  const apron=`<g transform="rotate(${deg} ${cx} ${cy})">
+      <rect x="${cx-len*0.34}" y="${cy+38}" width="${len*0.68}" height="46" rx="3" fill="${asph}" opacity=".7"/>
+      <rect x="${cx-len*0.30}" y="${cy+58}" width="${len*0.60}" height="22" rx="3" fill="${build}"/>
+      ${Array.from({length:wide?7:4}).map((_,i)=>`<rect x="${cx-len*0.28+i*(len*0.56/(wide?6:3))}" y="${cy+42}" width="7" height="16" fill="${build}" opacity=".9"/>`).join("")}
+    </g>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img"
+    aria-label="Platzplan ${esc(a.iata)}">
+    <rect width="${W}" height="${H}" fill="${grass}"/>
+    ${second?runway(-46, len*0.78):""}
+    ${runway(0, len)}
+    ${taxi}${apron}
+    <g transform="rotate(${deg} ${cx} ${cy})" font-family="IBM Plex Mono,monospace" font-size="11" fill="${line}">
+      <text x="${cx-len/2+20}" y="${cy+4}" text-anchor="middle" transform="rotate(90 ${cx-len/2+20} ${cy})">${lbl[0]}</text>
+      <text x="${cx+len/2-20}" y="${cy+4}" text-anchor="middle" transform="rotate(90 ${cx+len/2-20} ${cy})">${lbl[1]}</text>
+    </g>
+    <g font-family="IBM Plex Mono,monospace" font-size="11" fill="${txt}">
+      <text x="14" y="22">${esc(a.iata)} · ${esc(a.city)}</text>
+      <text x="14" y="${H-30}">Piste ${fmt(a.runway)} m${second?" · zweite Bahn":""}</text>
+      <text x="14" y="${H-14}">Ausrichtung ${lbl[0]}/${lbl[1]}${hd.real?"":" (schematisch)"}</text>
+      <g transform="translate(${W-46},${H-46})">
+        <circle r="20" fill="none" stroke="${txt}" stroke-width="1" opacity=".5"/>
+        <path d="M0,-17 L5,4 L0,0 L-5,4 Z" fill="${txt}"/>
+        <text y="-22" text-anchor="middle" font-size="9">N</text></g>
+      <g transform="translate(14,${H-58})">
+        <rect x="0" y="0" width="${(1000/maxLen*400).toFixed(0)}" height="3" fill="${txt}" opacity=".7"/>
+        <text x="0" y="-4" font-size="9">1000 m</text></g>
+    </g>
+  </svg>`;
+}
+
+/* ================================================= Ordner durchsuchen ====
+   Auf GitHub Pages lässt sich der Inhalt eines Ordners über die öffentliche
+   API abfragen. Dadurch findet das Spiel auch Dateien, deren Namen es nicht
+   erraten kann — etwa eigene Aufkleber. Klappt das nicht, wird auf eine
+   Datei index.json im selben Ordner zurückgegriffen, und sonst auf das
+   Abklappern bekannter Namen. */
+function repoInfo(){
+  try{
+    const h=location.hostname, p=location.pathname;
+    if(!/\.github\.io$/i.test(h)) return null;
+    const owner=h.replace(/\.github\.io$/i,"");
+    const seg=p.split("/").filter(Boolean);
+    const repo=seg.length?seg[0]:(owner+".github.io");
+    return {owner, repo};
+  }catch(e){ return null; }
+}
+const FOLDER_CACHE={};
+async function listFolder(path){
+  if(FOLDER_CACHE[path]) return FOLDER_CACHE[path];
+  const key="skyline.dir."+path;
+  try{
+    const raw=localStorage.getItem(key);
+    if(raw){ const c=JSON.parse(raw);
+      if(c.t && Date.now()-c.t < 86400000){ FOLDER_CACHE[path]=c.f; return c.f; } }
+  }catch(e){}
+  let files=[];
+  const ri=repoInfo();
+  if(ri){
+    try{
+      const r=await fetch(`https://api.github.com/repos/${ri.owner}/${ri.repo}/contents/${path}`,
+        {headers:{"Accept":"application/vnd.github+json"}});
+      if(r.ok){
+        const j=await r.json();
+        if(Array.isArray(j)) files=j.filter(x=>x.type==="file").map(x=>x.name);
+      }
+    }catch(e){}
+  }
+  if(!files.length){
+    try{
+      const r=await fetch(path.replace(/\/?$/,"/")+"index.json");
+      if(r.ok){ const j=await r.json(); if(Array.isArray(j)) files=j; }
+    }catch(e){}
+  }
+  FOLDER_CACHE[path]=files;
+  try{ localStorage.setItem(key, JSON.stringify({t:Date.now(), f:files})); }catch(e){}
+  return files;
+}
+
+/* ==================================================== Weitere Grafiken ===
+   Alles unter graphics/misc/. Erkannt werden:
+     logo.png | logo.svg        Bildmarke statt des gezeichneten Signets
+     splash.jpg | splash.png    Bild im Gründungsfenster
+     decals/*                   eigene Aufkleber für den Lackierungseditor */
+const MISC = {logo:null, splash:null, decals:[], airports:{}, tails:{}};
+async function scanMisc(){
+  for(const n of ["logo.png","logo.svg","logo.webp"]){
+    const im=await tryImage(MISC_DIR+n);
+    if(im){ MISC.logo={url:MISC_DIR+n, w:im.naturalWidth, h:im.naturalHeight}; break; }
+  }
+  for(const n of ["splash.jpg","splash.png","splash.webp"]){
+    const im=await tryImage(MISC_DIR+n);
+    if(im){ MISC.splash=MISC_DIR+n; break; }
+  }
+  /* Flughafenbilder: graphics/misc/airports/<IATA>.jpg */
+  const ap=await listFolder(MISC_DIR+"airports");
+  ap.filter(f=>/\.(jpg|jpeg|png|webp)$/i.test(f)).forEach(f=>{
+    const code=f.replace(/\.[^.]+$/,"").toUpperCase();
+    if(AP[code]) MISC.airports[code]=MISC_DIR+"airports/"+f;
+  });
+  const files=await listFolder(MISC_DIR+"decals");
+  const ok=files.filter(f=>/\.(png|svg|webp|jpg)$/i.test(f));
+  for(const f of ok.slice(0,40)){
+    const url=MISC_DIR+"decals/"+f;
+    const im=await tryImage(url);
+    if(im) MISC.decals.push({name:f.replace(/\.[^.]+$/,""), url,
+      w:im.naturalWidth||64, h:im.naturalHeight||64});
+  }
+  if(MISC.logo||MISC.decals.length||Object.keys(MISC.airports).length){
+    applyBrand(); if(typeof render==="function") render(); }
+}
+
+/* ================================================= Externe Grafikpakete ==
+   Das Spiel durchsucht beim Start den Ordner graphics/AircraftTemplates/ und
+   verwendet, was es dort findet. Nichts muss von Hand eingetragen werden.
+   Daneben gibt es graphics/misc/ für alles Übrige — Logo, Startbild und
+   eigene Aufkleber für den Lackierungseditor.
+
+   Erkannt werden je Muster, in dieser Reihenfolge:
+
+     <id>.jpg  oder  <id>.png     eine rohe Seitenansicht, weisses Flugzeug
+                                  auf hellem Grund. Das Spiel stellt sie frei
+                                  und erzeugt die Masken selbst.
+     <id>-base.png                bereits freigestelltes Flugzeug mit Alpha.
+     <id>-mask.png                Farbmaske (freiwillig, sonst abgeleitet)
+     <id>-tail.png                Leitwerksmaske (freiwillig)
+     <id>-shade.png               Schatten und Glanzlichter (freiwillig)
+
+   <id> ist die Musterkennung aus AIRCRAFT_ROWS: a20n, b789, at72 und so fort.
+   Bildgrösse, Nase, Mittellinie und Rumpfradius misst das Spiel selbst aus. */
+const ASSET_DIR = "graphics/AircraftTemplates/";
+const MISC_DIR  = "graphics/misc/";
+const ASSET_MAX_W = 1400;          // grössere Vorlagen werden verkleinert
+let   PLANE_ASSETS = {};           // wird beim Suchlauf gefüllt
+const ASSET_LAYERS = {};           // Bilddaten und Blob-Adressen je Muster
+const ASSET_STATE  = {};           // "da" | "fehlt" | "prüft"
+let   ASSET_SCAN   = {running:false, done:false, found:0, checked:0};
+
 function assetsFor(id){
   const a=PLANE_ASSETS[id];
-  if(!a || ASSET_STATE[id]==="fehlt") return null;
-  return a;
+  return (a && ASSET_STATE[id]==="da") ? a : null;
 }
-function assetUrl(id, kind){ return ASSET_DIR+id+"-"+kind+".png"; }
-/** Lädt ein Bild und merkt sich, ob es vorhanden ist. */
-function loadAsset(id, kind){
-  const key=id+"-"+kind;
-  if(PLANE_IMG_CACHE[key]) return PLANE_IMG_CACHE[key];
-  const img=new Image();
-  const pr=new Promise(res=>{
-    img.onload=()=>res(img);
-    img.onerror=()=>{ ASSET_STATE[id]="fehlt"; res(null); };
+function assetUrl(id, kind){
+  const L=ASSET_LAYERS[id];
+  return (L && L.url && L.url[kind]) || "";
+}
+/** Lädt ein Bild und meldet, ob es vorhanden ist. */
+function tryImage(url){
+  return new Promise(res=>{
+    const img=new Image();
+    img.onload =()=>res(img.naturalWidth?img:null);
+    img.onerror=()=>res(null);
+    img.src=url;
   });
-  img.src=assetUrl(id,kind);
-  PLANE_IMG_CACHE[key]={img, p:pr};
-  return PLANE_IMG_CACHE[key];
 }
-/** Prüft beim Start einmal, welche Grafikpakete wirklich da sind. */
-async function checkAssets(){
-  const ids=Object.keys(PLANE_ASSETS);
-  for(const id of ids){
-    const r=await loadAsset(id,"base").p;
-    ASSET_STATE[id] = r ? "da" : "fehlt";
+function canvasFromImage(img){
+  const sc=Math.min(1, ASSET_MAX_W/img.naturalWidth);
+  const c=document.createElement("canvas");
+  c.width=Math.round(img.naturalWidth*sc); c.height=Math.round(img.naturalHeight*sc);
+  c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+  return c;
+}
+/** Weisses Bild in eine Deckungsmaske umwandeln. */
+function maskToAlpha(src){
+  const c=document.createElement("canvas"); c.width=src.width; c.height=src.height;
+  const ctx=c.getContext("2d");
+  const im=src.getContext("2d").getImageData(0,0,src.width,src.height);
+  const d=im.data;
+  for(let i=0;i<d.length;i+=4){ const v=d[i]; d[i]=255; d[i+1]=255; d[i+2]=255; d[i+3]=v; }
+  ctx.putImageData(im,0,0);
+  return c;
+}
+function blobUrl(cv){
+  try{ return cv.toDataURL("image/png"); }catch(e){ return ""; }
+}
+/** Untersucht ein Muster: welche Dateien liegen da, und wie ist das Bild aufgebaut. */
+async function probeAsset(id){
+  ASSET_STATE[id]="prüft";
+  let baseCv=null, url={}, derived=false;
+
+  const preBase=await tryImage(ASSET_DIR+id+"-base.png");
+  if(preBase){
+    baseCv=canvasFromImage(preBase);
+    url.base=ASSET_DIR+id+"-base.png";
+  } else {
+    let raw=await tryImage(ASSET_DIR+id+".jpg");
+    if(!raw) raw=await tryImage(ASSET_DIR+id+".png");
+    if(!raw){ ASSET_STATE[id]="fehlt"; return false; }
+    /* Rohe Vorlage: Hintergrund vom Rand her freistellen */
+    baseCv=prepCutout(canvasFromImage(raw), 42);
+    url.base=blobUrl(baseCv);
+    derived=true;
   }
-  if(ids.length) render();
+
+  const box=prepBounds(baseCv);
+  if(box.w<20||box.h<10){ ASSET_STATE[id]="fehlt"; return false; }
+  const an=prepAnchor(baseCv, box);
+
+  /* Farbmaske: eigene Datei bevorzugt, sonst aus dem Bild ableiten */
+  const mImg=await tryImage(ASSET_DIR+id+"-mask.png");
+  if(mImg){ url.mask=ASSET_DIR+id+"-mask.png"; }
+  else {
+    const m=maskToAlpha(prepMask(baseCv, 110, null));
+    url.mask=blobUrl(m);
+    ASSET_LAYERS[id]=Object.assign(ASSET_LAYERS[id]||{}, {maskCv:m});
+    derived=true;
+  }
+
+  /* Leitwerk: eigene Datei, sonst aus dem hinteren Bereich über der Mittellinie */
+  const tImg=await tryImage(ASSET_DIR+id+"-tail.png");
+  if(tImg){ url.tail=ASSET_DIR+id+"-tail.png"; }
+  else {
+    const region={x0:Math.round(box.x0+box.w*0.72), x1:box.x1, y0:box.y0, y1:an.yc};
+    const t=maskToAlpha(prepMask(baseCv, 110, region));
+    url.tail=blobUrl(t);
+    ASSET_LAYERS[id]=Object.assign(ASSET_LAYERS[id]||{}, {tailCv:t});
+  }
+
+  const sImg=await tryImage(ASSET_DIR+id+"-shade.png");
+  if(sImg) url.shade=ASSET_DIR+id+"-shade.png";
+
+  ASSET_LAYERS[id]=Object.assign(ASSET_LAYERS[id]||{}, {baseCv, url, box, anchor:an});
+  PLANE_ASSETS[id]={base:1, mask:1, tail:1, shade:!!sImg,
+    w:baseCv.width, h:baseCv.height,
+    x0:an.x0, yc:an.yc, r:an.r, unit:an.unit, derived};
+  ASSET_STATE[id]="da";
+  return true;
+}
+/** Durchsucht den Ordner. Das Ergebnis wird gemerkt, damit spätere Starts
+    nur noch die tatsächlich vorhandenen Dateien anfassen. */
+async function scanAssets(force){
+  if(ASSET_SCAN.running) return;
+  ASSET_SCAN={running:true, done:false, found:0, checked:0};
+  let candidates=ACTL.map(t=>t.id);
+  if(!force){
+    try{
+      const raw=localStorage.getItem("skyline.assets");
+      if(raw){ const c=JSON.parse(raw);
+        if(c.t && Date.now()-c.t < 7*86400000 && Array.isArray(c.ids)){
+          candidates = c.ids.length ? c.ids : [];
+          if(!c.ids.length){ ASSET_SCAN={running:false,done:true,found:0,checked:0};
+            if(typeof renderPane==="function" && tab==="data") renderPane();
+            return; }
+        }
+      }
+    }catch(e){}
+  }
+  const found=[];
+  for(let i=0;i<candidates.length;i+=4){
+    const batch=candidates.slice(i,i+4);
+    const res=await Promise.all(batch.map(id=>probeAsset(id).catch(()=>false)));
+    res.forEach((ok,j)=>{ if(ok) found.push(batch[j]); });
+    ASSET_SCAN.checked+=batch.length;
+    ASSET_SCAN.found=found.length;
+    if(tab==="data" && typeof renderPane==="function") renderPane();
+  }
+  try{ localStorage.setItem("skyline.assets", JSON.stringify({t:Date.now(), ids:found})); }catch(e){}
+  ASSET_SCAN.running=false; ASSET_SCAN.done=true;
+  if(found.length && typeof render==="function") render();
+  else if(tab==="data" && typeof renderPane==="function") renderPane();
+}
+function forgetAssets(){
+  try{ localStorage.removeItem("skyline.assets"); }catch(e){}
+  Object.keys(PLANE_ASSETS).forEach(k=>delete PLANE_ASSETS[k]);
+  Object.keys(ASSET_STATE).forEach(k=>delete ASSET_STATE[k]);
+  Object.keys(ASSET_LAYERS).forEach(k=>delete ASSET_LAYERS[k]);
+  scanAssets(true);
 }
 
 /* ============================================ Canvas-Renderpipeline =====
@@ -1052,11 +1335,20 @@ function renderPlaneCanvas(cv, typeId, liv, opts){
   };
 
   if(A){
-    /* Fertige Zeichnungen aus dem Grafikpaket */
-    const jobs=[loadAsset(typeId,"base").p, loadAsset(typeId,"mask").p,
-      A.tail?loadAsset(typeId,"tail").p:Promise.resolve(null),
-      A.shade?loadAsset(typeId,"shade").p:Promise.resolve(null)];
-    Promise.all(jobs).then(([bi,mi,ti,si])=>{
+    /* Fertige Zeichnungen: Ebenen liegen bereits als Bild oder Canvas vor */
+    const LY=ASSET_LAYERS[typeId]||{};
+    const need=[];
+    const get=(kind, cvKey)=>{
+      if(LY[cvKey]) return Promise.resolve(LY[cvKey]);
+      const u=assetUrl(typeId,kind);
+      if(!u) return Promise.resolve(null);
+      return tryImage(u);
+    };
+    Promise.all([
+      LY.baseCv?Promise.resolve(LY.baseCv):get("base","baseCv"),
+      get("mask","maskCv"), get("tail","tailCv"),
+      A.shade?get("shade","shadeCv"):Promise.resolve(null)
+    ]).then(([bi,mi,ti,si])=>{
       if(!bi){ ASSET_STATE[typeId]="fehlt"; renderPlaneCanvas(cv,typeId,liv,opts); return; }
       ctx.clearRect(0,0,cv.width,cv.height);
       ctx.save(); ctx.scale(k,k);
@@ -1071,12 +1363,10 @@ function renderPlaneCanvas(cv, typeId, liv, opts){
       const ov=svgToImage(assetOverlaySVG(typeId, L0, VW, VH), "ao"+typeId+liveryKey(L0));
       ov.p.then(oi=>{
         if(oi){ ctx.save(); ctx.scale(k,k); ctx.drawImage(oi,0,0,VW,VH); ctx.restore(); }
-        if(si){ ctx.save(); ctx.scale(k,k); ctx.globalAlpha=1;
-          ctx.globalCompositeOperation="multiply"; ctx.drawImage(si,0,0,VW,VH);
-          ctx.globalCompositeOperation="source-over"; ctx.restore(); }
-        if(wq>0.02){ ctx.save(); ctx.scale(k,k); ctx.globalAlpha=wq*0.35;
-          ctx.fillStyle="#2b2620"; ctx.fillRect(VW*0.45,0,VW*0.55,VH);
-          ctx.restore(); }
+        if(si){ ctx.save(); ctx.scale(k,k); ctx.globalCompositeOperation="multiply";
+          ctx.drawImage(si,0,0,VW,VH); ctx.globalCompositeOperation="source-over"; ctx.restore(); }
+        if(wq>0.02){ ctx.save(); ctx.scale(k,k); ctx.globalAlpha=wq*0.30;
+          ctx.fillStyle="#2b2620"; ctx.fillRect(VW*0.45,0,VW*0.55,VH); ctx.restore(); }
       });
     });
     return;
@@ -1399,6 +1689,9 @@ function planeAssetSVG(typeId, L0, o){
 
 function markSVG(liv,size){
   const L0=liv||DEFAULT_LIVERY;
+  if(MISC.logo && L0.useLogo!==false)
+    return `<img src="${esc(MISC.logo.url)}" width="${size}" height="${size}"
+      style="object-fit:contain;display:block" alt="">`;
   return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">
     <rect width="24" height="24" rx="5" fill="${L0.c1}"/>${glyphSVG(L0.glyph,L0.c2,L0.code)}</svg>`;
 }
@@ -2469,6 +2762,82 @@ const LOYALTY_COST = 500000;
 function loyaltyActive(){ return !!S.loyalty; }
 function ancillaryPerPax(){
   return (S.seatFee?8:0) + (S.bagFee?0:0);
+}
+
+
+/* ============================================ Leitwerke der Wettbewerber ==
+   Statt Markenlogos zu sammeln, zeichnet das Spiel die Leitwerke selbst:
+   Hausfarben und Muster sind angelehnt, aber eigenständig — einheitlich in
+   Form und Grösse, und ohne fremde Markenzeichen zu verwenden. */
+const RIVAL_STYLE = {
+  SWR:["#d1121f","#ffffff","vollton","kreuz"],      EDW:["#e2453a","#ffffff","bogen","scheibe"],
+  EZY:["#ff6600","#ffffff","vollton","balken"],     DLH:["#0b2343","#f0c419","vollton","kranich"],
+  EWG:["#8c1d40","#ffffff","diagonale","chevron"],  AFR:["#0d2d6c","#e2453a","streifen","chevron"],
+  KLM:["#57b2e2","#ffffff","vollton","kranich"],    TRA:["#1c9c4a","#ffffff","diagonale","welle"],
+  BAW:["#12326b","#c8102e","bogen","welle"],        RYR:["#0b3a8f","#f2c200","vollton","schwinge"],
+  WZZ:["#c2007b","#ffffff","vollton","raute"],      VLG:["#f2c200","#3a3a3a","vollton","ring"],
+  IBE:["#d7192d","#f2c200","streifen","balken"],    AZA:["#0b3d91","#f2c200","diagonale","chevron"],
+  TAP:["#0d7a4a","#d7192d","bogen","welle"],        SAS:["#0b2b5c","#ffffff","vollton","scheibe"],
+  NOZ:["#d7192d","#ffffff","diagonale","stern"],    FIN:["#0b2b6b","#ffffff","vollton","raute"],
+  AUA:["#d7192d","#ffffff","vollton","chevron"],    BEL:["#0b3a8f","#ffffff","diagonale","scheibe"],
+  LOT:["#0b3d5c","#ffffff","bogen","kranich"],      CSA:["#0d5fbf","#ffffff","diagonale","welle"],
+  THY:["#c8102e","#ffffff","vollton","schwinge"],   PGT:["#f2b100","#3a3a3a","vollton","stern"],
+  AEE:["#0a4fa0","#ffffff","bogen","schwinge"],     EIN:["#0d7a4a","#ffffff","vollton","gipfel"],
+  CFG:["#f2b100","#3a3a3a","streifen","scheibe"],   TUI:["#0b2b6b","#e2453a","bogen","welle"],
+  LDM:["#0b3a8f","#f2c200","diagonale","raute"],    HOP:["#1a6b4a","#ffffff","vollton","gipfel"],
+  IBK:["#c8102e","#ffffff","diagonale","balken"],   ISS:["#0d5fbf","#ffffff","bogen","welle"],
+  CTN:["#0b3d91","#d7192d","diagonale","raute"],    ADR:["#0b3a5c","#d7192d","vollton","chevron"],
+  UAE:["#c8102e","#f2c200","vollton","balken"],     QTR:["#5c0a2e","#ffffff","vollton","kranich"],
+  ETD:["#c9a227","#3a2a1a","bogen","chevron"],      UAL:["#0b3d91","#ffffff","streifen","balken"],
+  DAL:["#0b3d91","#d7192d","diagonale","chevron"],  AAL:["#9aa5b1","#0b3d91","streifen","schwinge"],
+  ACA:["#c8102e","#ffffff","vollton","gipfel"],     SIA:["#0b2b5c","#f2c200","bogen","schwinge"],
+  CPA:["#0d6b5c","#ffffff","bogen","schwinge"],     JAL:["#c8102e","#ffffff","vollton","scheibe"],
+  ANA:["#0b3d91","#ffffff","diagonale","ring"],     KAL:["#3a7ec4","#c8102e","bogen","ring"],
+  CCA:["#c8102e","#f2c200","vollton","kranich"],    CES:["#c8102e","#0b3d91","diagonale","welle"],
+  CSN:["#0d7a4a","#e2453a","bogen","welle"],        THA:["#5c2a8f","#f2b100","bogen","welle"],
+  MAS:["#0b3a5c","#c8102e","diagonale","raute"],    GIA:["#0d5c9c","#0d7a4a","bogen","schwinge"],
+  AIC:["#c8102e","#f2b100","vollton","ring"],       QFA:["#c8102e","#ffffff","vollton","kranich"],
+  ANZ:["#1a1a1a","#ffffff","vollton","welle"],      ETH:["#0d7a4a","#f2c200","streifen","chevron"],
+  MSR:["#0b3d91","#f2c200","vollton","kranich"],    RAM:["#c8102e","#0d7a4a","diagonale","stern"],
+  SAA:["#0b3d91","#f2b100","streifen","gipfel"],    ELY:["#0b3d91","#ffffff","vollton","stern"],
+  LAN:["#0b3d5c","#e2453a","bogen","stern"],        AVA:["#c8102e","#ffffff","vollton","schwinge"],
+  AMX:["#0b3d5c","#e2453a","diagonale","schwinge"], GLO:["#f2870d","#ffffff","vollton","chevron"],
+  VOZ:["#c8102e","#3a3a3a","diagonale","chevron"],  JST:["#f2870d","#3a3a3a","vollton","stern"],
+  AXM:["#c8102e","#ffffff","vollton","chevron"],    IGO:["#0b3d91","#ffffff","vollton","raute"],
+  SWA:["#0b3d91","#f2b100","streifen","gipfel"],    JBU:["#0d5fbf","#ffffff","diagonale","raute"],
+  WJA:["#0d7a4a","#ffffff","bogen","gipfel"]
+};
+function rivalStyle(x){
+  const st=RIVAL_STYLE[x.id];
+  if(st) return {c1:st[0], c2:st[1], tail:st[2], glyph:st[3]};
+  /* Unbekannte: aus dem Kürzel eine feste, aber eigene Gestaltung ableiten */
+  let h=0; for(let i=0;i<x.id.length;i++) h=(h*31+x.id.charCodeAt(i))>>>0;
+  const pal=PALETTE, tails=["vollton","diagonale","bogen","streifen"];
+  return {c1:pal[h%pal.length], c2:(h>>3)%2?"#ffffff":"#f2c200",
+    tail:tails[(h>>5)%tails.length], glyph:GLYPH_KEYS[(h>>7)%GLYPH_KEYS.length]};
+}
+/** Kleines Leitwerk als Bildmarke — einheitliche Form für alle. */
+function finSVG(x, size){
+  const st=rivalStyle(x);
+  const W=64, H=64;
+  const fin=`M6,58 L34,10 L52,10 L58,58 Z`;
+  const id="f"+(x.id||"x")+Math.random().toString(36).slice(2,6);
+  let pattern="";
+  if(st.tail==="vollton") pattern=`<rect x="0" y="0" width="${W}" height="${H}" fill="${st.c1}"/>`;
+  else if(st.tail==="diagonale") pattern=`<rect width="${W}" height="${H}" fill="#e9edf2"/>
+    <path d="M0,58 L${W},4 L${W},${H} L0,${H} Z" fill="${st.c1}"/>`;
+  else if(st.tail==="bogen") pattern=`<rect width="${W}" height="${H}" fill="#e9edf2"/>
+    <path d="M0,58 C22,52 34,26 ${W},6 L${W},${H} L0,${H} Z" fill="${st.c1}"/>`;
+  else pattern=`<rect width="${W}" height="${H}" fill="#e9edf2"/>
+    ${[0,1,2].map(i=>`<rect x="0" y="${16+i*14}" width="${W}" height="9" fill="${st.c1}" opacity="${1-i*0.2}"/>`).join("")}`;
+  const gs=22, gx=30, gy=20;
+  return `<svg viewBox="0 0 ${W} ${H}" width="${size}" height="${size}" role="img"
+    aria-label="Leitwerk ${esc(x.name||"")}">
+    <defs><clipPath id="${id}"><path d="${fin}"/></clipPath></defs>
+    <g clip-path="url(#${id})">${pattern}</g>
+    <g transform="translate(${gx},${gy}) scale(${(gs/24).toFixed(3)})" clip-path="url(#${id})">
+      ${glyphSVG(st.glyph, st.c2, (x.id||"").slice(0,2))}</g>
+    <path d="${fin}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.2"/></svg>`;
 }
 
 /* =================================================== Beteiligungen ======
@@ -3646,7 +4015,7 @@ function routeDetail(key){
     ${(L&&L.ok&&L.split?L.split.rivals:rivalsOn(r).map(v=>{const x=rivalById(v.id);
         return {id:v.id, name:x?x.name:v.id, share:null, flights:v.flights, fare:v.fare};}))
       .map(v=>{const x=rivalById(v.id); return `<div class="kv" style="padding-left:10px">
-      <span style="color:var(--dim2)">${esc(v.name)} <span class="pill">${x?MODEL_NAME[x.model]:""}</span></span>
+      <span style="color:var(--dim2)">${x?`<span style="display:inline-block;vertical-align:middle;margin-right:5px">${finSVG(x,18)}</span>`:""}${esc(v.name)} <span class="pill">${x?MODEL_NAME[x.model]:""}</span></span>
       <span>${v.share!=null?fmt(v.share*100,1)+"% · ":""}${fmt(v.flights/7,1)}/Tag · Tarif ${fmt(v.fare*100,0)}${x?" · Ruf "+fmt(x.rep,0):""}</span></div>`;}).join("")}
     ${L&&L.ok&&L.transferPax?`<div class="kv"><span>davon Umsteiger</span><span>${fmt(L.transferPax/7,0)} Pax pro Tag</span></div>`:""}
     ${L&&L.ok&&L.cargoRev?`<div class="kv"><span>Frachterlös</span><span>${chf(L.cargoRev*BAL.weeksPerMonth)} pro Monat · ${fmt(L.cargoT,1)} t je Woche</span></div>`:""}
@@ -3755,6 +4124,7 @@ function rivalDialog(){
     }).filter(q=>q.on.length).sort((a,b)=>b.fl-a.fl);
     if(!rows.length) return `<div class="empty"><b>Noch kein direkter Wettbewerb</b>Sobald Sie Strecken aufnehmen, erscheinen hier die Gesellschaften, die dort ebenfalls fliegen.</div>`;
     return rows.map(({x,on,fl})=>`<div class="card"><div class="row" style="justify-content:space-between">
+      <span style="flex:0 0 34px">${finSVG(x,34)}</span>
       <div style="flex:1"><input type="text" data-rn="${x.id}" value="${esc(x.name)}" maxlength="34"
         style="font-family:var(--disp);font-size:15px;letter-spacing:.05em;background:transparent;border:none;padding:0;width:100%">
         <div class="dim" style="font-size:10.5px">${MODEL_NAME[x.model]} · Drehkreuze ${x.hubs.slice(0,5).join(" ")}</div></div>
@@ -4362,7 +4732,8 @@ function paneFin(p){
       .sort((a,b)=>(b.h-a.h)||(b.routes-a.routes)||(b.v-a.v)).slice(0,26);
     list.forEach(({x,v,h:hp,routes})=>{
       h+=`<div class="card"><div class="row" style="justify-content:space-between">
-        <div><b>${esc(x.name)}</b><br><span class="dim" style="font-size:10.5px">${MODEL_NAME[x.model]} · ${x.hubs.slice(0,4).join(" ")}</span></div>
+        <div class="row" style="gap:8px"><span style="flex:0 0 30px">${finSVG(x,30)}</span>
+        <div><b>${esc(x.name)}</b><br><span class="dim" style="font-size:10.5px">${MODEL_NAME[x.model]} · ${x.hubs.slice(0,4).join(" ")}</span></div></div>
         <div class="mono" style="text-align:right">${chf(v)}<br><span class="dim">Bewertung</span></div></div>
         <div class="kv"><span>Ihr Anteil</span><span class="${hp>0?'amb':''}">${fmt(hp*100,0)}%</span></div>
         ${hp>0?`<div class="bar"><i style="width:${clamp(hp*100,0,100)}%"></i></div>`:""}
@@ -4764,7 +5135,10 @@ function brandFree(box){
         <button class="sm" data-add="line">Linie</button>
         <button class="sm" data-add="text">Text</button>
         ${Object.entries(DECALS).map(([k,v])=>`<button class="sm" data-adddec="${k}">${v.n}</button>`).join("")}
+        ${MISC.decals.map((x,i)=>`<button class="sm" data-addimg="${i}">${esc(x.name)}</button>`).join("")}
+        ${MISC.logo?`<button class="sm" data-addlogo="1">Bildmarke</button>`:""}
       </div>
+      ${MISC.decals.length||MISC.logo?"":`<p class="dim" style="font-size:10.5px;margin:-2px 0 6px">Eigene Aufkleber lassen sich unter <span class="mono">${MISC_DIR}decals/</span> ablegen; eine Bildmarke als <span class="mono">${MISC_DIR}logo.png</span>.</p>`}
       <p class="dim" style="font-size:11px">Element anklicken und ziehen. Die Werte darunter gelten für die gewählte Ebene.</p>
       <h3 class="sub">Ebenen (${L.layers.length})</h3>
       <div id="elist">${L.layers.length?L.layers.map((l,i)=>
@@ -4839,6 +5213,18 @@ function brandFree(box){
       L.layers.push({type:ty, x:500, y:-0.2, scale:1, rot:0, color:L.c2||"#ffffff",
         text: ty==="text"?(S.name||"AIRLINE").toUpperCase():undefined, size:30, op:1});
       EDIT_SEL=L.layers.length-1; draw();});
+    box.querySelectorAll("[data-addimg]").forEach(b=>b.onclick=()=>{
+      const x=MISC.decals[+b.dataset.addimg]; if(!x) return;
+      const sc=90/Math.max(x.w,x.h);
+      L.layers.push({type:"img", url:x.url, iw:Math.round(x.w*sc), ih:Math.round(x.h*sc),
+        x:600, y:-0.3, scale:1, rot:0, op:1});
+      EDIT_SEL=L.layers.length-1; draw();});
+    const bl=box.querySelector("[data-addlogo]");
+    if(bl) bl.onclick=()=>{
+      const sc=90/Math.max(MISC.logo.w,MISC.logo.h);
+      L.layers.push({type:"img", url:MISC.logo.url, iw:Math.round(MISC.logo.w*sc),
+        ih:Math.round(MISC.logo.h*sc), x:820, y:-0.7, scale:1, rot:0, op:1});
+      EDIT_SEL=L.layers.length-1; draw();};
     box.querySelectorAll("[data-adddec]").forEach(b=>b.onclick=()=>{
       L.layers.push({type:"decal", id:b.dataset.adddec, x:600, y:-0.3, scale:1, rot:0,
         color:L.c1||"#c8102e", dsc:1.6, op:1});
@@ -5246,14 +5632,21 @@ function paneData(p){
 
   <h3 class="sub">Grafikpaket</h3>
   <div class="card">
-    <div class="kv"><span>Eingetragene Muster</span><span>${Object.keys(PLANE_ASSETS).length}</span></div>
-    <div class="kv"><span>Gefunden</span><span class="${Object.keys(ASSET_STATE).filter(k=>ASSET_STATE[k]==="da").length?"pos":""}">${Object.keys(ASSET_STATE).filter(k=>ASSET_STATE[k]==="da").length}</span></div>
-    ${Object.keys(PLANE_ASSETS).length?Object.keys(PLANE_ASSETS).map(k=>
-      `<div class="kv"><span>${esc(ACT[k]?ACT[k].name:k)}</span>
-       <span class="${ASSET_STATE[k]==="da"?"pos":ASSET_STATE[k]==="fehlt"?"neg":"dim"}">${
-         ASSET_STATE[k]==="da"?"geladen":ASSET_STATE[k]==="fehlt"?"Datei fehlt":"wird geprüft"}</span></div>`).join("")
-      :`<p class="dim" style="font-size:11px;margin-top:6px">Noch keine externen Zeichnungen eingetragen. Das Spiel zeichnet die Flugzeuge selbst.</p>`}
-    <div class="row" style="margin-top:8px"><button class="sm primary" id="prepBtn">Grafikpaket vorbereiten</button></div>
+    <div class="kv"><span>Ordner Flugzeuge</span><span class="mono">${ASSET_DIR}</span></div>
+    <div class="kv"><span>Ordner Übriges</span><span class="mono">${MISC_DIR}</span></div>
+    <div class="kv"><span>Gefundene Muster</span><span class="${Object.keys(PLANE_ASSETS).length?"pos":""}">${Object.keys(PLANE_ASSETS).length} von ${ACTL.length}</span></div>
+    ${ASSET_SCAN.running?`<div class="kv"><span>Suchlauf</span><span>${ASSET_SCAN.checked} geprüft …</span></div>`:""}
+    ${Object.keys(PLANE_ASSETS).length
+      ? Object.keys(PLANE_ASSETS).map(k=>`<div class="kv"><span>${esc(ACT[k]?ACT[k].name:k)}</span>
+          <span class="pos">${PLANE_ASSETS[k].w}×${PLANE_ASSETS[k].h}${PLANE_ASSETS[k].derived?" · aufbereitet":""}</span></div>`).join("")
+      : `<p class="dim" style="font-size:11px;margin-top:6px">Noch keine Zeichnungen gefunden. Legen Sie im Repository einen Ordner <span class="mono">assets/planes/</span> an und laden Sie dort eine Seitenansicht hoch, benannt nach der Musterkennung — etwa <span class="mono">a20n.jpg</span> für den Airbus A320neo. Mehr braucht es nicht; das Spiel stellt frei, erzeugt die Masken und misst die Ausrichtung selbst.</p>`}
+    <div class="kv"><span>Bildmarke · Startbild</span><span>${MISC.logo?"gefunden":"—"} · ${MISC.splash?"gefunden":"—"}</span></div>
+    <div class="kv"><span>Eigene Aufkleber</span><span>${MISC.decals.length||"—"}</span></div>
+    <div class="kv"><span>Flughafenbilder</span><span>${Object.keys(MISC.airports).length||"—"}</span></div>
+    <div class="row" style="margin-top:8px">
+      <button class="sm primary" id="scanBtn">Ordner neu durchsuchen</button>
+      <button class="sm" id="prepBtn">Vorlage von Hand aufbereiten</button>
+      <button class="sm" id="idsBtn">Musterkennungen zeigen</button></div>
   </div>
 
   <h3 class="sub">Schwierigkeit</h3>
@@ -5294,6 +5687,16 @@ function paneData(p){
     logg(`Schwierigkeit auf ${diffCfg().n} gestellt.`,"warn"); render();});
   renderCloudBox();
   const pb=$("#prepBtn"); if(pb) pb.onclick=prepDialog;
+  const sb=$("#scanBtn"); if(sb) sb.onclick=()=>{ toast("Ordner werden durchsucht …");
+    try{ Object.keys(localStorage).filter(k=>k.startsWith("skyline.dir.")).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+    Object.keys(FOLDER_CACHE).forEach(k=>delete FOLDER_CACHE[k]);
+    MISC.decals=[]; MISC.logo=null; MISC.splash=null; MISC.airports={};
+    scanMisc(); forgetAssets(); };
+  const ib=$("#idsBtn"); if(ib) ib.onclick=()=>modal("Musterkennungen",
+    `<p class="dim">So müssen die Dateien im Ordner <span class="mono">${ASSET_DIR}</span> heissen. Eine einzige Datei je Muster genügt.</p>
+     <table class="tbl"><tr><th>Muster</th><th>Dateiname</th><th class="r">Status</th></tr>
+     ${ACTL.map(t=>`<tr><td>${esc(t.name)}</td><td class="mono">${t.id}.jpg</td>
+       <td class="r ${ASSET_STATE[t.id]==="da"?"pos":"dim"}">${ASSET_STATE[t.id]==="da"?"gefunden":"—"}</td></tr>`).join("")}</table>`);
   $("#save").onclick=saveGame; $("#load").onclick=loadGame;
   $("#restart").onclick=()=>modal("Neue Fluggesellschaft",
     "<p>Der aktuelle Spielstand geht verloren, sofern er nicht gesichert wurde.</p>",
@@ -5488,11 +5891,14 @@ function showAirport(iata){
     <div class="kv"><span>Gebührenniveau</span><span>${fmt(a.fee*100,0)}</span></div>
     <div class="kv"><span>Kaufkraft · Tourismus · Geschäft</span><span>${fmt(a.income*100,0)} · ${fmt(a.tourism*100,0)} · ${fmt(a.biz*100,0)}</span></div>
     <div class="kv"><span>Bewegungen pro Woche</span><span>${fmt(mv,0)} von ${tot}</span></div>
-    <label class="f">Längste Piste</label>${runwaySVG(a.runway)}</div>`;
+    <label class="f">Längste Piste</label>${runwaySVG(a.runway)}</div>
+  <div class="planebox" style="padding:0">${MISC.airports&&MISC.airports[iata]
+    ? `<img src="${esc(MISC.airports[iata])}" style="width:100%;display:block;aspect-ratio:16/9;object-fit:cover" alt="">`
+    : airportChartSVG(a)}</div>`;
   const hc=hubCarriers(iata);
   if(hc.length){
     h+=`<h3 class="sub">Gesellschaften mit Drehkreuz hier</h3>`;
-    hc.forEach(x=>h+=`<div class="kv"><span>${esc(x.name)}</span>
+    hc.forEach(x=>h+=`<div class="kv"><span><span style="display:inline-block;vertical-align:middle;margin-right:5px">${finSVG(x,18)}</span>${esc(x.name)}</span>
       <span>${MODEL_NAME[x.model]} · Ruf ${fmt(x.rep,0)} · Tarif ${fmt(x.fareMod*100,0)}</span></div>`);
     h+=`<p class="dim" style="font-size:11px;margin-top:5px">Eine Station an einem fremden Drehkreuz bedeutet harten Wettbewerb — dafür grosse Märkte.</p>`;
   }
@@ -5526,7 +5932,8 @@ function startDialog(){
     .concat([...APL].sort((a,b)=>b.pax-a.pax).filter(a=>!suggest.includes(a.iata)));
   const L=Object.assign({},DEFAULT_LIVERY);
   modal("Fluggesellschaft gründen",
-    `<p class="dim">Mittelgrosse Flughäfen sind der bequemste Einstieg. Sehr kleine Standorte wie Bern-Belp oder Lugano sind reizvoll, aber hart: die Märkte tragen dort kaum mehr als ein Regionalflugzeug.</p>
+    `${MISC.splash?`<div class="planebox" style="padding:0;margin-bottom:10px"><img src="${esc(MISC.splash)}" style="width:100%;display:block" alt=""></div>`:""}
+     <p class="dim">Mittelgrosse Flughäfen sind der bequemste Einstieg. Sehr kleine Standorte wie Bern-Belp oder Lugano sind reizvoll, aber hart: die Märkte tragen dort kaum mehr als ein Regionalflugzeug.</p>
      <label class="f">Name der Fluggesellschaft</label>
      <input type="text" id="gn" value="Helvetic Skyways" maxlength="28">
      <label class="f">Airline-Code</label><input type="text" id="gc" value="HX" maxlength="3">
@@ -5566,7 +5973,8 @@ function startDialog(){
 
 /* ================================================================ Start */
 cloudLoadCfg();
-checkAssets();
+scanAssets(false);
+scanMisc();
 if("serviceWorker" in navigator && location.protocol.startsWith("http")){
   navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
