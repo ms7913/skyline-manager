@@ -13,6 +13,9 @@ const ASSETS = [
   "./icon-192.png",
   "./icon-512.png",
   "./icon-180.png"
+  // Grafikpaket: hier die Dateien aus assets/planes/ eintragen, damit sie
+  // auch offline verfügbar sind, z. B.
+  // , "./assets/planes/a20n-base.png", "./assets/planes/a20n-mask.png"
 ];
 
 self.addEventListener("install", e => {

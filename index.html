@@ -921,6 +921,57 @@ function layerBox(l){
   }
 }
 
+
+/* ================================================= Externe Grafikpakete ==
+   Sobald das Spiel auf einem Server liegt, kann es fertige Zeichnungen aus
+   dem Ordner assets/planes/ verwenden. Je Muster braucht es zwei bis drei
+   PNG mit Alphakanal, alle in derselben Bildgrösse und Ausrichtung:
+
+     <id>-base.png    das komplett weisse Flugzeug mit allen Details
+     <id>-mask.png    weiss dort, wo die Hausfarbe liegen darf, sonst schwarz
+     <id>-tail.png    (freiwillig) dasselbe für die Leitwerksfläche
+     <id>-shade.png   (freiwillig) halbdurchsichtige Schatten und Glanzlichter
+
+   Fehlt eine Datei, zeichnet das Spiel das Muster weiterhin selbst. Der
+   Eintrag legt fest, welche Muster überhaupt gesucht werden — so entsteht
+   kein Netzverkehr für Dateien, die es nicht gibt. */
+const ASSET_DIR = "assets/planes/";
+const PLANE_ASSETS = {
+  /* Beispiel — Zeile einkommentieren, sobald die Dateien im Ordner liegen:
+  a20n: {base:1, mask:1, tail:1, shade:1, w:1600, h:520},
+  b789: {base:1, mask:1, tail:1, shade:1, w:1600, h:520},
+  */
+};
+const ASSET_STATE = {};          // geprüfte Verfügbarkeit je Muster
+function assetsFor(id){
+  const a=PLANE_ASSETS[id];
+  if(!a || ASSET_STATE[id]==="fehlt") return null;
+  return a;
+}
+function assetUrl(id, kind){ return ASSET_DIR+id+"-"+kind+".png"; }
+/** Lädt ein Bild und merkt sich, ob es vorhanden ist. */
+function loadAsset(id, kind){
+  const key=id+"-"+kind;
+  if(PLANE_IMG_CACHE[key]) return PLANE_IMG_CACHE[key];
+  const img=new Image();
+  const pr=new Promise(res=>{
+    img.onload=()=>res(img);
+    img.onerror=()=>{ ASSET_STATE[id]="fehlt"; res(null); };
+  });
+  img.src=assetUrl(id,kind);
+  PLANE_IMG_CACHE[key]={img, p:pr};
+  return PLANE_IMG_CACHE[key];
+}
+/** Prüft beim Start einmal, welche Grafikpakete wirklich da sind. */
+async function checkAssets(){
+  const ids=Object.keys(PLANE_ASSETS);
+  for(const id of ids){
+    const r=await loadAsset(id,"base").p;
+    ASSET_STATE[id] = r ? "da" : "fehlt";
+  }
+  if(ids.length) render();
+}
+
 /* ============================================ Canvas-Renderpipeline =====
    Drei Ebenen wie in der Spezifikation: neutrale Basis, Farbmaske und
    Schattierung. Die Basis stammt aus prozeduraler Vektorgrafik; sie liesse
@@ -973,11 +1024,14 @@ function planeLayerSVG(typeId, kind, wear){
      glyph:"ring", decals:[], layers:[]}),
     {wear, titles:false, gear:true}).replace(/^<svg[^>]*>/,"").replace(/<\/svg>$/,"")+"</svg>";
 }
-/** Zeichnet ein Flugzeug in ein Canvas: Basis, Farbmaske, Ebenen, Schattierung. */
+/** Zeichnet ein Flugzeug in ein Canvas: Basis, Farbmaske, Ebenen, Schattierung.
+    Liegt ein Grafikpaket im Ordner assets/planes/, wird dieses verwendet,
+    sonst die eigene Vektorzeichnung. */
 function renderPlaneCanvas(cv, typeId, liv, opts){
   const o=Object.assign({wear:0}, opts||{});
   const t=ACT[typeId]; if(!t||!cv) return;
-  const VW=1240, VH=t.shape==="dd"?300:280;
+  const A=assetsFor(typeId);
+  const VW=A?(A.w||1600):1240, VH=A?(A.h||520):(t.shape==="dd"?300:280);
   const dpr=Math.min(window.devicePixelRatio||1, 2);
   const cssW=cv.clientWidth||600;
   cv.width=Math.round(cssW*dpr); cv.height=Math.round(cssW*VH/VW*dpr);
@@ -985,6 +1039,50 @@ function renderPlaneCanvas(cv, typeId, liv, opts){
   const k=cv.width/VW;
   const L0=liv||DEFAULT_LIVERY;
   const wq=Math.round(o.wear*4)/4;
+  const body=BODY_COLS[L0.body]||L0.c1;
+
+  const tint=(img,col)=>{
+    const off=document.createElement("canvas");
+    off.width=VW; off.height=VH;
+    const oc=off.getContext("2d");
+    oc.drawImage(img,0,0,VW,VH);
+    oc.globalCompositeOperation="source-in";
+    oc.fillStyle=col; oc.fillRect(0,0,VW,VH);
+    return off;
+  };
+
+  if(A){
+    /* Fertige Zeichnungen aus dem Grafikpaket */
+    const jobs=[loadAsset(typeId,"base").p, loadAsset(typeId,"mask").p,
+      A.tail?loadAsset(typeId,"tail").p:Promise.resolve(null),
+      A.shade?loadAsset(typeId,"shade").p:Promise.resolve(null)];
+    Promise.all(jobs).then(([bi,mi,ti,si])=>{
+      if(!bi){ ASSET_STATE[typeId]="fehlt"; renderPlaneCanvas(cv,typeId,liv,opts); return; }
+      ctx.clearRect(0,0,cv.width,cv.height);
+      ctx.save(); ctx.scale(k,k);
+      ctx.drawImage(bi,0,0,VW,VH);
+      if(mi){ ctx.globalCompositeOperation="multiply";
+        ctx.drawImage(tint(mi, body),0,0,VW,VH);
+        ctx.globalCompositeOperation="source-over"; }
+      if(ti){ ctx.globalCompositeOperation="multiply";
+        ctx.drawImage(tint(ti, L0.c1),0,0,VW,VH);
+        ctx.globalCompositeOperation="source-over"; }
+      ctx.restore();
+      const ov=svgToImage(assetOverlaySVG(typeId, L0, VW, VH), "ao"+typeId+liveryKey(L0));
+      ov.p.then(oi=>{
+        if(oi){ ctx.save(); ctx.scale(k,k); ctx.drawImage(oi,0,0,VW,VH); ctx.restore(); }
+        if(si){ ctx.save(); ctx.scale(k,k); ctx.globalAlpha=1;
+          ctx.globalCompositeOperation="multiply"; ctx.drawImage(si,0,0,VW,VH);
+          ctx.globalCompositeOperation="source-over"; ctx.restore(); }
+        if(wq>0.02){ ctx.save(); ctx.scale(k,k); ctx.globalAlpha=wq*0.35;
+          ctx.fillStyle="#2b2620"; ctx.fillRect(VW*0.45,0,VW*0.55,VH);
+          ctx.restore(); }
+      });
+    });
+    return;
+  }
+
+  /* Eigene Vektorzeichnung in drei Ebenen */
   const base=svgToImage(planeLayerSVG(typeId,"base",wq), "b"+typeId+wq);
   const mask=svgToImage(planeLayerSVG(typeId,"mask",0),  "m"+typeId);
   const shade=svgToImage(planeLayerSVG(typeId,"shade",wq),"s"+typeId+wq);
@@ -992,30 +1090,40 @@ function renderPlaneCanvas(cv, typeId, liv, opts){
     ctx.clearRect(0,0,cv.width,cv.height);
     ctx.save(); ctx.scale(k,k);
     if(bi) ctx.drawImage(bi,0,0,VW,VH);
-    /* Farbmaske: Silhouette einfärben und multiplizierend auflegen */
-    if(mi){
-      const off=document.createElement("canvas");
-      off.width=VW; off.height=VH;
-      const oc=off.getContext("2d");
-      oc.drawImage(mi,0,0,VW,VH);
-      oc.globalCompositeOperation="source-in";
-      const body=BODY_COLS[L0.body]||L0.c1;
-      oc.fillStyle=body; oc.fillRect(0,0,VW,VH);
-      /* Leitwerk und Rumpfgestaltung als SVG-Overlay innerhalb der Maske */
-      ctx.globalCompositeOperation="multiply";
-      ctx.drawImage(off,0,0,VW,VH);
-      ctx.globalCompositeOperation="source-over";
-    }
+    if(mi){ ctx.globalCompositeOperation="multiply";
+      ctx.drawImage(tint(mi, body),0,0,VW,VH);
+      ctx.globalCompositeOperation="source-over"; }
     ctx.restore();
-    /* Livery und freie Ebenen als eigenes SVG darüber */
-    const ov=svgToImage(planeSVG(typeId, L0, {wear:0, titles:true, gear:false, bodyNone:true, noDetails:true}),
-      "o"+typeId+JSON.stringify(L0).length+"_"+(L0.layers||[]).length+"_"+(L0.c1||"")+(L0.tail||"")+(L0.stripe||"")+(L0.glyph||"")+(L0.body||""));
+    const ov=svgToImage(planeSVG(typeId, L0, {wear:0, titles:true, gear:false,
+      bodyNone:true, noDetails:true, allowAssets:false}), "o"+typeId+liveryKey(L0));
     ov.p.then(oi=>{
       if(oi){ ctx.save(); ctx.scale(k,k); ctx.drawImage(oi,0,0,VW,VH); ctx.restore(); }
       if(si){ ctx.save(); ctx.scale(k,k); ctx.globalCompositeOperation="multiply";
         ctx.drawImage(si,0,0,VW,VH); ctx.globalCompositeOperation="source-over"; ctx.restore(); }
     });
   });
+}
+function liveryKey(L0){
+  return [L0.c1,L0.c2,L0.body,L0.tail,L0.stripe,L0.glyph,L0.titles,
+    (L0.decals||[]).join("."),(L0.layers||[]).length,
+    JSON.stringify(L0.layers||[]).length].join("_");
+}
+/** Beschriftung, Signet und freie Ebenen über einem Grafikpaket. */
+function assetOverlaySVG(typeId, L0, VW, VH){
+  const A=PLANE_ASSETS[typeId]||{};
+  const r=(A.r||VH*0.11);                 // Bezugsradius für die Ebenenkoordinaten
+  const x0=(A.x0!=null?A.x0:VW*0.03), yc=(A.yc!=null?A.yc:VH*0.55);
+  const scale=(A.unit!=null?A.unit:(VW*0.94)/1000);
+  const title=((typeof S!=="undefined"&&S&&S.name)?S.name:"Skyline").toUpperCase().slice(0,18);
+  const dark=lum(BODY_COLS[L0.body]||L0.c1)>0.5;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VW} ${VH}" width="${VW}" height="${VH}">
+    <g transform="translate(${x0},${yc}) scale(${scale.toFixed(4)})">
+      ${(L0.layers||[]).map(l=>layerSVG(l,r/scale)).join("")}
+      <text x="135" y="${(-r/scale*1.30).toFixed(1)}" font-family="Barlow Condensed,sans-serif"
+        font-size="${(r/scale*0.95).toFixed(1)}" font-weight="700"
+        letter-spacing="${(r/scale*0.10).toFixed(1)}"
+        fill="${dark?L0.c1:"#eef3f8"}">${esc(title)}</text>
+    </g></svg>`;
 }
 
 /* ================================================ Flugzeugzeichnungen ---- */
@@ -1083,7 +1191,9 @@ function nacellePath(x,y,len,h,fill,line,shadeCol,chrome){
 function planeSVG(typeId, liv, opts){
   const t = ACT[typeId]; if(!t) return "";
   const L0 = liv || DEFAULT_LIVERY;
-  const o = Object.assign({gear:true, titles:true, wear:0, bodyNone:false, noDetails:false}, opts||{});
+  const o = Object.assign({gear:true, titles:true, wear:0, bodyNone:false, noDetails:false,
+    allowAssets:true}, opts||{});
+  if(o.allowAssets && assetsFor(typeId)) return planeAssetSVG(typeId, L0, o);
   const wear = clamp(o.wear||0, 0, 1);
   const P = planeGeom(t.shape), f=P.f, r=P.r, L=P.L, T=-f.finTop*L;
   const body = BODY_COLS[L0.body] || L0.c1;
@@ -1250,6 +1360,43 @@ function planeSVG(typeId, liv, opts){
        fill="${dark?"rgba(0,0,0,0.45)":"rgba(255,255,255,0.4)"}">${esc(L0.code||"")}-${esc((typeId||"").toUpperCase().slice(0,4))}</text>
    </g></svg>`;
 }
+
+/** Darstellung aus einem Grafikpaket: die PNG-Ebenen werden über
+    SVG-Masken eingefärbt, damit sie in Listen genauso aussehen wie im
+    Editor auf dem Canvas. */
+function planeAssetSVG(typeId, L0, o){
+  const A=PLANE_ASSETS[typeId]||{};
+  const VW=A.w||1600, VH=A.h||520;
+  const id="A"+Math.random().toString(36).slice(2,9);
+  const body=BODY_COLS[L0.body]||L0.c1;
+  const wear=clamp(o.wear||0,0,1);
+  const r=(A.r||VH*0.11);
+  const x0=(A.x0!=null?A.x0:VW*0.03), yc=(A.yc!=null?A.yc:VH*0.55);
+  const scale=(A.unit!=null?A.unit:(VW*0.94)/1000);
+  const dark=lum(body)>0.5;
+  const title=((typeof S!=="undefined"&&S&&S.name)?S.name:"Skyline").toUpperCase().slice(0,18);
+  const img=(k,extra)=>`<image href="${assetUrl(typeId,k)}" x="0" y="0" width="${VW}" height="${VH}" ${extra||""}/>`;
+  return `<svg viewBox="0 0 ${VW} ${VH}" width="100%" preserveAspectRatio="xMidYMid meet"
+    role="img" aria-label="${esc(ACT[typeId].name)} in der Hausbemalung">
+    <defs>
+      <mask id="${id}m" maskUnits="userSpaceOnUse" x="0" y="0" width="${VW}" height="${VH}">${img("mask")}</mask>
+      ${A.tail?`<mask id="${id}t" maskUnits="userSpaceOnUse" x="0" y="0" width="${VW}" height="${VH}">${img("tail")}</mask>`:""}
+      <filter id="${id}w"><feColorMatrix type="saturate" values="${(1-wear*0.5).toFixed(2)}"/></filter>
+    </defs>
+    <g ${wear>0.02?`filter="url(#${id}w)"`:""}>
+      ${img("base")}
+      <rect width="${VW}" height="${VH}" fill="${body}" mask="url(#${id}m)" style="mix-blend-mode:multiply"/>
+      ${A.tail?`<rect width="${VW}" height="${VH}" fill="${L0.c1}" mask="url(#${id}t)" style="mix-blend-mode:multiply"/>`:""}
+      <g transform="translate(${x0},${yc}) scale(${scale.toFixed(4)})">
+        ${(L0.layers||[]).map(l=>layerSVG(l,r/scale)).join("")}
+        ${o.titles?`<text x="135" y="${(-r/scale*1.30).toFixed(1)}" font-family="Barlow Condensed,sans-serif"
+          font-size="${(r/scale*0.95).toFixed(1)}" font-weight="700" letter-spacing="${(r/scale*0.10).toFixed(1)}"
+          fill="${dark?L0.c1:"#eef3f8"}">${esc(title)}</text>`:""}
+      </g>
+      ${A.shade?img("shade",'style="mix-blend-mode:multiply"'):""}
+    </g></svg>`;
+}
+
 function markSVG(liv,size){
   const L0=liv||DEFAULT_LIVERY;
   return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">
@@ -4892,6 +5039,200 @@ function cloudAuto(){
   cloudPush("aktuell", true);
 }
 
+
+/* ============================================ Grafikpaket vorbereiten ====
+   Nimmt eine fertige Seitenansicht (weisses Flugzeug auf weissem Grund),
+   trennt den Hintergrund heraus, erzeugt die Farbmaske und bestimmt den
+   Bezugspunkt für Beschriftung und freie Ebenen. Heraus kommen die PNG und
+   die Konfigurationszeile für PLANE_ASSETS. */
+const PREP = {img:null, w:0, h:0, base:null, mask:null, tail:null, box:null, anchor:null};
+
+/** Hintergrund vom Rand her wegnehmen: nur was mit dem Bildrand verbunden
+    ist, gilt als Hintergrund. So bleibt der weisse Rumpf erhalten. */
+function prepCutout(src, tol){
+  const w=src.width, h=src.height;
+  const c=document.createElement("canvas"); c.width=w; c.height=h;
+  const ctx=c.getContext("2d");
+  ctx.drawImage(src,0,0);
+  const im=ctx.getImageData(0,0,w,h), d=im.data;
+  const seen=new Uint8Array(w*h);
+  const stack=[];
+  const push=(x,y)=>{ if(x<0||y<0||x>=w||y>=h) return;
+    const i=y*w+x; if(seen[i]) return; seen[i]=1; stack.push(i); };
+  const bright=i=>{ const o=i*4; return (d[o]+d[o+1]+d[o+2])/3; };
+  for(let x=0;x<w;x++){ push(x,0); push(x,h-1); }
+  for(let y=0;y<h;y++){ push(0,y); push(w-1,y); }
+  const lim=255-tol;
+  const out=new Uint8Array(w*h);          // 1 = Hintergrund
+  while(stack.length){
+    const i=stack.pop();
+    if(bright(i)<lim) continue;           // dunkler als die Toleranz: Kante erreicht
+    out[i]=1;
+    const x=i%w, y=(i-x)/w;
+    push(x+1,y); push(x-1,y); push(x,y+1); push(x,y-1);
+  }
+  for(let i=0;i<w*h;i++) if(out[i]) d[i*4+3]=0;
+  ctx.putImageData(im,0,0);
+  return c;
+}
+/** Umgrenzung der sichtbaren Zeichnung. */
+function prepBounds(cv){
+  const w=cv.width, h=cv.height;
+  const d=cv.getContext("2d").getImageData(0,0,w,h).data;
+  let x0=w,y0=h,x1=0,y1=0;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    if(d[(y*w+x)*4+3]>24){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+  }
+  return {x0,y0,x1,y1,w:x1-x0+1,h:y1-y0+1};
+}
+/** Farbmaske: helle, deckende Flächen dürfen Farbe annehmen. Fenster,
+    Cockpitscheiben und Triebwerkseinläufe sind dunkel und bleiben aussen vor. */
+function prepMask(cv, thr, region){
+  const w=cv.width, h=cv.height;
+  const src=cv.getContext("2d").getImageData(0,0,w,h).data;
+  const c=document.createElement("canvas"); c.width=w; c.height=h;
+  const ctx=c.getContext("2d");
+  const im=ctx.createImageData(w,h), d=im.data;
+  for(let i=0;i<w*h;i++){
+    const o=i*4;
+    const x=i%w, y=(i-x)/w;
+    let on = src[o+3]>150 && (src[o]+src[o+1]+src[o+2])/3 > thr;
+    if(on && region){
+      on = x>=region.x0 && x<=region.x1 && y>=region.y0 && y<=region.y1;
+    }
+    d[o]=d[o+1]=d[o+2]= on?255:0;
+    d[o+3]=255;
+  }
+  ctx.putImageData(im,0,0);
+  return c;
+}
+/** Bezugspunkt: Nase, Mittellinie und Rumpfradius aus dem Bild ableiten. */
+function prepAnchor(cv, box){
+  const w=cv.width;
+  const d=cv.getContext("2d").getImageData(0,0,w,cv.height).data;
+  const probe=Math.round(box.x0+box.w*0.28);   // vor der Tragfläche
+  let top=-1, bot=-1;
+  for(let y=box.y0;y<=box.y1;y++){
+    if(d[(y*w+probe)*4+3]>150){ if(top<0) top=y; bot=y; }
+  }
+  if(top<0){ top=box.y0; bot=box.y1; }
+  const yc=(top+bot)/2, r=(bot-top)/2;
+  return {x0:box.x0, yc:Math.round(yc), r:Math.max(6,Math.round(r)), unit:box.w/1000};
+}
+function prepDownload(cv, name){
+  cv.toBlob(b=>{ const u=URL.createObjectURL(b);
+    const a=document.createElement("a"); a.href=u; a.download=name; a.click();
+    setTimeout(()=>URL.revokeObjectURL(u),2000); }, "image/png");
+}
+function prepDialog(){
+  let typeId=Object.keys(ACT)[8]||"a20n";
+  let tol=42, thr=110, tailPct=0.72, useTail=true;
+  modal("Grafikpaket vorbereiten",
+    `<p class="dim">Eine Seitenansicht mit weissem Flugzeug auf hellem Grund laden. Das Werkzeug trennt den Hintergrund, erzeugt die Farbmaske und schlägt den Bezugspunkt vor. Heraus kommen die fertigen PNG und die Konfigurationszeile.</p>
+     <label class="f">Muster, zu dem die Zeichnung gehört</label>
+     <select id="pType">${ACTL.map(t=>`<option value="${t.id}" ${t.id===typeId?"selected":""}>${esc(t.name)} — ${t.id}</option>`).join("")}</select>
+     <label class="f">Bilddatei</label><input type="file" id="pFile" accept="image/*">
+     <div id="pWork" style="margin-top:10px"></div>`,
+    [{t:"Schliessen",f:()=>$("#veil").classList.remove("on")}]);
+  $("#pType").onchange=e=>{ typeId=e.target.value; if(PREP.img) run(); };
+  $("#pFile").onchange=e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const img=new Image();
+    img.onload=()=>{ PREP.img=img; PREP.w=img.naturalWidth; PREP.h=img.naturalHeight; run(); };
+    img.onerror=()=>toast("Bild konnte nicht gelesen werden.");
+    img.src=URL.createObjectURL(f);
+  };
+  function run(){
+    const box0=document.getElementById("pWork");
+    box0.innerHTML=`<div class="dim">Wird verarbeitet …</div>`;
+    setTimeout(()=>{
+      PREP.base=prepCutout(PREP.img, tol);
+      PREP.box=prepBounds(PREP.base);
+      PREP.anchor=prepAnchor(PREP.base, PREP.box);
+      const b=PREP.box;
+      const tailRegion={x0:Math.round(b.x0+b.w*tailPct), x1:b.x1, y0:b.y0, y1:Math.round(PREP.anchor.yc)};
+      PREP.mask=prepMask(PREP.base, thr, null);
+      PREP.tail=useTail?prepMask(PREP.base, thr, tailRegion):null;
+      draw(tailRegion);
+    },30);
+  }
+  function draw(tailRegion){
+    const b=PREP.box, an=PREP.anchor;
+    const box0=document.getElementById("pWork");
+    box0.innerHTML=`
+      <div class="planebox" style="padding:0"><canvas id="pPrev" style="width:100%;display:block"></canvas></div>
+      <label class="f">Hintergrund-Toleranz <span class="mono">${tol}</span> — höher, wenn Reste stehen bleiben</label>
+      <input type="range" id="pTol" min="6" max="90" value="${tol}">
+      <label class="f">Maskenschwelle <span class="mono">${thr}</span> — tiefer, wenn Fenster mitgefärbt werden</label>
+      <input type="range" id="pThr" min="40" max="220" value="${thr}">
+      <div class="row" style="margin-top:6px">
+        <button class="sm ${useTail?'primary':''}" id="pTail">Leitwerksmaske ${useTail?"an":"aus"}</button></div>
+      ${useTail?`<label class="f">Leitwerk beginnt bei <span class="mono">${fmt(tailPct*100,0)}%</span> der Länge</label>
+        <input type="range" id="pTp" min="45" max="90" value="${Math.round(tailPct*100)}">`:""}
+      <div class="card" style="margin-top:9px">
+        <div class="kv"><span>Bildgrösse</span><span>${PREP.w} × ${PREP.h} px</span></div>
+        <div class="kv"><span>Flugzeug im Bild</span><span>${b.w} × ${b.h} px ab x ${b.x0}</span></div>
+        <div class="kv"><span>Mittellinie · Rumpfradius</span><span>y ${an.yc} · ${an.r} px</span></div>
+      </div>
+      <label class="f">Zeile für PLANE_ASSETS</label>
+      <textarea id="pCfg" rows="2" readonly>${typeId}: {base:1, mask:1${useTail?", tail:1":""}, w:${PREP.w}, h:${PREP.h}, x0:${an.x0}, yc:${an.yc}, r:${an.r}, unit:${an.unit.toFixed(4)}},</textarea>
+      <div class="row" style="margin-top:9px">
+        <button class="primary" id="pDl">Alle Dateien herunterladen</button>
+        <button id="pCopy">Zeile kopieren</button></div>
+      <p class="dim" style="font-size:11px;margin-top:7px">Die Dateien in den Ordner <span class="mono">assets/planes/</span> legen, die Zeile oben in <span class="mono">index.html</span> bei <span class="mono">PLANE_ASSETS</span> einfügen und die Dateinamen zusätzlich in <span class="mono">sw.js</span> eintragen.</p>`;
+    /* Vorschau: Basis, darüber die Maske in der Hausfarbe */
+    const cv=document.getElementById("pPrev");
+    const scale=Math.min(1, 900/PREP.w);
+    cv.width=Math.round(PREP.w*scale); cv.height=Math.round(PREP.h*scale);
+    const ctx=cv.getContext("2d");
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.drawImage(PREP.base,0,0,cv.width,cv.height);
+    const paint=(src,col)=>{
+      const off=document.createElement("canvas"); off.width=cv.width; off.height=cv.height;
+      const oc=off.getContext("2d");
+      oc.drawImage(src,0,0,cv.width,cv.height);
+      oc.globalCompositeOperation="source-in";
+      oc.fillStyle=col; oc.fillRect(0,0,cv.width,cv.height);
+      ctx.globalCompositeOperation="multiply";
+      ctx.drawImage(off,0,0);
+      ctx.globalCompositeOperation="source-over";
+    };
+    const L=(S&&S.livery)||DEFAULT_LIVERY;
+    const maskAlpha=(src)=>{           // Weiss der Maske in Deckung umwandeln
+      const off=document.createElement("canvas"); off.width=src.width; off.height=src.height;
+      const oc=off.getContext("2d");
+      const im=src.getContext("2d").getImageData(0,0,src.width,src.height);
+      const d=im.data;
+      for(let i=0;i<d.length;i+=4){ const v=d[i]; d[i]=255;d[i+1]=255;d[i+2]=255; d[i+3]=v; }
+      oc.putImageData(im,0,0);
+      return off;
+    };
+    paint(maskAlpha(PREP.mask), BODY_COLS[L.body]||L.c1);
+    if(PREP.tail) paint(maskAlpha(PREP.tail), L.c1);
+    if(tailRegion){
+      ctx.strokeStyle="#f2a93b"; ctx.setLineDash([6,4]); ctx.lineWidth=1.5;
+      ctx.strokeRect(tailRegion.x0*scale, tailRegion.y0*scale,
+        (tailRegion.x1-tailRegion.x0)*scale, (tailRegion.y1-tailRegion.y0)*scale);
+      ctx.setLineDash([]);
+    }
+    document.getElementById("pTol").onchange=e=>{ tol=+e.target.value; run(); };
+    document.getElementById("pThr").onchange=e=>{ thr=+e.target.value; run(); };
+    document.getElementById("pTail").onclick=()=>{ useTail=!useTail; run(); };
+    const tp=document.getElementById("pTp"); if(tp) tp.onchange=e=>{ tailPct=+e.target.value/100; run(); };
+    document.getElementById("pDl").onclick=()=>{
+      prepDownload(PREP.base, typeId+"-base.png");
+      setTimeout(()=>prepDownload(maskAlpha(PREP.mask), typeId+"-mask.png"),400);
+      if(PREP.tail) setTimeout(()=>prepDownload(maskAlpha(PREP.tail), typeId+"-tail.png"),800);
+      toast("Dateien werden heruntergeladen.");
+    };
+    document.getElementById("pCopy").onclick=()=>{
+      const t=document.getElementById("pCfg");
+      t.select(); try{ document.execCommand("copy"); toast("Zeile kopiert."); }
+      catch(e){ toast("Bitte von Hand markieren und kopieren."); }
+    };
+  }
+}
+
 /* ------------------------------------------------------------- Daten --- */
 function paneData(p){
   p.innerHTML=`<h2 class="sec">Daten und Spielstand</h2>
@@ -4902,6 +5243,18 @@ function paneData(p){
   <h3 class="sub">Spielstand in der Cloud</h3>
   <p class="dim">Damit derselbe Stand am Rechner und am Telefon offen ist. Es braucht ein eigenes, kostenloses Firebase-Projekt: Firestore anlegen, unter «Authentication» die Anmeldung mit E-Mail und Passwort aktivieren, dann Web-API-Schlüssel und Projekt-ID hier eintragen. Die Zugangsdaten bleiben in diesem Browser.</p>
   <div class="card" id="cloudBox"></div>
+
+  <h3 class="sub">Grafikpaket</h3>
+  <div class="card">
+    <div class="kv"><span>Eingetragene Muster</span><span>${Object.keys(PLANE_ASSETS).length}</span></div>
+    <div class="kv"><span>Gefunden</span><span class="${Object.keys(ASSET_STATE).filter(k=>ASSET_STATE[k]==="da").length?"pos":""}">${Object.keys(ASSET_STATE).filter(k=>ASSET_STATE[k]==="da").length}</span></div>
+    ${Object.keys(PLANE_ASSETS).length?Object.keys(PLANE_ASSETS).map(k=>
+      `<div class="kv"><span>${esc(ACT[k]?ACT[k].name:k)}</span>
+       <span class="${ASSET_STATE[k]==="da"?"pos":ASSET_STATE[k]==="fehlt"?"neg":"dim"}">${
+         ASSET_STATE[k]==="da"?"geladen":ASSET_STATE[k]==="fehlt"?"Datei fehlt":"wird geprüft"}</span></div>`).join("")
+      :`<p class="dim" style="font-size:11px;margin-top:6px">Noch keine externen Zeichnungen eingetragen. Das Spiel zeichnet die Flugzeuge selbst.</p>`}
+    <div class="row" style="margin-top:8px"><button class="sm primary" id="prepBtn">Grafikpaket vorbereiten</button></div>
+  </div>
 
   <h3 class="sub">Schwierigkeit</h3>
   <div class="card"><div class="kv"><span>Aktuell</span><span>${diffCfg().n}</span></div>
@@ -4940,6 +5293,7 @@ function paneData(p){
     applyDifficulty(b.dataset.df);
     logg(`Schwierigkeit auf ${diffCfg().n} gestellt.`,"warn"); render();});
   renderCloudBox();
+  const pb=$("#prepBtn"); if(pb) pb.onclick=prepDialog;
   $("#save").onclick=saveGame; $("#load").onclick=loadGame;
   $("#restart").onclick=()=>modal("Neue Fluggesellschaft",
     "<p>Der aktuelle Spielstand geht verloren, sofern er nicht gesichert wurde.</p>",
@@ -5212,6 +5566,7 @@ function startDialog(){
 
 /* ================================================================ Start */
 cloudLoadCfg();
+checkAssets();
 if("serviceWorker" in navigator && location.protocol.startsWith("http")){
   navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
