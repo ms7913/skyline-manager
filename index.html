@@ -216,6 +216,13 @@ table.tbl th.r,table.tbl td.r{text-align:right}
 .daysel{display:flex;gap:3px}
 .daysel button{padding:3px 0;width:30px;text-align:center;font-family:var(--mono);font-size:10.5px}
 .daysel button.on{background:var(--amber);color:#0d1119;border-color:var(--amber);font-weight:600}
+.wk{margin:6px 0}
+.wkrow{display:flex;align-items:center;gap:7px;padding:2px 4px;border-radius:3px;cursor:pointer}
+.wkrow:hover{background:#16243a}
+.wkrow.on{background:#1b2e4b;outline:1px solid var(--amber)}
+.wkd{font-family:var(--mono);font-size:10.5px;width:20px;color:var(--dim)}
+.wkp{font-family:var(--mono);font-size:10px;width:30px;color:var(--dim2)}
+.wkh{font-family:var(--mono);font-size:10px;width:38px;text-align:right;color:var(--dim)}
 
 #log{font-family:var(--mono);font-size:11px}
 #log .e{padding:6px 8px;border-left:2px solid var(--line2);margin-bottom:5px;background:#0d1728}
@@ -1894,6 +1901,105 @@ function transferBonus(map){
   }));
 }
 
+
+/* Weitere Plätze, damit Szenarien ausserhalb Europas überhaupt möglich sind:
+   Australien und Ozeanien, Karibik und Mittelamerika, USA im Inland,
+   Afrika, Anden und Südasien. Felder wie oben. */
+const AIRPORT_EXTRA = [
+["ADL","Adelaide","Australien",-34.95,138.53,8.6,3100,1.00,1.20,1.05,1.00,"Ozeanien"],
+["CNS","Cairns","Australien",-16.89,145.75,5.2,3200,0.95,1.15,1.55,0.80,"Ozeanien"],
+["OOL","Gold Coast","Australien",-28.16,153.51,6.6,2500,0.92,1.10,1.60,0.75,"Ozeanien"],
+["HBA","Hobart","Australien",-42.84,147.51,2.8,2251,0.95,1.10,1.30,0.85,"Ozeanien"],
+["DRW","Darwin","Australien",-12.41,130.88,2.0,3354,1.00,1.05,1.25,0.90,"Ozeanien"],
+["ASP","Alice Springs","Australien",-23.81,133.90,0.6,2438,1.00,0.95,1.40,0.80,"Ozeanien"],
+["TSV","Townsville","Australien",-19.25,146.77,1.7,2438,0.95,1.00,1.20,0.90,"Ozeanien"],
+["WLG","Wellington","Neuseeland",-41.33,174.81,5.9,2081,1.00,1.10,1.15,1.10,"Ozeanien"],
+["ZQN","Queenstown","Neuseeland",-45.02,168.74,2.4,1892,1.05,1.15,1.75,0.75,"Ozeanien"],
+["NAN","Nadi","Fidschi",-17.76,177.44,2.3,3273,0.95,0.75,1.80,0.65,"Ozeanien"],
+["PPT","Papeete","Französisch-Polynesien",-17.55,-149.61,1.5,3420,1.05,0.95,1.85,0.65,"Ozeanien"],
+["NOU","Nouméa","Neukaledonien",-22.01,166.21,0.5,3250,1.00,0.95,1.55,0.70,"Ozeanien"],
+["POM","Port Moresby","Papua-Neuguinea",-9.44,147.22,1.5,2750,0.95,0.60,0.90,0.95,"Asien"],
+["HIR","Honiara","Salomonen",-9.43,160.05,0.3,2200,0.90,0.50,1.20,0.70,"Ozeanien"],
+["PER","Perth","Australien",-31.94,115.97,12.5,3444,1.05,1.20,1.20,1.10,"Ozeanien"],
+["CUN","Cancún","Mexiko",21.04,-86.87,25.5,3500,0.95,0.85,1.95,0.70,"Nordamerika"],
+["MBJ","Montego Bay","Jamaika",18.50,-77.91,4.9,2662,0.95,0.70,1.90,0.65,"Nordamerika"],
+["KIN","Kingston","Jamaika",17.94,-76.79,1.7,2716,0.95,0.70,1.25,0.85,"Nordamerika"],
+["NAS","Nassau","Bahamas",25.04,-77.47,4.0,3358,1.05,0.95,1.90,0.75,"Nordamerika"],
+["SJU","San Juan","Puerto Rico",18.44,-66.00,9.5,3048,0.95,0.90,1.60,0.90,"Nordamerika"],
+["PUJ","Punta Cana","Dominikanische Republik",18.57,-68.36,8.6,3100,0.95,0.70,1.95,0.60,"Nordamerika"],
+["SDQ","Santo Domingo","Dominikanische Republik",18.43,-69.67,4.4,3355,0.90,0.70,1.30,0.85,"Nordamerika"],
+["HAV","Havanna","Kuba",22.99,-82.41,4.5,4000,0.85,0.55,1.60,0.75,"Nordamerika"],
+["CUR","Curaçao","Curaçao",12.19,-68.96,1.7,3410,0.95,0.90,1.75,0.75,"Südamerika"],
+["AUA","Aruba","Aruba",12.50,-70.02,2.6,2743,0.95,0.95,1.85,0.70,"Südamerika"],
+["BGI","Bridgetown","Barbados",13.07,-59.49,1.8,3363,1.00,0.95,1.80,0.75,"Südamerika"],
+["POS","Port of Spain","Trinidad",10.60,-61.34,2.5,3200,0.95,0.85,1.15,1.00,"Südamerika"],
+["SXM","Sint Maarten","Sint Maarten",18.04,-63.11,1.8,2300,1.00,0.95,1.90,0.70,"Nordamerika"],
+["PTY","Panama-Stadt","Panama",9.07,-79.38,16.6,3050,0.90,0.85,1.25,1.15,"Nordamerika"],
+["SJO","San José","Costa Rica",9.99,-84.20,5.4,3012,0.90,0.80,1.65,0.90,"Nordamerika"],
+["GUA","Guatemala-Stadt","Guatemala",14.58,-90.53,2.9,2987,0.85,0.65,1.20,0.90,"Nordamerika"],
+["SAL","San Salvador","El Salvador",13.44,-89.06,3.9,3200,0.85,0.60,1.10,0.90,"Nordamerika"],
+["LAS","Las Vegas","USA",36.08,-115.15,52.7,4423,0.95,1.05,1.95,0.95,"Nordamerika"],
+["PHX","Phoenix","USA",33.43,-112.01,44.4,3502,0.90,1.05,1.35,1.00,"Nordamerika"],
+["MSP","Minneapolis","USA",44.88,-93.22,34.0,3355,0.95,1.15,1.00,1.15,"Nordamerika"],
+["DTW","Detroit","USA",42.21,-83.35,29.3,3658,0.95,1.05,0.90,1.15,"Nordamerika"],
+["CLT","Charlotte","USA",35.21,-80.94,50.2,3048,0.90,1.10,0.95,1.15,"Nordamerika"],
+["PHL","Philadelphia","USA",39.87,-75.24,25.0,3200,1.00,1.10,1.00,1.10,"Nordamerika"],
+["SLC","Salt Lake City","USA",40.79,-111.98,26.9,3658,0.90,1.05,1.25,1.05,"Nordamerika"],
+["IAH","Houston","USA",29.98,-95.34,40.9,3658,0.95,1.10,0.95,1.20,"Nordamerika"],
+["MCO","Orlando","USA",28.43,-81.31,50.6,3659,0.90,1.00,1.90,0.90,"Nordamerika"],
+["TPA","Tampa","USA",27.98,-82.53,22.5,3353,0.90,1.00,1.55,0.95,"Nordamerika"],
+["SAN","San Diego","USA",32.73,-117.19,24.2,2865,1.00,1.15,1.45,1.05,"Nordamerika"],
+["PDX","Portland","USA",45.59,-122.60,19.8,3353,0.95,1.10,1.20,1.05,"Nordamerika"],
+["AUS","Austin","USA",30.19,-97.67,21.1,3752,0.90,1.15,1.20,1.15,"Nordamerika"],
+["ANC","Anchorage","USA",61.17,-149.99,5.0,3779,0.95,1.05,1.30,1.00,"Nordamerika"],
+["HNL","Honolulu","USA",21.32,-157.92,21.3,3753,1.00,1.05,1.85,0.90,"Nordamerika"],
+["ACC","Accra","Ghana",5.61,-0.17,2.8,3400,0.95,0.65,0.95,1.10,"Afrika"],
+["ABJ","Abidjan","Elfenbeinküste",5.26,-3.93,2.2,3000,0.95,0.60,0.85,1.10,"Afrika"],
+["DKR","Dakar","Senegal",14.67,-17.07,2.9,3500,0.95,0.60,1.10,1.05,"Afrika"],
+["LOS","Lagos","Nigeria",6.58,3.32,7.5,3900,1.00,0.60,0.75,1.20,"Afrika"],
+["DAR","Daressalam","Tansania",-6.87,39.20,3.0,3000,0.95,0.55,1.35,1.00,"Afrika"],
+["ZNZ","Sansibar","Tansania",-6.22,39.22,1.2,3000,0.95,0.50,1.90,0.65,"Afrika"],
+["JRO","Kilimandscharo","Tansania",-3.43,37.07,1.0,3600,0.95,0.50,1.85,0.65,"Afrika"],
+["EBB","Entebbe","Uganda",0.04,32.44,1.9,3658,0.95,0.55,1.35,1.00,"Afrika"],
+["KGL","Kigali","Ruanda",-1.97,30.14,1.1,3500,0.95,0.60,1.30,1.10,"Afrika"],
+["MRU","Mauritius","Mauritius",-20.43,57.68,4.0,3400,1.00,0.85,1.90,0.75,"Afrika"],
+["SEZ","Mahé","Seychellen",-4.67,55.52,0.4,2987,1.05,0.90,1.95,0.65,"Afrika"],
+["TNR","Antananarivo","Madagaskar",-18.80,47.48,0.9,3100,0.95,0.45,1.45,0.85,"Afrika"],
+["WDH","Windhoek","Namibia",-22.48,17.47,0.9,4500,0.95,0.75,1.60,0.90,"Afrika"],
+["LAD","Luanda","Angola",-8.86,13.23,2.8,3700,1.00,0.70,0.75,1.15,"Afrika"],
+["MPM","Maputo","Mosambik",-25.92,32.57,0.9,3660,0.95,0.55,1.25,0.95,"Afrika"],
+["TIP","Tunis","Tunesien",36.85,10.23,5.4,3200,0.90,0.70,1.55,0.95,"Afrika"],
+["ALG","Algier","Algerien",36.69,3.22,7.0,3500,0.90,0.70,1.05,1.00,"Afrika"],
+["UIO","Quito","Ecuador",-0.13,-78.36,5.5,4098,0.95,0.75,1.55,1.00,"Südamerika"],
+["GYE","Guayaquil","Ecuador",-2.16,-79.88,4.4,2790,0.90,0.70,1.15,1.05,"Südamerika"],
+["CUZ","Cusco","Peru",-13.54,-71.94,4.0,3400,0.95,0.65,1.95,0.70,"Südamerika"],
+["AQP","Arequipa","Peru",-16.34,-71.57,1.7,2980,0.90,0.65,1.35,0.85,"Südamerika"],
+["LPB","La Paz","Bolivien",-16.51,-68.19,2.6,4000,0.90,0.55,1.45,0.85,"Südamerika"],
+["VVI","Santa Cruz","Bolivien",-17.64,-63.14,2.5,3500,0.90,0.65,1.05,1.05,"Südamerika"],
+["ASU","Asunción","Paraguay",-25.24,-57.52,1.2,3353,0.90,0.70,0.95,1.00,"Südamerika"],
+["MVD","Montevideo","Uruguay",-34.84,-56.03,2.3,3200,0.95,0.95,1.25,1.05,"Südamerika"],
+["CCS","Caracas","Venezuela",10.60,-66.99,4.0,3500,0.90,0.60,0.95,0.95,"Südamerika"],
+["MDE","Medellín","Kolumbien",6.17,-75.42,7.9,3557,0.90,0.75,1.35,1.10,"Südamerika"],
+["CTG","Cartagena","Kolumbien",10.44,-75.51,5.5,2600,0.90,0.70,1.80,0.85,"Südamerika"],
+["CMB","Colombo","Sri Lanka",7.18,79.88,9.5,3350,0.90,0.60,1.60,0.95,"Asien"],
+["MLE","Malé","Malediven",4.19,73.53,4.0,3200,1.05,0.85,1.95,0.65,"Asien"],
+["KTM","Kathmandu","Nepal",27.70,85.36,7.2,3050,0.95,0.50,1.75,0.85,"Asien"],
+["DAC","Dhaka","Bangladesch",23.84,90.40,8.5,3200,0.90,0.50,0.80,1.05,"Asien"],
+["ISB","Islamabad","Pakistan",33.55,72.83,5.0,3660,0.90,0.55,0.90,1.05,"Asien"],
+["KHI","Karachi","Pakistan",24.91,67.16,5.5,3400,0.90,0.55,0.80,1.10,"Asien"],
+["RGN","Yangon","Myanmar",16.91,96.13,3.0,3400,0.90,0.50,1.25,0.90,"Asien"],
+["PNH","Phnom Penh","Kambodscha",11.55,104.84,4.5,3000,0.90,0.55,1.45,0.95,"Asien"],
+["REP","Siem Reap","Kambodscha",13.41,103.81,1.5,2550,0.90,0.50,1.95,0.65,"Asien"],
+["VTE","Vientiane","Laos",17.99,102.56,1.2,3000,0.90,0.50,1.40,0.85,"Asien"],
+["ULN","Ulaanbaatar","Mongolei",47.65,106.82,1.7,3600,0.95,0.65,1.30,0.95,"Asien"],
+["TAS","Taschkent","Usbekistan",41.26,69.28,4.0,4000,0.90,0.65,1.20,1.00,"Asien"],
+["ALA","Almaty","Kasachstan",43.35,77.04,7.6,4400,0.90,0.75,1.15,1.05,"Asien"],
+["TBS","Tiflis","Georgien",41.67,44.95,4.5,3000,0.90,0.75,1.55,1.00,"Europa"],
+["EVN","Jerewan","Armenien",40.15,44.40,3.5,3850,0.90,0.70,1.35,0.95,"Europa"],
+["GYD","Baku","Aserbaidschan",40.47,50.05,6.5,3200,0.95,0.85,1.15,1.10,"Asien"],
+["FRU","Bischkek","Kirgisistan",43.06,74.48,1.5,4200,0.85,0.55,1.25,0.90,"Asien"]
+];
+
 /* ========================================================== Datenaufbau */
 function buildAirport(r){ return {iata:r[0],city:r[1],country:r[2],lat:r[3],lon:r[4],pax:r[5],
   runway:r[6],fee:r[7],income:r[8],tourism:r[9],biz:r[10],region:r[11]}; }
@@ -1902,7 +2008,8 @@ function buildAircraft(r){ return {id:r[0],name:r[1],maker:r[2],maxSeats:r[3],ra
   turn:r[14],rating:r[15],shape:r[16],len:r[17]}; }
 let AP={}, APL=[], ACT={}, ACTL=[];
 function loadStaticData(){
-  APL=AIRPORT_ROWS.map(buildAirport); AP={}; APL.forEach(a=>AP[a.iata]=a);
+  APL=AIRPORT_ROWS.concat(AIRPORT_EXTRA).map(buildAirport);
+  AP={}; APL=APL.filter(a=>{ if(AP[a.iata]) return false; AP[a.iata]=a; return true; });
   ACTL=AIRCRAFT_ROWS.map(buildAircraft); ACT={}; ACTL.forEach(t=>ACT[t.id]=t);
 }
 loadStaticData();
@@ -2025,78 +2132,126 @@ function blockMinutes(t, d){ return Math.round((d/t.speed + BAL.taxiHours)*60); 
 function turnAt(t, iata){
   return Math.max(15, t.turn - (hasUpgrade(iata,"boden") ? 10 : 0));
 }
+/* Der Wochenplan: für jeden Wochentag eine eigene Kette von Zielen mit eigener
+   Startzeit. Ein Tag beginnt dort, wo der Vortag geendet hat — nur so lassen
+   sich Langstrecken abbilden, bei denen Hin- und Rückflug an verschiedenen
+   Tagen liegen. */
+function emptyDay(){ return {start:390, dests:[], nums:[]}; }
 function ensurePlan(ac){
-  if(!ac.plan) ac.plan={start:390, dests:[], days:[1,1,1,1,1,1,1], nums:[]};
-  if(!Array.isArray(ac.plan.days)) ac.plan.days=[1,1,1,1,1,1,1];
-  if(!Array.isArray(ac.plan.nums)) ac.plan.nums=[];
-  while(ac.plan.nums.length < ac.plan.dests.length) ac.plan.nums.push(nextFlightNumber(ac, ac.plan.nums.length));
-  ac.plan.nums.length = ac.plan.dests.length;
-  return ac.plan;
+  if(!ac.plan) ac.plan={};
+  const p=ac.plan;
+  /* Aus der alten Fassung mit einem Umlauf und Wochentagsmaske übernehmen */
+  if(!Array.isArray(p.week)){
+    const old={start:p.start!=null?p.start:390, dests:Array.isArray(p.dests)?p.dests.slice():[],
+      nums:Array.isArray(p.nums)?p.nums.slice():[]};
+    const mask=Array.isArray(p.days)?p.days:[1,1,1,1,1,1,1];
+    p.week=[0,1,2,3,4,5,6].map(d=> mask[d]
+      ? {start:old.start, dests:old.dests.slice(), nums:old.nums.slice()}
+      : emptyDay());
+    delete p.start; delete p.dests; delete p.days; delete p.nums;
+  }
+  for(let d=0;d<7;d++){
+    const w=p.week[d]||(p.week[d]=emptyDay());
+    if(!Array.isArray(w.dests)) w.dests=[];
+    if(!Array.isArray(w.nums)) w.nums=[];
+    if(w.start==null) w.start=390;
+    while(w.nums.length<w.dests.length) w.nums.push(nextFlightNumber(ac,d,w.nums.length));
+    w.nums.length=w.dests.length;
+  }
+  return p;
 }
+const dayPlan = (ac,d)=> ensurePlan(ac).week[d];
 /** Alle bereits vergebenen Flugnummern. */
 function usedFlightNumbers(){
   const set=new Set();
-  S.fleet.forEach(a=>{ if(a.plan&&Array.isArray(a.plan.nums)) a.plan.nums.forEach(v=>{ if(v) set.add(v); }); });
+  S.fleet.forEach(a=>{ const p=a.plan; if(!p||!Array.isArray(p.week)) return;
+    p.week.forEach(w=>(w.nums||[]).forEach(v=>{ if(v) set.add(v); })); });
   return set;
 }
-/** Hinflug bekommt die nächste freie gerade Nummer, der Rückflug genau eine höher. */
-function nextFlightNumber(ac, idx){
+/** Hinflug bekommt die nächste freie gerade Nummer, der Rückflug eine höher. */
+function nextFlightNumber(ac, day, idx){
   const used=usedFlightNumbers();
-  const p=ac.plan;
-  const from = idx===0 ? ac.base : p.dests[idx-1];
-  const to = p.dests[idx];
-  const prevNum = idx>0 ? p.nums[idx-1] : null;
+  const w=ac.plan.week[day];
+  const to=w.dests[idx];
+  const prevNum = idx>0 ? w.nums[idx-1] : null;
   if(to===ac.base && prevNum && !used.has(prevNum+1)) return prevNum+1;
-  let cand = Math.max(S.flightStart||100, 100);
-  while(used.has(cand) || used.has(cand+1)) cand += 2;
+  let cand=Math.max(S.flightStart||100,100);
+  while(used.has(cand)||used.has(cand+1)) cand+=2;
   return cand;
 }
-function flightNo(ac, idx){
+/** Wo steht die Maschine zu Beginn jedes Wochentags? */
+function weekPositions(ac){
   const p=ensurePlan(ac);
-  return `${S.code} ${p.nums[idx]||"—"}`;
+  let pos=ac.base;
+  /* zweimal umlaufen, damit sich die Kette über den Wochenwechsel einpendelt */
+  for(let pass=0;pass<2;pass++){
+    for(let d=0;d<7;d++){
+      const w=p.week[d];
+      if(w.dests.length) pos=w.dests[w.dests.length-1];
+    }
+  }
+  const start=[]; let cur=pos;
+  for(let d=0;d<7;d++){
+    start[d]=cur;
+    const w=p.week[d];
+    if(w.dests.length) cur=w.dests[w.dests.length-1];
+  }
+  return start;
 }
-const planDays = ac => ensurePlan(ac).days.reduce((s,v)=>s+(v?1:0),0);
-/** Berechnet den Tagesumlauf mit Zeiten und Prüfungen. */
-function scheduleOf(ac){
-  const t=ACT[ac.type], p=ensurePlan(ac);
-  const legs=[]; const warn=[];
-  let cur=AP[ac.base], time=p.start, blockSum=0;
-  if(!cur) return {legs, warn:["Basis unbekannt"], duty:0, blockSum:0, endsHome:true};
-  p.dests.forEach((code,i)=>{
+/** Umlauf eines einzelnen Wochentags mit Zeiten und Prüfungen. */
+function scheduleDay(ac, d, fromCode){
+  const t=ACT[ac.type], w=dayPlan(ac,d);
+  const legs=[], warn=[];
+  let cur=AP[fromCode||ac.base], time=w.start, blockSum=0;
+  if(!cur) return {legs, warn:["Standort unbekannt"], duty:0, blockSum:0, endsAt:fromCode};
+  w.dests.forEach((code,i)=>{
     const to=AP[code];
     if(!to){ warn.push(`Ziel ${code} unbekannt`); return; }
-    const d=distKm(cur,to), bm=blockMinutes(t,d);
+    const dist=distKm(cur,to), bm=blockMinutes(t,dist);
     const dep=time, arr=dep+bm;
-    const leg={i, from:cur.iata, to:to.iata, dep, arr, block:bm, dist:d, issues:[], no:p.nums[i]};
-    if(d > t.range*0.97) leg.issues.push("Reichweite");
-    if(cur.runway < t.runway) leg.issues.push(`Piste ${cur.iata}`);
-    if(to.runway < t.runway) leg.issues.push(`Piste ${to.iata}`);
+    const leg={i, day:d, from:cur.iata, to:to.iata, dep, arr, block:bm, dist, issues:[], no:w.nums[i]};
+    if(dist>t.range*0.97) leg.issues.push("Reichweite");
+    if(cur.runway<t.runway) leg.issues.push(`Piste ${cur.iata}`);
+    if(to.runway<t.runway) leg.issues.push(`Piste ${to.iata}`);
     if(inCurfew(cur,dep)) leg.issues.push(`Start ${cur.iata} in Sperrzeit`);
     if(inCurfew(to,arr)) leg.issues.push(`Landung ${to.iata} in Sperrzeit`);
     legs.push(leg);
-    blockSum += bm;
-    time = arr + turnAt(t, to.iata);
-    cur = to;
+    blockSum+=bm;
+    time=arr+turnAt(t,to.iata);
+    cur=to;
   });
-  const duty = legs.length ? legs[legs.length-1].arr - legs[0].dep : 0;
-  const endsHome = !legs.length || legs[legs.length-1].to === ac.base;
-  if(blockSum > t.block*60) warn.push(`Blockzeit ${(blockSum/60).toFixed(1)} h über dem Tageslimit von ${t.block} h`);
-  if(duty > BAL.maxDuty) warn.push(`Dienstzeit ${(duty/60).toFixed(1)} h über ${BAL.maxDuty/60} h`);
-  if(!endsHome && legs.length) warn.push(`Umlauf endet in ${legs[legs.length-1].to}, nicht an der Basis`);
-  legs.forEach(l=>{ if(l.issues.length) warn.push(`${l.from}–${l.to}: ${l.issues.join(", ")}`); });
-  return {legs, warn, duty, blockSum, endsHome};
+  const duty=legs.length?legs[legs.length-1].arr-legs[0].dep:0;
+  if(blockSum>t.block*60) warn.push(`${DAYS[d]}: Blockzeit ${(blockSum/60).toFixed(1)} h über dem Tageslimit von ${t.block} h`);
+  if(duty>BAL.maxDuty) warn.push(`${DAYS[d]}: Dienstzeit ${(duty/60).toFixed(1)} h über ${BAL.maxDuty/60} h`);
+  legs.forEach(l=>{ if(l.issues.length) warn.push(`${DAYS[d]} ${l.from}–${l.to}: ${l.issues.join(", ")}`); });
+  return {legs, warn, duty, blockSum, endsAt: legs.length?legs[legs.length-1].to:(fromCode||ac.base)};
 }
+/** Der ganze Wochenplan. */
+function scheduleOf(ac){
+  const pos=weekPositions(ac);
+  const week=[], warn=[];
+  let blockWeek=0, flights=0;
+  for(let d=0;d<7;d++){
+    const sd=scheduleDay(ac,d,pos[d]);
+    week.push(sd); warn.push(...sd.warn);
+    blockWeek+=sd.blockSum; flights+=sd.legs.length;
+  }
+  const endsHome = pos[0]===ac.base;
+  if(!endsHome) warn.push(`Der Wochenplan endet in ${pos[0]}, nicht an der Basis ${ac.base}`);
+  return {week, pos, warn, blockWeek, flights, endsHome,
+    legs: week.reduce((a,x)=>a.concat(x.legs),[])};
+}
+const planDays = ac => scheduleOf(ac).week.reduce((s,x)=>s+(x.legs.length?1:0),0);
 /** Alle Flüge der Woche, gruppiert nach Städtepaar. */
 function weeklyLegs(){
   const map={};
   S.fleet.forEach(ac=>{
     if(ac.status!=="aktiv") return;
-    const sch=scheduleOf(ac), days=planDays(ac);
-    if(!days) return;
+    const sch=scheduleOf(ac);
     sch.legs.forEach(l=>{
-      if(l.issues.length) return;              // gesperrte Flüge finden nicht statt
+      if(l.issues.length) return;
       const key=routeKey(l.from,l.to);
-      (map[key]=map[key]||[]).push({ac, leg:l, days});
+      (map[key]=map[key]||[]).push({ac, leg:l, days:1});
     });
   });
   transferBonus(map);
@@ -2120,15 +2275,12 @@ function syncRoutes(){
 function airportMovements(){
   const map=weeklyLegs(), out={};
   Object.values(map).forEach(list=>list.forEach(e=>{
-    out[e.leg.from]=(out[e.leg.from]||0)+e.days;
-    out[e.leg.to]=(out[e.leg.to]||0)+e.days;
+    out[e.leg.from]=(out[e.leg.from]||0)+1;
+    out[e.leg.to]=(out[e.leg.to]||0)+1;
   }));
   return out;
 }
-function acWeeklyBlock(ac){
-  const sch=scheduleOf(ac);
-  return sch.blockSum/60*planDays(ac);
-}
+function acWeeklyBlock(ac){ return scheduleOf(ac).blockWeek/60; }
 function acCanFly(ac,A,B){
   const t=ACT[ac.type], d=distKm(A,B);
   if(d>t.range*0.97) return "Reichweite";
@@ -2833,6 +2985,63 @@ function ancillaryPerPax(){
 }
 
 
+
+/* ============================================== Logos der Gesellschaften ==
+   Liegen im Repository Bilddateien, benannt nach dem Kürzel der Gesellschaft,
+   werden sie statt der gezeichneten Leitwerke verwendet:
+     Graphics/Tails/<code>.png            Heckflosse
+     Graphics/AirlineLogobox/<code>.png   quadratisches Signet
+     Graphics/AirlineLogolong/<code>.png  breites Signet
+   Gesucht wird nach ICAO-Kürzel (SWR) und IATA-Kürzel (LX), Gross- und
+   Kleinschreibung des Ordners spielt keine Rolle. */
+const AIRLINE_IATA = {
+  SWR:"LX", EDW:"WK", EZY:"U2", DLH:"LH", EWG:"EW", AFR:"AF", KLM:"KL", TRA:"HV",
+  BAW:"BA", RYR:"FR", WZZ:"W6", VLG:"VY", IBE:"IB", AZA:"AZ", TAP:"TP", SAS:"SK",
+  NOZ:"DY", FIN:"AY", AUA:"OS", BEL:"SN", LOT:"LO", CSA:"QS", THY:"TK", PGT:"PC",
+  AEE:"A3", EIN:"EI", CFG:"DE", TUI:"X3", LDM:"LG", HOP:"EN", IBK:"I2", ISS:"FI",
+  CTN:"OU", ADR:"JU", UAE:"EK", QTR:"QR", ETD:"EY", UAL:"UA", DAL:"DL", AAL:"AA",
+  ACA:"AC", SIA:"SQ", CPA:"CX", JAL:"JL", ANA:"NH", KAL:"KE", CCA:"CA", CES:"MU",
+  CSN:"CZ", THA:"TG", MAS:"MH", GIA:"GA", AIC:"AI", QFA:"QF", ANZ:"NZ", ETH:"ET",
+  MSR:"MS", RAM:"AT", SAA:"SA", ELY:"LY", LAN:"LA", AVA:"AV", AMX:"AM", GLO:"G3",
+  VOZ:"VA", JST:"JQ", AXM:"AK", IGO:"6E", SWA:"WN", JBU:"B6", WJA:"WS"
+};
+const ART_DIRS = {
+  tail:["Graphics/Tails","graphics/Tails","graphics/tails"],
+  box: ["Graphics/AirlineLogobox","graphics/AirlineLogobox","Graphics/AirlineLogbox","graphics/airlinelogobox"],
+  long:["Graphics/AirlineLogolong","graphics/AirlineLogolong","graphics/airlinelogolong"]
+};
+const AIRLINE_ART = {tail:{}, box:{}, long:{}};
+let ART_READY=false;
+async function scanAirlineArt(){
+  for(const kind of ["tail","box","long"]){
+    let files=[], dir=null;
+    for(const d of ART_DIRS[kind]){
+      const f=await listFolder(d);
+      if(f.length){ files=f; dir=d; break; }
+    }
+    if(!dir) continue;
+    const index={};
+    files.filter(f=>/\.(png|jpe?g|svg|webp)$/i.test(f)).forEach(f=>{
+      index[f.replace(/\.[^.]+$/,"").toUpperCase()]=dir+"/"+f;
+    });
+    COMPETITOR_DATABASE.forEach(x=>{
+      const cands=[x.id, AIRLINE_IATA[x.id]].filter(Boolean).map(c=>c.toUpperCase());
+      for(const c of cands){ if(index[c]){ AIRLINE_ART[kind][x.id]=index[c]; break; } }
+    });
+  }
+  ART_READY=true;
+  const n=Object.keys(AIRLINE_ART.tail).length+Object.keys(AIRLINE_ART.box).length;
+  if(n && typeof render==="function") render();
+}
+function airlineArt(x, kind){ return x && AIRLINE_ART[kind] ? AIRLINE_ART[kind][x.id] : null; }
+/** Bildmarke einer Gesellschaft, mit Rückfall auf das gezeichnete Leitwerk. */
+function rivalMark(x, size, kind){
+  const url=airlineArt(x, kind||"tail") || airlineArt(x,"box");
+  if(url) return `<img src="${esc(url)}" width="${size}" height="${size}"
+    style="object-fit:contain;display:block;border-radius:2px" alt="" loading="lazy">`;
+  return finSVG(x, size);
+}
+
 /* ============================================ Leitwerke der Wettbewerber ==
    Statt Markenlogos zu sammeln, zeichnet das Spiel die Leitwerke selbst:
    Hausfarben und Muster sind angelehnt, aber eigenständig — einheitlich in
@@ -2998,7 +3207,7 @@ function timeLabel(dep){
 
 /* Ergebnisse je einzelnem Flug, Schlüssel "Flugzeug-ID#Leg-Index". */
 let LEGSTATS = {};
-const legKey = (acId,i)=>acId+"#"+i;
+const legKey = (acId,d,i)=>acId+"#"+d+"#"+i;
 
 /** Aktive Marketingaktion einer Strecke. */
 function campaignOn(key, kind){
@@ -3137,7 +3346,7 @@ function simRoute(r, legList, monthIdx, ctx){
       flights:part.fl, seats:pSeats, pax:Math.min(pPax,pSeats),
       lf: pSeats? Math.min(pPax/pSeats,1) : 0, rev:pRev, cost, profit:pRev-cost};
     out.legs.push(st);
-    LEGSTATS[legKey(part.ac.id, part.leg.i)] = st;
+    LEGSTATS[legKey(part.ac.id, part.leg.day, part.leg.i)] = st;
   });
   return out;
 }
@@ -3182,15 +3391,15 @@ function buildDaySchedule(){
   S.fleet.forEach(ac=>{
     if(ac.status!=="aktiv") return;
     if(charterBusy(ac.id)) return;
-    const p=ensurePlan(ac);
-    if(!p.days[wd]) return;
     const sch=scheduleOf(ac);
-    sch.legs.forEach(l=>{
+    const legs=sch.week[wd].legs;
+    if(!legs.length) return;
+    legs.forEach(l=>{
       if(l.issues.length) return;
-      const st=LEGSTATS[legKey(ac.id,l.i)];
+      const st=LEGSTATS[legKey(ac.id,wd,l.i)];
       const f=st?Math.max(st.flights,1):1;
       const old=prev[ac.id+"#"+l.i];
-      S.daySched.push({ac:ac.id, reg:ac.reg, i:l.i, from:l.from, to:l.to, no:l.no,
+      S.daySched.push({ac:ac.id, reg:ac.reg, i:l.i, day:wd, from:l.from, to:l.to, no:l.no,
         dep:l.dep, arr:l.arr, dist:l.dist,
         rev: old&&old.d ? old.rev : (st?st.rev/f:0),
         cost: old&&old.d ? old.cost : (st?st.cost/f:0),
@@ -3244,10 +3453,10 @@ function creditFlight(f){
   const net=f.rev-f.cost;
   S.cash+=net;
   /* Jeden abgeschlossenen Flug einzeln festhalten */
-  const st=LEGSTATS[legKey(f.ac,f.i)];
+  const st=LEGSTATS[legKey(f.ac,f.day,f.i)];
   S.flightHistory=S.flightHistory||[];
   S.flightHistory.unshift({
-    t:S.clock, no:f.no, reg:f.reg, ac:f.ac, from:f.from, to:f.to,
+    t:S.clock, no:f.no, reg:f.reg, ac:f.ac, day:f.day, from:f.from, to:f.to,
     dep:f.dep, arr:f.arr, dist:f.dist,
     pax:Math.round(f.pax), seats:Math.round(f.seats),
     lf: f.seats? f.pax/f.seats : 0, net,
@@ -3422,6 +3631,7 @@ function monthClose(){
   S.acc=emptyAcc();
 
   cloudAuto();
+  checkScenario();
   maybeDilemma();
   if(S.pending){ setSpeed(0); setTimeout(showDilemma,220); }
   if(S.cash < 0 && !S.warnedCash){ S.warnedCash=true;
@@ -4083,7 +4293,7 @@ function routeDetail(key){
     ${(L&&L.ok&&L.split?L.split.rivals:rivalsOn(r).map(v=>{const x=rivalById(v.id);
         return {id:v.id, name:x?x.name:v.id, share:null, flights:v.flights, fare:v.fare};}))
       .map(v=>{const x=rivalById(v.id); return `<div class="kv" style="padding-left:10px">
-      <span style="color:var(--dim2)">${x?`<span style="display:inline-block;vertical-align:middle;margin-right:5px">${finSVG(x,18)}</span>`:""}${esc(v.name)} <span class="pill">${x?MODEL_NAME[x.model]:""}</span></span>
+      <span style="color:var(--dim2)">${x?`<span style="display:inline-block;vertical-align:middle;margin-right:5px">${rivalMark(x,18)}</span>`:""}${esc(v.name)} <span class="pill">${x?MODEL_NAME[x.model]:""}</span></span>
       <span>${v.share!=null?fmt(v.share*100,1)+"% · ":""}${fmt(v.flights/7,1)}/Tag · Tarif ${fmt(v.fare*100,0)}${x?" · Ruf "+fmt(x.rep,0):""}</span></div>`;}).join("")}
     ${L&&L.ok&&L.transferPax?`<div class="kv"><span>davon Umsteiger</span><span>${fmt(L.transferPax/7,0)} Pax pro Tag</span></div>`:""}
     ${L&&L.ok&&L.cargoRev?`<div class="kv"><span>Frachterlös</span><span>${chf(L.cargoRev*BAL.weeksPerMonth)} pro Monat · ${fmt(L.cargoT,1)} t je Woche</span></div>`:""}
@@ -4098,7 +4308,7 @@ function routeDetail(key){
       <tr><th>Flug</th><th>Muster</th><th>Zeit</th><th class="r">Tage</th><th class="r">SLF</th>
       <th class="r">Pax/Flug</th><th class="r">Ergebnis/Mt</th></tr>
       ${legs.map(e=>{
-        const st=LEGSTATS[legKey(e.ac.id,e.leg.i)];
+        const st=LEGSTATS[legKey(e.ac.id,e.leg.day,e.leg.i)];
         return `<tr><td class="amb">${S.code} ${e.leg.no||"—"}</td><td>${e.ac.reg}</td>
           <td>${e.leg.from} ${hhmmD(e.leg.dep)} → ${e.leg.to} ${hhmmD(e.leg.arr)}</td>
           <td class="r">${e.days}</td>
@@ -4192,7 +4402,7 @@ function rivalDialog(){
     }).filter(q=>q.on.length).sort((a,b)=>b.fl-a.fl);
     if(!rows.length) return `<div class="empty"><b>Noch kein direkter Wettbewerb</b>Sobald Sie Strecken aufnehmen, erscheinen hier die Gesellschaften, die dort ebenfalls fliegen.</div>`;
     return rows.map(({x,on,fl})=>`<div class="card"><div class="row" style="justify-content:space-between">
-      <span style="flex:0 0 34px">${finSVG(x,34)}</span>
+      <span style="flex:0 0 34px">${rivalMark(x,34)}</span>
       <div style="flex:1"><input type="text" data-rn="${x.id}" value="${esc(x.name)}" maxlength="34"
         style="font-family:var(--disp);font-size:15px;letter-spacing:.05em;background:transparent;border:none;padding:0;width:100%">
         <div class="dim" style="font-size:10.5px">${MODEL_NAME[x.model]} · Drehkreuze ${x.hubs.slice(0,5).join(" ")}</div></div>
@@ -4279,8 +4489,8 @@ function analyseDialog(){
 /* ------------------------------------------------------------ Flotte --- */
 
 /** Kurzbewertung eines einzelnen Fluges aus dem letzten Monat. */
-function legStatHTML(ac, i){
-  const st = LEGSTATS[legKey(ac.id,i)];
+function legStatHTML(ac, d, i){
+  const st = LEGSTATS[legKey(ac.id,d,i)];
   if(!st) return `<span class="dim">noch keine Auswertung</span>`;
   const c = st.profit>=0?"pos":"neg";
   return `<span class="${st.lf<0.55?'neg':st.lf>0.85?'amb':'pos'}">SLF ${fmt(st.lf*100,0)}%</span>
@@ -4288,29 +4498,54 @@ function legStatHTML(ac, i){
     · ${fmt(st.pax/Math.max(st.flights,1),0)} Pax/Flug
     · <span class="dim">${st.tag}</span>${st.transfer>0.02?` · <span class="pos">Anschluss +${fmt(st.transfer*100,0)}%</span>`:""}${st.wx>0.25?` · <span class="neg">Wetter</span>`:""}`;
 }
-function legProfit(ac,i){ const st=LEGSTATS[legKey(ac.id,i)]; return st?st.profit:null; }
+function legProfit(ac,d,i){ const st=LEGSTATS[legKey(ac.id,d,i)]; return st?st.profit:null; }
 
-function timelineHTML(ac){
-  const sch=scheduleOf(ac), span=1620;             // 27 Stunden Darstellungsbreite
-  const base=AP[ac.base];
+function timelineHTML(ac, day){
+  const sch=scheduleOf(ac), span=1620;
+  const legs = day==null ? sch.legs : sch.week[day].legs;
+  const base=AP[day==null?ac.base:sch.pos[day]] || AP[ac.base];
   const cf=curfewOf(base);
   let bars="";
   if(cf){
-    const seg=(s,e)=>{ s=clamp(s,0,span); e=clamp(e,0,span);
-      if(e>s) bars+=`<div class="cf" style="left:${(s/span*100).toFixed(2)}%;width:${((e-s)/span*100).toFixed(2)}%"></div>`; };
+    const seg=(s0,e0)=>{ s0=clamp(s0,0,span); e0=clamp(e0,0,span);
+      if(e0>s0) bars+=`<div class="cf" style="left:${(s0/span*100).toFixed(2)}%;width:${((e0-s0)/span*100).toFixed(2)}%"></div>`; };
     if(cf[0]<cf[1]){ seg(cf[0],cf[1]); seg(cf[0]+1440,cf[1]+1440); }
     else { seg(0,cf[1]); seg(cf[0],1440+cf[1]); }
   }
   for(let hh=0;hh<=27;hh+=3) bars+=`<div class="hr" style="left:${(hh*60/span*100).toFixed(2)}%"></div>`;
   const cols=["#f2a93b","#4aa8e0","#5fcf95","#9b8cf0","#e2695f","#e0c33a","#2aa8c4"];
-  sch.legs.forEach((l,i)=>{
+  legs.forEach((l,i)=>{
     const bad=l.issues.length;
     bars+=`<div class="lg" title="${l.from}–${l.to} ${hhmmD(l.dep)}–${hhmmD(l.arr)}"
-      style="left:${(l.dep/span*100).toFixed(2)}%;width:${(l.block/span*100).toFixed(2)}%;
+      style="left:${(clamp(l.dep,0,span)/span*100).toFixed(2)}%;width:${(Math.min(l.block,span-l.dep)/span*100).toFixed(2)}%;
       background:${bad?"#e2695f":cols[i%cols.length]}">${l.block/span*100>6?l.to:""}</div>`;
   });
   return `<div class="tl">${bars}</div>
     <div class="tlx"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span><span>27</span></div>`;
+}
+/** Wochenübersicht: sieben schmale Bänder untereinander. */
+function weekTimelineHTML(ac, active){
+  const sch=scheduleOf(ac), span=1620;
+  const cols=["#f2a93b","#4aa8e0","#5fcf95","#9b8cf0","#e2695f","#e0c33a","#2aa8c4"];
+  return `<div class="wk">${DAYS.map((dn,d)=>{
+    const legs=sch.week[d].legs;
+    const cf=curfewOf(AP[sch.pos[d]]);
+    let bars="";
+    if(cf){
+      const seg=(s0,e0)=>{ s0=clamp(s0,0,span); e0=clamp(e0,0,span);
+        if(e0>s0) bars+=`<div class="cf" style="left:${(s0/span*100).toFixed(2)}%;width:${((e0-s0)/span*100).toFixed(2)}%"></div>`; };
+      if(cf[0]<cf[1]){ seg(cf[0],cf[1]); seg(cf[0]+1440,cf[1]+1440); }
+      else { seg(0,cf[1]); seg(cf[0],1440+cf[1]); }
+    }
+    legs.forEach((l,i)=>bars+=`<div class="lg" title="${l.from}–${l.to} ${hhmmD(l.dep)}"
+      style="left:${(clamp(l.dep,0,span)/span*100).toFixed(2)}%;width:${(Math.min(l.block,span-l.dep)/span*100).toFixed(2)}%;
+      background:${l.issues.length?"#e2695f":cols[i%cols.length]}">${l.block/span*100>9?l.to:""}</div>`);
+    return `<div class="wkrow ${active===d?'on':''}" data-wd="${d}">
+      <span class="wkd">${dn}</span>
+      <span class="wkp">${sch.pos[d]}</span>
+      <div class="tl" style="height:20px;margin:0;flex:1">${bars}</div>
+      <span class="wkh">${legs.length?fmt(sch.week[d].blockSum/60,1)+" h":"—"}</span></div>`;
+  }).join("")}</div>`;
 }
 function paneFleet(p){
   let h=`<h2 class="sec">Flotte und Tagespläne</h2>`;
@@ -4331,9 +4566,9 @@ function paneFleet(p){
     const t=ACT[ac.type], s=seatsOf(ac), sch=scheduleOf(ac), days=planDays(ac);
     const wb=acWeeklyBlock(ac);
     const st = ac.status==="wartung" ? `<span class="pill bad">Grosscheck</span>`
-      : !sch.legs.length ? `<span class="pill warn">kein Tagesplan</span>`
+      : !sch.flights ? `<span class="pill warn">kein Flugplan</span>`
       : sch.warn.length ? `<span class="pill bad">${sch.warn.length} Hinweis${sch.warn.length>1?"e":""}</span>`
-      : `<span class="pill ok">${sch.legs.length} Flüge/Tag</span>`;
+      : `<span class="pill ok">${sch.flights} Flüge/Woche</span>`;
     h+=`<div class="card">
       <div class="planebox">${planeSVG(ac.type,S.livery,{wear:acWear(ac)})}</div>
       <div class="row" style="justify-content:space-between">
@@ -4342,20 +4577,24 @@ function paneFleet(p){
       <div class="kv"><span>Fracht · Ausstattung</span><span>${fmt(cargoCap(ac),1)} t${ac.wifi?" · WLAN":""}${ac.combi?" · Combi "+ac.combi:""}</span></div>
       <div class="kv"><span>Bordservice · Zustand</span><span>${svcOfAc(ac).n} · ${acWear(ac)>0.75?"stark abgenutzt":acWear(ac)>0.4?"gebraucht":"gepflegt"}</span></div>
       <div class="kv"><span>Kabine</span><span>${s.eco} Eco${s.prem?" · "+s.prem+" Prem":""}${s.biz?" · "+s.biz+" Biz":""}${s.first?" · "+s.first+" First":""} = ${s.total}</span></div>
-      ${timelineHTML(ac)}
+      ${weekTimelineHTML(ac, -1)}
       <div style="margin-top:6px">`;
-    if(sch.legs.length){
-      sch.legs.forEach(l=>h+=`<div class="legrow"><span class="amb">${S.code} ${l.no||"—"}</span>
-        <span><b>${l.from}→${l.to}</b> <span class="dim">${hhmmD(l.dep)}–${hhmmD(l.arr)} · ${fmt(l.dist)} km</span>
-          ${l.issues.length?`<br><span class="neg">${esc(l.issues.join(", "))}</span>`:`<br>${legStatHTML(ac,l.i)}`}</span>
+    if(sch.flights){
+      h+=`<div class="kv"><span>Blockzeit</span><span>${fmt(wb,1)} h pro Woche · max ${t.block} h pro Tag</span></div>
+          <div class="kv"><span>Betriebstage · Wochenschluss</span>
+            <span>${days} · <span class="${sch.endsHome?'pos':'neg'}">${sch.endsHome?"Basis":sch.pos[0]}</span></span></div>`;
+      const first=sch.week.find(x=>x.legs.length);
+      if(first) first.legs.slice(0,4).forEach(l=>h+=`<div class="legrow"><span class="amb">${S.code} ${l.no||"—"}</span>
+        <span><b>${l.from}→${l.to}</b> <span class="dim">${DAYS[l.day]} ${hhmmD(l.dep)}–${hhmmD(l.arr)}</span>
+          ${l.issues.length?`<br><span class="neg">${esc(l.issues.join(", "))}</span>`:`<br>${legStatHTML(ac,l.day,l.i)}`}</span>
         <span>${fmt(l.block/60,1)} h</span></div>`);
-      h+=`<div class="kv" style="margin-top:6px"><span>Betriebstage</span><span>${DAYS.filter((d,i)=>ac.plan.days[i]).join(" ")||"keine"}</span></div>
-          <div class="kv"><span>Blockzeit</span><span>${fmt(sch.blockSum/60,1)} h/Tag · ${fmt(wb,1)} h/Woche (max ${t.block} h/Tag)</span></div>
-          <div class="kv"><span>Dienstzeit</span><span>${fmt(sch.duty/60,1)} h</span></div>`;
-    } else h+=`<span class="dim" style="font-size:11.5px">Ohne Tagesplan verdient dieses Flugzeug nichts, kostet aber Abschreibung und Standgebühren.</span>`;
-    sch.warn.forEach(w=>h+=`<div class="pill bad" style="margin-top:4px;display:inline-block">${esc(w)}</div> `);
+    } else h+=`<span class="dim" style="font-size:11.5px">Ohne Flugplan verdient dieses Flugzeug nichts, kostet aber Abschreibung und Standgebühren.</span>`;
+    sch.warn.slice(0,4).forEach(x=>h+=`<div class="pill bad" style="margin-top:4px;display:inline-block">${esc(x)}</div> `);
     h+=`</div><div class="row" style="margin-top:8px">
-        <button class="sm primary" data-plan="${ac.id}">Tagesplan</button>
+        <button class="sm primary" data-plan="${ac.id}">Wochenplan</button>
+        <button class="sm" data-trim="${ac.id}">Schwache Flüge streichen</button>
+        <button class="sm" data-svc="${ac.id}">Service: ${svcOfAc(ac).n}</button>
+        <button class="sm" data-fh="${ac.id}">Letzte Flüge</button>
         <button class="sm" data-cab="${ac.id}">Kabine</button>
         <button class="sm" data-base="${ac.id}">Verlegen</button>
         ${ac.lease?`<button class="sm" data-ret="${ac.id}">Zurückgeben</button>`:`<button class="sm" data-sell="${ac.id}">Verkaufen</button>`}
@@ -4377,29 +4616,32 @@ function paneFleet(p){
 /** Entfernt defizitäre oder gesperrte Flüge und schliesst den Umlauf wieder. */
 function trimPlan(id){
   const ac=S.fleet.find(x=>x.id===id); if(!ac) return;
-  const p=ensurePlan(ac), sch=scheduleOf(ac);
-  const drop=new Set();
-  sch.legs.forEach(l=>{
-    if(l.issues.length) drop.add(l.i);
-    const st=LEGSTATS[legKey(ac.id,l.i)];
-    if(st && st.profit<0) drop.add(l.i);
-  });
-  if(!drop.size){ toast("Alle Flüge tragen sich — nichts zu streichen."); return; }
-  const dests=[], nums=[];
-  p.dests.forEach((d,i)=>{ if(!drop.has(i)){ dests.push(d); nums.push(p.nums[i]); } });
-  p.dests=dests; p.nums=nums;
-  // Umlauf wieder an der Basis schliessen
-  const s2=scheduleOf(ac);
-  if(s2.legs.length && s2.legs[s2.legs.length-1].to!==ac.base){ p.dests.push(ac.base); p.nums.push(null); }
+  const p=ensurePlan(ac);
+  let dropped=0;
+  for(let d=0;d<7;d++){
+    const sch=scheduleOf(ac), legs=sch.week[d].legs;
+    const drop=new Set();
+    legs.forEach(l=>{
+      if(l.issues.length) drop.add(l.i);
+      const st=LEGSTATS[legKey(ac.id,d,l.i)];
+      if(st && st.profit<0) drop.add(l.i);
+    });
+    if(!drop.size) continue;
+    const w=p.week[d], dests=[], nums=[];
+    w.dests.forEach((x,i)=>{ if(!drop.has(i)){ dests.push(x); nums.push(w.nums[i]); } });
+    w.dests=dests; w.nums=nums; dropped+=drop.size;
+  }
+  if(!dropped){ toast("Alle Flüge tragen sich — nichts zu streichen."); return; }
   ensurePlan(ac);
-  logg(`${ac.reg}: ${drop.size} Flüge aus dem Tagesplan gestrichen.`,"warn");
+  logg(`${ac.reg}: ${dropped} Flüge aus dem Wochenplan gestrichen.`,"warn");
   render();
 }
+let PLAN_DAY=0;
 function planDialog(id){
   const ac=S.fleet.find(x=>x.id===id); if(!ac) return;
   const t=ACT[ac.type]; const p=ensurePlan(ac);
   const backup=JSON.parse(JSON.stringify(p));
-  modal(`Tagesplan ${ac.reg}`, `<div id="pw"></div>`, [
+  modal(`Wochenplan ${ac.reg}`, `<div id="pw"></div>`, [
     {t:"Verwerfen",f:()=>{ ac.plan=backup; $("#veil").classList.remove("on"); render(); }},
     {t:"Übernehmen",p:true,f:()=>{ $("#veil").classList.remove("on"); render(); }}]);
 
@@ -4411,30 +4653,42 @@ function planDialog(id){
   }
   function draw(){
     const sch=scheduleOf(ac);
-    const last = sch.legs.length ? sch.legs[sch.legs.length-1].to : ac.base;
-    const opts = reachable(last);
+    const d=PLAN_DAY;
+    const dayS=sch.week[d];
+    const startPos=sch.pos[d];
+    const last = dayS.legs.length ? dayS.legs[dayS.legs.length-1].to : startPos;
+    const w=p.week[d];
+    const opts=reachable(last);
     let h=`<div class="planebox">${planeSVG(ac.type,S.livery,{wear:acWear(ac)})}</div>
+      <div class="kv"><span>Blockzeit ganze Woche</span>
+        <span>${fmt(sch.blockWeek/60,1)} h · ${sch.flights} Flüge · ${planDays(ac)} Betriebstage</span></div>
+      <div class="kv"><span>Wochenschluss</span>
+        <span class="${sch.endsHome?'pos':'neg'}">${sch.endsHome?"kehrt zur Basis "+ac.base+" zurück":"endet in "+sch.pos[0]}</span></div>
+      ${weekTimelineHTML(ac, d)}
+      <p class="dim" style="font-size:11px;margin:4px 0 8px">Jeder Tag beginnt dort, wo der Vortag endete — die zweite Spalte zeigt den Standort am Morgen. So lassen sich Langstrecken abbilden, deren Rückflug am Folgetag liegt.</p>
+
+      <h3 class="sub">${DAYS[d]} · ab ${startPos}</h3>
       <div class="row" style="gap:14px;align-items:flex-end">
         <div style="flex:0 0 118px"><label class="f">Erster Abflug</label>
-          <input type="time" id="pstart" value="${hhmm(p.start)}"></div>
-        <div style="flex:1"><label class="f">Betriebstage</label>
-          <div class="daysel" id="pdays">${DAYS.map((d,i)=>
-            `<button class="${p.days[i]?'on':''}" data-d="${i}">${d}</button>`).join("")}</div></div>
+          <input type="time" id="pstart" value="${hhmm(w.start)}"></div>
+        <div style="flex:1"><label class="f">Tag wählen</label>
+          <div class="daysel" id="pdays">${DAYS.map((dn,i)=>
+            `<button class="${i===d?'on':''}" data-d="${i}">${dn}</button>`).join("")}</div></div>
       </div>
-      ${timelineHTML(ac)}
+      ${timelineHTML(ac, d)}
       <div class="kv" style="margin-top:6px"><span>Blockzeit / Tageslimit</span>
-        <span class="${sch.blockSum>t.block*60?'neg':''}">${fmt(sch.blockSum/60,1)} von ${t.block} h</span></div>
-      <div class="kv"><span>Dienstzeit</span><span class="${sch.duty>BAL.maxDuty?'neg':''}">${fmt(sch.duty/60,1)} h</span></div>
+        <span class="${dayS.blockSum>t.block*60?'neg':''}">${fmt(dayS.blockSum/60,1)} von ${t.block} h</span></div>
+      <div class="kv"><span>Dienstzeit</span><span class="${dayS.duty>BAL.maxDuty?'neg':''}">${fmt(dayS.duty/60,1)} h</span></div>
       <div class="kv"><span>Abfertigung je Zwischenhalt</span><span>${t.turn} min${hasUpgrade(ac.base,"boden")?" · eigene Abfertigung −10 min":""}</span></div>
-      <p class="dim" style="font-size:11px;margin:6px 0 0">Landet an dieser Station 35 bis 240 Minuten vor dem Abflug ein eigener Zubringer, buchen Umsteiger mit — bis zu 30% zusätzliche Nachfrage. Nachfrage nach Tageszeit: 05–08 Uhr Morgenspitze, 11–15 Uhr Mittagsloch, 18–22 Uhr Abendspitze. Business bucht fast nur in den Randzeiten.</p>
-      <h3 class="sub">Umlauf ab ${ac.base}</h3>`;
-    if(!sch.legs.length) h+=`<div class="dim" style="padding:6px 0">Noch keine Ziele. Unten ein Ziel wählen — das Flugzeug startet an der Basis und kehrt idealerweise dorthin zurück.</div>`;
-    sch.legs.forEach((l,i)=>{
+      <p class="dim" style="font-size:11px;margin:6px 0 0">Landet an einer Station 35 bis 240 Minuten vor dem Abflug ein eigener Zubringer, buchen Umsteiger mit — bis zu 30% zusätzliche Nachfrage. Nachfrage nach Tageszeit: 05–08 Uhr Morgenspitze, 11–15 Uhr Mittagsloch, 18–22 Uhr Abendspitze.</p>
+      <h3 class="sub">Umlauf am ${DAYS[d]}</h3>`;
+    if(!dayS.legs.length) h+=`<div class="dim" style="padding:6px 0">An diesem Tag steht die Maschine in ${startPos}. Unten ein Ziel wählen.</div>`;
+    dayS.legs.forEach((l,i)=>{
       h+=`<div class="card" style="padding:7px 10px;margin-bottom:5px">
         <div class="row" style="justify-content:space-between">
           <div><span class="amb mono">${S.code} ${l.no||"—"}</span> <b class="mono">${l.from} → ${l.to}</b>
             <span class="dim mono" style="font-size:11px"> ab ${hhmmD(l.dep)} · an ${hhmmD(l.arr)} · ${fmt(l.block/60,1)} h · ${fmt(l.dist)} km</span>
-            <br><span style="font-size:11px">${legStatHTML(ac,l.i)}</span></div>
+            <br><span style="font-size:11px">${legStatHTML(ac,l.day,l.i)}</span></div>
           <button class="sm" data-del="${i}">Entfernen</button></div>
         ${l.issues.length?`<div class="pill bad" style="margin-top:4px;display:inline-block">${esc(l.issues.join(" · "))}</div>`:""}
       </div>`;
@@ -4442,28 +4696,42 @@ function planDialog(id){
     h+=`<div class="row" style="margin:8px 0">
       ${last!==ac.base?`<button class="sm primary" id="rethome">Rückflug nach ${ac.base} anhängen</button>`:""}
       <button class="sm" id="fillday">Tag automatisch füllen</button>
-      <button class="sm" id="clearp">Plan leeren</button></div>
+      <button class="sm" id="clearp">Tag leeren</button>
+      <button class="sm" id="copyall">Auf alle Tage übertragen</button>
+      <button class="sm" id="copywd">Auf Mo–Fr übertragen</button>
+      <button class="sm" id="clearweek">Ganze Woche leeren</button></div>
       <label class="f">Ziel anhängen ab ${last} — nach Tagesnachfrage sortiert</label>
       <input type="text" id="pq" placeholder="Filter: IATA, Stadt, Land">
       <div id="plist" style="max-height:30vh;overflow-y:auto;margin-top:7px"></div>`;
-    if(sch.warn.length) h+=`<h3 class="sub">Hinweise</h3>`+sch.warn.map(w=>`<div class="pill bad" style="display:inline-block;margin:0 4px 4px 0">${esc(w)}</div>`).join("");
+    if(sch.warn.length) h+=`<h3 class="sub">Hinweise</h3>`+sch.warn.map(x=>`<div class="pill bad" style="display:inline-block;margin:0 4px 4px 0">${esc(x)}</div>`).join("");
     $("#pw").innerHTML=h;
 
     $("#pstart").onchange=e=>{ const [H,M]=e.target.value.split(":").map(Number);
-      p.start=clamp((H||0)*60+(M||0),0,1439); draw(); };
-    $("#pdays").querySelectorAll("button").forEach(b=>b.onclick=()=>{
-      const i=+b.dataset.d; p.days[i]=p.days[i]?0:1; draw(); });
+      w.start=clamp((H||0)*60+(M||0),0,1439); draw(); };
+    $("#pdays").querySelectorAll("button").forEach(b=>b.onclick=()=>{ PLAN_DAY=+b.dataset.d; draw(); });
+    $("#pw").querySelectorAll(".wkrow").forEach(r=>r.onclick=()=>{ PLAN_DAY=+r.dataset.wd; draw(); });
     $("#pw").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
-      const ix=+b.dataset.del; p.dests.splice(ix,1); p.nums.splice(ix,1); draw(); });
-    const rh=$("#rethome"); if(rh) rh.onclick=()=>{ p.dests.push(ac.base); ensurePlan(ac); draw(); };
-    $("#clearp").onclick=()=>{ p.dests=[]; p.nums=[]; draw(); };
-    $("#fillday").onclick=()=>{ autoFill(ac); draw(); };
+      const ix=+b.dataset.del; w.dests.splice(ix,1); w.nums.splice(ix,1); draw(); });
+    const rh=$("#rethome"); if(rh) rh.onclick=()=>{ w.dests.push(ac.base); ensurePlan(ac); draw(); };
+    $("#clearp").onclick=()=>{ w.dests=[]; w.nums=[]; draw(); };
+    $("#clearweek").onclick=()=>{ p.week=[0,1,2,3,4,5,6].map(()=>emptyDay()); ensurePlan(ac); draw(); };
+    $("#copyall").onclick=()=>{ copyDay(0,7); };
+    $("#copywd").onclick=()=>{ copyDay(0,5); };
+    $("#fillday").onclick=()=>{ autoFill(ac,d); draw(); };
+    function copyDay(from,count){
+      for(let i=0;i<count;i++){
+        if(i===d) continue;
+        p.week[i]={start:w.start, dests:w.dests.slice(), nums:[]};
+      }
+      if(count<7) for(let i=count;i<7;i++) p.week[i]=emptyDay();
+      ensurePlan(ac); draw();
+    }
     const fillList=()=>{
       const q=($("#pq").value||"").toLowerCase();
       const cand=opts.filter(x=>!q||(x.B.iata+x.B.city+x.B.country).toLowerCase().includes(q)).slice(0,70);
       $("#plist").innerHTML=cand.map(x=>{
         const A=AP[last], bm=blockMinutes(t,x.m.d);
-        const dep = sch.legs.length ? sch.legs[sch.legs.length-1].arr + t.turn : p.start;
+        const dep = dayS.legs.length ? dayS.legs[dayS.legs.length-1].arr + turnAt(t,last) : w.start;
         const arr = dep+bm;
         const bad = inCurfew(A,dep)||inCurfew(x.B,arr);
         return `<div class="choice" data-i="${x.B.iata}">
@@ -4473,65 +4741,45 @@ function planDialog(id){
           <div class="mono">${fmt(x.m.daily,0)}</div></div>`;}).join("")
         || `<div class="dim" style="padding:8px">Keine erreichbaren Ziele.</div>`;
       $("#plist").querySelectorAll(".choice").forEach(c=>c.onclick=()=>{
-        p.dests.push(c.dataset.i); ensurePlan(ac); draw(); });
+        w.dests.push(c.dataset.i); ensurePlan(ac); draw(); });
     };
     $("#pq").oninput=fillList; fillList();
   }
-  /** Füllt den Tag mit Hin- und Rückflügen zum ertragreichsten erreichbaren Ziel. */
-  function autoFill(ac){
-    const t=ACT[ac.type], p=ensurePlan(ac);
+  /** Füllt einen Tag mit ertragreichen Zielen, ohne die Grenzen zu sprengen. */
+  function autoFill(ac, d){
+    const t=ACT[ac.type], p=ensurePlan(ac), w=p.week[d];
     let guard=0;
     while(guard++<12){
-      const sch=scheduleOf(ac);
-      const last = sch.legs.length ? sch.legs[sch.legs.length-1].to : ac.base;
-      const from = AP[last];
-      const cands = reachable(last).slice(0,14);
+      const sch=scheduleOf(ac), dayS=sch.week[d];
+      const last = dayS.legs.length ? dayS.legs[dayS.legs.length-1].to : sch.pos[d];
+      const from=AP[last];
       let best=null;
-      cands.forEach(x=>{
+      reachable(last).slice(0,14).forEach(x=>{
         const bm=blockMinutes(t,x.m.d);
-        const dep = sch.legs.length ? sch.legs[sch.legs.length-1].arr+t.turn : p.start;
-        const arr = dep+bm;
-        const home = distKm(x.B, AP[ac.base]);
-        const back = blockMinutes(t,home);
-        if(sch.blockSum+bm+ (x.B.iata===ac.base?0:back) > t.block*60) return;
-        if(arr + (x.B.iata===ac.base?0:t.turn+back) - p.start > BAL.maxDuty) return;
+        const dep = dayS.legs.length ? dayS.legs[dayS.legs.length-1].arr+turnAt(t,last) : w.start;
+        const arr=dep+bm;
+        const home=distKm(x.B, AP[ac.base]);
+        const back=blockMinutes(t,home);
+        const needBack = x.B.iata===ac.base ? 0 : back;
+        if(dayS.blockSum+bm+needBack > t.block*60) return;
+        if(arr + (needBack?turnAt(t,x.B.iata)+needBack:0) - w.start > BAL.maxDuty) return;
         if(inCurfew(from,dep)||inCurfew(x.B,arr)) return;
-        const score = x.m.daily/(bm/60);
+        const score=x.m.daily/(bm/60);
         if(!best||score>best.score) best={x,score};
       });
       if(!best) break;
-      p.dests.push(best.x.B.iata); ensurePlan(ac);
+      w.dests.push(best.x.B.iata); ensurePlan(ac);
       if(best.x.B.iata!==ac.base){
-        const sch2=scheduleOf(ac);
-        const l=sch2.legs[sch2.legs.length-1];
+        const s2=scheduleOf(ac).week[d];
+        const l=s2.legs[s2.legs.length-1];
         const backM=blockMinutes(t,distKm(AP[l.to],AP[ac.base]));
-        if(!inCurfew(AP[l.to],l.arr+t.turn) && !inCurfew(AP[ac.base],l.arr+t.turn+backM))
-          { p.dests.push(ac.base); ensurePlan(ac); }
-        else { p.dests.pop(); p.nums.pop(); break; }
+        if(!inCurfew(AP[l.to],l.arr+turnAt(t,l.to)) && !inCurfew(AP[ac.base],l.arr+turnAt(t,l.to)+backM)){
+          w.dests.push(ac.base); ensurePlan(ac);
+        } else { w.dests.pop(); w.nums.pop(); break; }
       }
     }
   }
   draw();
-}
-
-function serviceDialog(id){
-  const ac=S.fleet.find(x=>x.id===id); if(!ac) return;
-  let sel=ac.svc||"standard";
-  const body=()=>Object.entries(SVC_LEVELS).map(([k,v])=>{
-    const s2=seatsOf(ac);
-    const perFlight=["eco","prem","biz","first"].reduce((a,c)=>a+s2[c]*SERVICE[c][v.i].cost,0);
-    return `<div class="choice ${sel===k?'on':''}" data-k="${k}">
-      <div><div class="t">${v.n}</div><div class="d">${v.d}</div></div>
-      <div class="mono" style="text-align:right">${chf(perFlight)}<br><span class="dim">je voller Flug</span></div></div>`;}).join("");
-  modal(`Bordservice ${ac.reg}`,
-    `<p class="dim">Die Stufe gilt für dieses Flugzeug. Sie wirkt auf Kosten je Passagier, Buchungsbereitschaft und Ruf — besonders stark in Business und First.</p>
-     <div id="svl">${body()}</div>
-     <div class="row" style="margin-top:8px"><button class="sm" id="svall">Auf ganze Flotte übertragen</button></div>`,
-    [{t:"Abbrechen",f:()=>$("#veil").classList.remove("on")},
-     {t:"Übernehmen",p:true,f:()=>{ ac.svc=sel; $("#veil").classList.remove("on"); render(); }}]);
-  $("#svl").onclick=e=>{const c=e.target.closest(".choice"); if(!c)return; sel=c.dataset.k; $("#svl").innerHTML=body();};
-  $("#svall").onclick=()=>{ S.fleet.forEach(a=>a.svc=sel); toast("Servicestufe für die ganze Flotte übernommen.");
-    $("#veil").classList.remove("on"); render(); };
 }
 function cabinDialog(id){
   const ac=S.fleet.find(x=>x.id===id), t=ACT[ac.type], U=seatUnits(t);
@@ -4615,7 +4863,8 @@ function relocateDialog(id){
      <p class="dim" style="margin-top:9px">Die Überführung kostet 60'000 CHF. Der Tagesplan wird geleert, weil er an der Basis beginnt.</p>`,
     [{t:"Abbrechen",f:()=>$("#veil").classList.remove("on")},
      {t:"Verlegen",p:true,f:()=>{const nb=$("#nb").value;
-        if(nb!==ac.base){S.cash-=60000; ac.base=nb; ac.plan.dests=[]; logg(`${ac.reg} nach ${nb} verlegt.`,"");}
+        if(nb!==ac.base){S.cash-=60000; ac.base=nb;
+          ac.plan={}; ensurePlan(ac); logg(`${ac.reg} nach ${nb} verlegt.`,"");}
         $("#veil").classList.remove("on"); render();}}]);
 }
 function sellAircraft(id,lease){
@@ -4800,7 +5049,7 @@ function paneFin(p){
       .sort((a,b)=>(b.h-a.h)||(b.routes-a.routes)||(b.v-a.v)).slice(0,26);
     list.forEach(({x,v,h:hp,routes})=>{
       h+=`<div class="card"><div class="row" style="justify-content:space-between">
-        <div class="row" style="gap:8px"><span style="flex:0 0 30px">${finSVG(x,30)}</span>
+        <div class="row" style="gap:8px"><span style="flex:0 0 30px">${rivalMark(x,30)}</span>
         <div><b>${esc(x.name)}</b><br><span class="dim" style="font-size:10.5px">${MODEL_NAME[x.model]} · ${x.hubs.slice(0,4).join(" ")}</span></div></div>
         <div class="mono" style="text-align:right">${chf(v)}<br><span class="dim">Bewertung</span></div></div>
         <div class="kv"><span>Ihr Anteil</span><span class="${hp>0?'amb':''}">${fmt(hp*100,0)}%</span></div>
@@ -5711,6 +5960,7 @@ function paneData(p){
     <div class="kv"><span>Bildmarke · Startbild</span><span>${MISC.logo?"gefunden":"—"} · ${MISC.splash?"gefunden":"—"}</span></div>
     <div class="kv"><span>Eigene Aufkleber</span><span>${MISC.decals.length||"—"}</span></div>
     <div class="kv"><span>Flughafenbilder</span><span>${Object.keys(MISC.airports).length||"—"}</span></div>
+    <div class="kv"><span>Airline-Logos</span><span>${Object.keys(AIRLINE_ART.tail).length} Heck · ${Object.keys(AIRLINE_ART.box).length} Signet · ${Object.keys(AIRLINE_ART.long).length} breit</span></div>
     <div class="row" style="margin-top:8px">
       <button class="sm primary" id="scanBtn">Ordner neu durchsuchen</button>
       <button class="sm" id="prepBtn">Vorlage von Hand aufbereiten</button>
@@ -5759,7 +6009,12 @@ function paneData(p){
     try{ Object.keys(localStorage).filter(k=>k.startsWith("skyline.dir.")).forEach(k=>localStorage.removeItem(k)); }catch(e){}
     Object.keys(FOLDER_CACHE).forEach(k=>delete FOLDER_CACHE[k]);
     MISC.decals=[]; MISC.logo=null; MISC.splash=null; MISC.airports={};
-    scanMisc(); forgetAssets(); };
+    ["tail","box","long"].forEach(k=>AIRLINE_ART[k]={});
+    scanAirlineArt();
+scanScenarios();
+    scanMisc();
+scanAirlineArt();
+scanScenarios(); forgetAssets(); };
   const ib=$("#idsBtn"); if(ib) ib.onclick=()=>modal("Musterkennungen",
     `<p class="dim">So müssen die Dateien im Ordner <span class="mono">${ASSET_DIR}</span> heissen. Eine einzige Datei je Muster genügt.</p>
      <table class="tbl"><tr><th>Muster</th><th>Dateiname</th><th class="r">Status</th></tr>
@@ -5922,7 +6177,7 @@ function adoptSave(d){
   if(!S.finTab) S.finTab="gv";
   if(!S.mapStyle) S.mapStyle="nacht";
   S.fleet.forEach(ac=>{ if(!ac.plan) ac.plan={start:390,dests:[],days:[1,1,1,1,1,1,1],nums:[]};
-    if(!ac.plan.dests) ac.plan.dests=[];
+    if(!ac.plan) ac.plan={};
     if(!ac.cab) ac.cab=CABIN_PRESETS[ACT[ac.type].cat==="Grossraum"?"standard":"europa"].f(ACT[ac.type]);
     if(!ac.svc) ac.svc="standard";
     if(!ac.reg||/^[A-Z]{1,3}-\d{3}$/.test(ac.reg)) ac.reg=newRegistration(ac.base);
@@ -5966,7 +6221,7 @@ function showAirport(iata){
   const hc=hubCarriers(iata);
   if(hc.length){
     h+=`<h3 class="sub">Gesellschaften mit Drehkreuz hier</h3>`;
-    hc.forEach(x=>h+=`<div class="kv"><span><span style="display:inline-block;vertical-align:middle;margin-right:5px">${finSVG(x,18)}</span>${esc(x.name)}</span>
+    hc.forEach(x=>h+=`<div class="kv"><span><span style="display:inline-block;vertical-align:middle;margin-right:5px">${rivalMark(x,18)}</span>${esc(x.name)}</span>
       <span>${MODEL_NAME[x.model]} · Ruf ${fmt(x.rep,0)} · Tarif ${fmt(x.fareMod*100,0)}</span></div>`);
     h+=`<p class="dim" style="font-size:11px;margin-top:5px">Eine Station an einem fremden Drehkreuz bedeutet harten Wettbewerb — dafür grosse Märkte.</p>`;
   }
@@ -6073,40 +6328,71 @@ function startExisting(idx){
       ac.hours=Math.round(rnd(500, BAL.heavyCheckHrs*0.7));
       const t=ACT[type];
       /* Tagesplan: zwei bis drei Ziele, gestaffelte Abflugzeiten */
-      ac.plan.start = 6*60 + (n%7)*28;
+      const startMin = 6*60 + (n%7)*28;
       const pick2=[];
       for(let k=0;k<dests.length && pick2.length<3;k++){
-        const d=dests[(n*3+k) % dests.length];
-        if(pick2.includes(d)) continue;
-        if(acCanFly(ac, AP[base], AP[d])) continue;
-        pick2.push(d);
+        const dd=dests[(n*3+k) % dests.length];
+        if(pick2.includes(dd)) continue;
+        if(acCanFly(ac, AP[base], AP[dd])) continue;
+        pick2.push(dd);
       }
-      ac.plan.dests=[];
-      pick2.forEach(d=>{ ac.plan.dests.push(d, base); });
+      const chain=[]; pick2.forEach(dd=>chain.push(dd, base));
       ensurePlan(ac);
-      /* zu lange Umläufe hinten kürzen */
+      for(let d=0;d<7;d++) ac.plan.week[d]={start:startMin, dests:chain.slice(), nums:[]};
+      ensurePlan(ac);
+      /* zu lange Umläufe kürzen, bis der Tag passt */
       let guard=0;
       while(guard++<8){
         const sch=scheduleOf(ac);
-        if(sch.blockSum<=t.block*60 && sch.duty<=BAL.maxDuty && !sch.legs.some(l=>l.issues.length)) break;
-        ac.plan.dests.splice(-2,2); ac.plan.nums.splice(-2,2);
-        if(!ac.plan.dests.length) break;
+        const bad = sch.week.some(x=>x.blockSum>t.block*60 || x.duty>BAL.maxDuty
+          || x.legs.some(l=>l.issues.length));
+        if(!bad) break;
+        for(let d=0;d<7;d++){ ac.plan.week[d].dests.splice(-2,2); ac.plan.week[d].nums.splice(-2,2); }
+        ensurePlan(ac);
+        if(!ac.plan.week[0].dests.length) break;
       }
-      /* Kam nichts zustande, an der Hauptbasis mit dem nächstbesten Ziel neu ansetzen */
-      if(!ac.plan.dests.length){
+      /* Kam nichts zustande, an der Hauptbasis mit einem Ziel neu ansetzen */
+      if(!ac.plan.week[0].dests.length){
         ac.base=A.bases[0];
         ac.reg=newRegistration(ac.base);
         for(const dd of dests){
           if(acCanFly(ac, AP[ac.base], AP[dd])) continue;
-          ac.plan.dests=[dd, ac.base]; ensurePlan(ac);
+          for(let d=0;d<7;d++) ac.plan.week[d]={start:startMin, dests:[dd, ac.base], nums:[]};
+          ensurePlan(ac);
           const sch=scheduleOf(ac);
-          if(sch.blockSum<=t.block*60 && !sch.legs.some(l=>l.issues.length)) break;
-          ac.plan.dests=[]; ac.plan.nums=[];
+          if(!sch.week.some(x=>x.blockSum>t.block*60 || x.legs.some(l=>l.issues.length))) break;
+          for(let d=0;d<7;d++) ac.plan.week[d]=emptyDay();
+          ensurePlan(ac);
         }
       }
       n++;
     }
   });
+  /* Langstrecken über Nacht auf zwei Tage verteilen, statt sie zu streichen */
+  S.fleet.forEach(ac=>{
+    const t=ACT[ac.type];
+    if(t.cat!=="Grossraum") return;
+    const sch=scheduleOf(ac);
+    if(sch.flights) return;
+    const far=(A.dests||[]).filter(dd=>AP[dd] && !acCanFly(ac, AP[ac.base], AP[dd]))
+      .sort((x,y)=>distKm(AP[ac.base],AP[y])-distKm(AP[ac.base],AP[x]));
+    if(!far.length) return;
+    const target=far[0];
+    ensurePlan(ac);
+    for(let d=0;d<7;d++) ac.plan.week[d]=emptyDay();
+    /* Hinflug Mo/Mi/Fr, Rückflug am jeweils nächsten Tag */
+    [[0,1],[2,3],[4,5]].forEach(([out,back])=>{
+      ac.plan.week[out]={start:10*60+30, dests:[target], nums:[]};
+      ac.plan.week[back]={start:21*60, dests:[ac.base], nums:[]};
+    });
+    ensurePlan(ac);
+    let g=0;
+    while(g++<4 && scheduleOf(ac).week.some(x=>x.legs.some(l=>l.issues.length))){
+      /* Abflugzeiten verschieben, falls eine Sperrzeit im Weg liegt */
+      for(let d=0;d<7;d++) if(ac.plan.week[d].dests.length) ac.plan.week[d].start=(ac.plan.week[d].start+90)%1440;
+    }
+  });
+
   /* Personal nach Bedarf, mit etwas Reserve */
   const need=pilotNeed(); S.pilots={};
   for(const k in need) S.pilots[k]=Math.ceil(need[k]*1.08);
@@ -6117,6 +6403,174 @@ function startExisting(idx){
 }
 
 
+
+/* ============================================================ Szenarien ==
+   Vorgegebene Ausgangslagen mit Siegbedingung. Das Gerüst steht; die
+   einzelnen Szenarien werden in SCENARIOS eingetragen. Aufbau eines Eintrags:
+
+   {id:"kennung",                     eindeutig, zugleich Name der Bilddatei
+    name:"Titel",
+    text:"Ausgangslage in zwei bis drei Sätzen",
+    airline:{name, code, liv},        Gesellschaft des Spielers
+    bases:["ZRH"],                    Stationen zu Beginn
+    cash:60,                          Startkapital in Millionen
+    rep:60,                           Ruf zu Beginn
+    fleet:[["a20n",3]],               Flotte, wahlweise mit Basisindex
+    dests:["LHR","BCN"],              Ziele für die Grundplanung
+    difficulty:"normal",
+    bal:{fuel:1.6},                   Überschreibungen für BAL oder S
+    ziel:{art:"gewinn", wert:5e6, monate:24, text:"..."},
+    verloren:{art:"kasse", wert:0}}
+
+   Bilder liegen unter Graphics/Scenarios/<id>.jpg. */
+const SCENARIO_DIR = ["Graphics/Scenarios","graphics/Scenarios","graphics/scenarios"];
+const SCENARIOS = [];
+const SCENARIO_ART = {};
+async function scanScenarios(){
+  for(const d of SCENARIO_DIR){
+    const files=await listFolder(d);
+    if(!files.length) continue;
+    files.filter(f=>/\.(jpe?g|png|webp)$/i.test(f)).forEach(f=>{
+      SCENARIO_ART[f.replace(/\.[^.]+$/,"").toLowerCase()]=d+"/"+f;
+    });
+    break;
+  }
+}
+function scenarioImage(sc){
+  const k=(sc.id||sc.name||"").toLowerCase();
+  return SCENARIO_ART[k] || SCENARIO_ART[k.replace(/\s+/g,"-")] || SCENARIO_ART[k.replace(/\s+/g,"_")] || null;
+}
+/** Prüft nach jedem Monatsabschluss, ob Sieg oder Niederlage eingetreten ist. */
+function checkScenario(){
+  const sc=S.scenario && SCENARIOS.find(x=>x.id===S.scenario);
+  if(!sc || S.scenarioDone) return;
+  const monate=S.history.length;
+  const z=sc.ziel||{}, v=sc.verloren||{};
+  const wert=(art)=>{
+    switch(art){
+      case "gewinn":  return S.lastMonth?S.lastMonth.profit:0;
+      case "kasse":   return S.cash;
+      case "pax":     return S.history.reduce((a,h)=>a+h.pax,0);
+      case "ruf":     return S.rep;
+      case "flotte":  return S.fleet.length;
+      case "strecken":return S.routes.length;
+      case "anteil":  { const r=S.routes.filter(x=>x.last&&x.last.ok);
+                        return r.length? r.reduce((a,x)=>a+x.last.share,0)/r.length*100 : 0; }
+      case "eigenkapital": return S.cash+fleetValue()+portfolioValue()-S.debt;
+      default: return 0;
+    }
+  };
+  if(v.art && wert(v.art) < (v.wert!=null?v.wert:0)){
+    S.scenarioDone="verloren"; setSpeed(0);
+    setTimeout(()=>modal(`${sc.name} — gescheitert`,
+      `<p>${esc(v.text||"Die Vorgabe wurde nicht erreicht.")}</p>
+       <p class="dim">Nach ${monate} Monaten.</p>`,
+      [{t:"Zurück zum Menü",p:true,f:()=>{$("#veil").classList.remove("on"); mainMenu();}}]),200);
+    return;
+  }
+  if(z.monate && monate>z.monate && wert(z.art)<z.wert){
+    S.scenarioDone="verloren"; setSpeed(0);
+    setTimeout(()=>modal(`${sc.name} — Frist abgelaufen`,
+      `<p>Nach ${z.monate} Monaten war das Ziel nicht erreicht.</p>`,
+      [{t:"Zurück zum Menü",p:true,f:()=>{$("#veil").classList.remove("on"); mainMenu();}}]),200);
+    return;
+  }
+  if(z.art && wert(z.art)>=z.wert){
+    S.scenarioDone="gewonnen"; setSpeed(0);
+    logg(`Szenario «${sc.name}» erfüllt.`,"good");
+    setTimeout(()=>modal(`${sc.name} — geschafft`,
+      `<p>${esc(z.text||"Die Vorgabe ist erfüllt.")}</p>
+       <p class="dim">Nach ${monate} Monaten. Der Betrieb lässt sich frei weiterführen.</p>`,
+      [{t:"Weiterspielen",p:true,f:()=>{$("#veil").classList.remove("on");}}]),200);
+  }
+}
+function startScenario(id){
+  const sc=SCENARIOS.find(x=>x.id===id); if(!sc) return;
+  const liv=Object.assign({}, DEFAULT_LIVERY, sc.airline.liv||{},
+    {code:sc.airline.code, decals:[], layers:[]});
+  newGame({name:sc.airline.name, code:sc.airline.code, home:sc.bases[0],
+    level:sc.difficulty||"normal", livery:liv, flightStart:100});
+  sc.bases.slice(1).forEach(b=>{ if(AP[b]&&!S.bases.includes(b)) S.bases.push(b); });
+  if(sc.cash!=null) S.cash=sc.cash*1e6;
+  if(sc.rep!=null) S.rep=sc.rep;
+  if(sc.bal) Object.keys(sc.bal).forEach(k=>{ if(k in BAL) BAL[k]=sc.bal[k]; else S[k]=sc.bal[k]; });
+  const dests=(sc.dests||[]).filter(d=>AP[d]);
+  let n=0;
+  (sc.fleet||[]).forEach(([type,cnt,bIdx])=>{
+    for(let i=0;i<cnt;i++){
+      const base=sc.bases[bIdx!=null?Math.min(bIdx,sc.bases.length-1):(n%sc.bases.length)];
+      const ac=addAircraft(type,false,base,Math.round(rnd(12,90)));
+      const chain=[];
+      for(let k=0;k<dests.length && chain.length<4;k++){
+        const dd=dests[(n*3+k)%dests.length];
+        if(chain.includes(dd)) continue;
+        if(acCanFly(ac,AP[base],AP[dd])) continue;
+        chain.push(dd, base);
+      }
+      ensurePlan(ac);
+      for(let d=0;d<7;d++) ac.plan.week[d]={start:6*60+(n%7)*26, dests:chain.slice(), nums:[]};
+      ensurePlan(ac);
+      let g=0;
+      while(g++<8 && scheduleOf(ac).week.some(x=>x.blockSum>ACT[type].block*60
+          || x.duty>BAL.maxDuty || x.legs.some(l=>l.issues.length))){
+        for(let d=0;d<7;d++){ ac.plan.week[d].dests.splice(-2,2); ac.plan.week[d].nums.splice(-2,2); }
+        ensurePlan(ac);
+        if(!ac.plan.week[0].dests.length) break;
+      }
+      n++;
+    }
+  });
+  const need=pilotNeed(); S.pilots={};
+  for(const k in need) S.pilots[k]=Math.ceil(need[k]*1.05);
+  S.cabin=Math.ceil(cabinNeed()*1.05);
+  S.scenario=sc.id; S.scenarioDone=null;
+  logg(`Szenario «${sc.name}» begonnen.`,"good");
+  recomputeWeek(); buildDaySchedule(); render(); setSpeed(0);
+}
+function scenarioDialog(){
+  if(!SCENARIOS.length){
+    modal("Szenarien",
+      `<div class="empty"><b>Noch keine Szenarien hinterlegt</b>
+        Das Gerüst steht: Ausgangslage, Flotte, Startkapital, wirtschaftliche Sonderbedingungen sowie Sieg- und Niederlagebedingungen lassen sich je Szenario festlegen. Bilder werden aus <span class="mono">Graphics/Scenarios/</span> geladen.</div>
+       <p class="dim">Gefundene Bilder: ${Object.keys(SCENARIO_ART).length||"keine"}${
+         Object.keys(SCENARIO_ART).length?" — "+Object.keys(SCENARIO_ART).join(", "):""}</p>`,
+      [{t:"Zurück",p:true,f:mainMenu}]);
+    $("#mX").style.display="none";
+    return;
+  }
+  modal("Szenarien",
+    `<p class="dim">Vorgegebene Ausgangslagen mit klarem Ziel. Wirtschaftliche Rahmenbedingungen können abweichen.</p>
+     <div id="scl">${SCENARIOS.map(sc=>{
+       const img=scenarioImage(sc);
+       return `<div class="choice" data-i="${esc(sc.id)}" style="align-items:stretch">
+         ${img?`<span style="flex:0 0 92px"><img src="${esc(img)}" style="width:92px;height:62px;object-fit:cover;border-radius:3px" alt=""></span>`:""}
+         <div style="flex:1"><div class="t">${esc(sc.name)}</div>
+           <div class="d">${esc(sc.text||"")}</div>
+           <div class="d" style="margin-top:3px">${(sc.bases||[]).join(" · ")} · ${(sc.fleet||[]).reduce((a,[,n])=>a+n,0)} Flugzeuge · ${sc.cash} Mio</div></div>
+         <div class="mono amb">›</div></div>`;}).join("")}</div>`,
+    [{t:"Zurück",f:mainMenu}]);
+  $("#mX").style.display="none";
+  $("#scl").onclick=e=>{
+    const c=e.target.closest(".choice"); if(!c) return;
+    const sc=SCENARIOS.find(x=>x.id===c.dataset.i); if(!sc) return;
+    const img=scenarioImage(sc);
+    modal(sc.name,
+      `${img?`<div class="planebox" style="padding:0;margin-bottom:10px"><img src="${esc(img)}" style="width:100%;display:block" alt=""></div>`:""}
+       <p>${esc(sc.text||"")}</p>
+       <div class="card">
+         <div class="kv"><span>Stationen</span><span>${(sc.bases||[]).map(b=>b+(AP[b]?" — "+esc(AP[b].city):"")).join("<br>")}</span></div>
+         <div class="kv"><span>Flotte</span><span>${(sc.fleet||[]).map(([t,n])=>n+"× "+esc(ACT[t]?ACT[t].name:t)).join("<br>")}</span></div>
+         <div class="kv"><span>Startkapital · Ruf</span><span>${sc.cash} Mio CHF · ${sc.rep}</span></div>
+         ${sc.ziel?`<div class="kv"><span>Ziel</span><span>${esc(sc.ziel.text||"")}</span></div>`:""}
+         ${sc.verloren?`<div class="kv"><span>Gescheitert bei</span><span>${esc(sc.verloren.text||"")}</span></div>`:""}
+       </div>`,
+      [{t:"Zurück",f:scenarioDialog},
+       {t:"Starten",p:true,f:()=>{ $("#veil").classList.remove("on"); $("#mX").style.display="";
+          startScenario(sc.id); }}]);
+    $("#mX").style.display="none";
+  };
+}
+
 /* ============================================================ Hauptmenü */
 function mainMenu(){
   const cards=[
@@ -6125,15 +6579,15 @@ function mainMenu(){
     {k:"best", t:"Bestehende Airline führen",
      d:"Eine der zehn mittelgrossen Gesellschaften übernehmen. Flotte, Basen, Personal und ein laufendes Netz sind vorhanden."},
     {k:"szen", t:"Szenarien",
-     d:"Vorgegebene Ausgangslagen mit klarem Ziel. Noch in Arbeit."},
+     d:"Vorgegebene Ausgangslagen mit klarem Ziel — eigene Flotte, eigene Rahmenbedingungen, Sieg- und Niederlagebedingung."},
     {k:"load", t:"Spielstand laden",
      d:"Aus einer Datei oder aus der Cloud, wenn ein Konto hinterlegt ist."}
   ];
   modal("Skyline Manager",
     `${MISC.splash?`<div class="planebox" style="padding:0;margin-bottom:12px"><img src="${esc(MISC.splash)}" style="width:100%;display:block" alt=""></div>`:""}
      <p class="dim">Airline-Simulation in Echtzeit. Flotte beschaffen, Tagespläne bauen, gegen echte Wettbewerber bestehen.</p>
-     <div id="mm">${cards.map(c=>`<div class="choice" data-k="${c.k}" ${c.k==="szen"?'style="opacity:.5"':''}>
-       <div><div class="t">${c.t}${c.k==="szen"?" — bald":""}</div><div class="d">${c.d}</div></div>
+     <div id="mm">${cards.map(c=>`<div class="choice" data-k="${c.k}" ${c.k==="szen"&&!SCENARIOS.length?'style="opacity:.6"':''}>
+       <div><div class="t">${c.t}${c.k==="szen"&&!SCENARIOS.length?" — noch leer":""}</div><div class="d">${c.d}</div></div>
        <div class="mono amb">›</div></div>`).join("")}</div>`,
     []);
   $("#mX").style.display="none";
@@ -6142,7 +6596,7 @@ function mainMenu(){
     const k=c.dataset.k;
     if(k==="neu"){ startDialog(); }
     else if(k==="best"){ legacyDialog(); }
-    else if(k==="szen"){ toast("Szenarien folgen später."); }
+    else if(k==="szen"){ scenarioDialog(); }
     else if(k==="load"){ loadMenu(); }
   };
 }
@@ -6266,6 +6720,8 @@ function startDialog(){
 cloudLoadCfg();
 scanAssets(false);
 scanMisc();
+scanAirlineArt();
+scanScenarios();
 if("serviceWorker" in navigator && location.protocol.startsWith("http")){
   navigator.serviceWorker.register("sw.js").catch(()=>{});
 }

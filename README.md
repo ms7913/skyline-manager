@@ -131,6 +131,43 @@ Hausfarbe.
 Das Suchergebnis wird eine Woche gemerkt. Nach dem Hochladen neuer Dateien
 einmal auf **Ordner neu durchsuchen** klicken.
 
+## Logos der Fluggesellschaften
+
+Werden automatisch gefunden, benannt nach dem Kürzel — sowohl ICAO (`SWR.png`)
+als auch IATA (`LX.png`) funktionieren:
+
+```
+Graphics/Tails/<code>.png            Heckflosse
+Graphics/AirlineLogobox/<code>.png   quadratisches Signet
+Graphics/AirlineLogolong/<code>.png  breites Signet
+```
+
+Wo ein Bild vorhanden ist, ersetzt es das gezeichnete Leitwerk — im
+Streckendetail, in der Wettbewerberübersicht, bei den Beteiligungen und im
+Flughafenfenster. Fehlt eines, bleibt die eigene Zeichnung stehen.
+
+## Szenarien
+
+Die Bilder werden aus `Graphics/Scenarios/<kennung>.jpg` geladen. Ein Szenario
+wird in `index.html` bei `SCENARIOS` eingetragen:
+
+```js
+{id:"nordatlantik",              // zugleich Name der Bilddatei
+ name:"Die Nordatlantik-Brücke",
+ text:"Ausgangslage in zwei bis drei Sätzen",
+ airline:{name:"Atlantic Bridge", code:"AB", liv:{c1:"#0d5fbf", c2:"#ffffff"}},
+ bases:["KEF"], cash:70, rep:60, difficulty:"normal",
+ fleet:[["b38m",4],["b763",1]],
+ dests:["LHR","CPH","AMS","JFK","BOS","YYZ"],
+ bal:{fuel:1.6},                 // wirtschaftliche Sonderbedingungen
+ ziel:{art:"gewinn", wert:2e6, monate:24, text:"…"},
+ verloren:{art:"kasse", wert:-10e6, text:"…"}}
+```
+
+Als `art` stehen zur Verfügung: `gewinn`, `kasse`, `pax`, `ruf`, `flotte`,
+`strecken`, `anteil` und `eigenkapital`. Geprüft wird nach jedem
+Monatsabschluss.
+
 ## Der Ordner misc
 
 Hier liegt alles, was nicht zu einem Flugzeugmuster gehört. Bereits genutzt:
