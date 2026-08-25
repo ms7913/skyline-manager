@@ -3100,7 +3100,10 @@ function rivalStyle(x){
     tail:tails[(h>>5)%tails.length], glyph:GLYPH_KEYS[(h>>7)%GLYPH_KEYS.length]};
 }
 /** Kleines Leitwerk als Bildmarke — einheitliche Form für alle. */
-function finSVG(x, size){
+function rivalMark(x, size){
+  return `<img src="graphics/Tails/${x.id}.png" width="${size}" height="${size}" style="object-fit:contain; border-radius:4px; vertical-align:middle;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';"><span style="display:none; vertical-align:middle;">${rivalMark(x, size)}</span>`;
+}
+function rivalMark(x, size){
   const st=rivalStyle(x);
   const W=64, H=64;
   const fin=`M6,58 L34,10 L52,10 L58,58 Z`;
