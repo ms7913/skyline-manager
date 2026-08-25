@@ -1729,36 +1729,42 @@ function planeSVG(typeId, liv, opts){
 /** Darstellung aus einem Grafikpaket: die PNG-Ebenen werden über
     SVG-Masken eingefärbt, damit sie in Listen genauso aussehen wie im
     Editor auf dem Canvas. */
+/** Darstellung aus einem Grafikpaket: Nutzt die Roh-Bilder flach als
+    Hintergrund und legt nur die Beschriftung darüber.
+    Verhindert doppelte Darstellungen durch fehlerhafte Auto-Masken. */
 function planeAssetSVG(typeId, L0, o){
   const A=PLANE_ASSETS[typeId]||{};
   const VW=A.w||1600, VH=A.h||520;
   const id="A"+Math.random().toString(36).slice(2,9);
-  const body=BODY_COLS[L0.body]||L0.c1;
-  const wear=clamp(o.wear||0,0,1);
+  
+  // Hole die URL des Basis-Bildes
+  let baseImgUrl = assetUrl(typeId, "base");
+  
+  // Fallback: Wenn base nicht da ist, versuche direkt das Roh-Bild zu laden,
+  // da die Auto-Maskierung von probeAsset() bei komplexen Bildern oft fehlschlägt.
+  if(!baseImgUrl && A.file) {
+    baseImgUrl = ASSET_DIR + A.file;
+  }
+  
   const r=(A.r||VH*0.11);
   const x0=(A.x0!=null?A.x0:VW*0.03), yc=(A.yc!=null?A.yc:VH*0.55);
   const scale=(A.unit!=null?A.unit:(VW*0.94)/1000);
-  const dark=lum(body)>0.5;
   const title=((typeof S!=="undefined"&&S&&S.name)?S.name:"Skyline").toUpperCase().slice(0,18);
-  const img=(k,extra)=>`<image href="${assetUrl(typeId,k)}" x="0" y="0" width="${VW}" height="${VH}" ${extra||""}/>`;
+  const body=BODY_COLS[L0.body]||L0.c1;
+  const dark=lum(body)>0.5;
+
   return `<svg viewBox="0 0 ${VW} ${VH}" width="100%" preserveAspectRatio="xMidYMid meet"
-    role="img" aria-label="${esc(ACT[typeId].name)} in der Hausbemalung">
-    <defs>
-      <mask id="${id}m" maskUnits="userSpaceOnUse" x="0" y="0" width="${VW}" height="${VH}">${img("mask")}</mask>
-      ${A.tail?`<mask id="${id}t" maskUnits="userSpaceOnUse" x="0" y="0" width="${VW}" height="${VH}">${img("tail")}</mask>`:""}
-      <filter id="${id}w"><feColorMatrix type="saturate" values="${(1-wear*0.5).toFixed(2)}"/></filter>
-    </defs>
-    <g ${wear>0.02?`filter="url(#${id}w)"`:""}>
-      ${img("base")}
-      <rect width="${VW}" height="${VH}" fill="${body}" mask="url(#${id}m)" style="mix-blend-mode:multiply"/>
-      ${A.tail?`<rect width="${VW}" height="${VH}" fill="${L0.c1}" mask="url(#${id}t)" style="mix-blend-mode:multiply"/>`:""}
+    role="img" aria-label="${esc(ACT[typeId].name)}">
+    <g>
+      <!-- Flaches Einbinden des Bildes ohne Maskierungs-Logik -->
+      ${baseImgUrl ? `<image href="${baseImgUrl}" x="0" y="0" width="${VW}" height="${VH}" preserveAspectRatio="xMidYMid meet" />` : ""}
+      
       <g transform="translate(${x0},${yc}) scale(${scale.toFixed(4)})">
         ${(L0.layers||[]).map(l=>layerSVG(l,r/scale)).join("")}
         ${o.titles?`<text x="135" y="${(-r/scale*1.30).toFixed(1)}" font-family="Barlow Condensed,sans-serif"
           font-size="${(r/scale*0.95).toFixed(1)}" font-weight="700" letter-spacing="${(r/scale*0.10).toFixed(1)}"
           fill="${dark?L0.c1:"#eef3f8"}">${esc(title)}</text>`:""}
       </g>
-      ${A.shade?img("shade",'style="mix-blend-mode:multiply"'):""}
     </g></svg>`;
 }
 
