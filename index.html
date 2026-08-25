@@ -1098,6 +1098,63 @@ async function scanMisc(){
     applyBrand(); if(typeof render==="function") render(); }
 }
 
+
+/* ============================================ Dateinamen zuordnen ========
+   Vorlagen tragen selten die Musterkennung im Namen. Das Spiel liest deshalb
+   die Ordnerliste und ordnet jede Datei über Suchmuster dem passenden Muster
+   zu — «A320_NEO_Pratt__Whitney_white_sm.jpg» landet bei a20n, «Q400_white.jpg»
+   bei dh8d. Reicht eine Vorlage nicht genau, wird die nächstliegende genommen;
+   das ist bei einer Seitenansicht unkritisch. */
+const ASSET_MATCH = {
+  at72:[/atr[\s_-]*(42|72)/i, /\batr\b/i],
+  dh8d:[/q[\s_-]*400/i, /dash[\s_-]*8/i, /dhc[\s_-]*8/i],
+  cr9: [/crj[\s_-]*900/i, /crj[\s_-]*1000/i, /crj[\s_-]*(700|550)/i, /\bcrj\b/i],
+  e175:[/erj[\s_-]*19[05](?![\s_-]*e2)/i, /\be1?7[05]\b/i, /embraer[\s_-]*17[05]/i, /erj[\s_-]*145/i],
+  e29e:[/e19[05][\s_-]*e2/i, /erj[\s_-]*190[\s_-]*e2/i, /\be2\b/i],
+  bcs1:[/cs[\s_-]*100/i, /a?220[\s_-]*100/i],
+  bcs3:[/cs[\s_-]*300/i, /a?220[\s_-]*300/i],
+  b737:[/737[\s_-]*(700|800)/i, /737[\s_-]*ng/i],
+  a20n:[/a?320[\s_-]*neo/i, /a?319[\s_-]*neo/i, /\ba?320\b/i],
+  b38m:[/737[\s_-]*max[\s_-]*8/i, /max[\s_-]*8/i, /737[\s_-]*max/i],
+  a21n:[/a?321[\s_-]*neo(?![\s_-]*(lr|xlr))/i, /a?321[\s_-]*neo/i, /\ba?321\b/i],
+  a21x:[/a?321[\s_-]*(x?lr)/i, /a?321[\s_-]*neo[\s_-]*lr/i, /\bxlr\b/i, /a?321[\s_-]*neo/i],
+  b752:[/757[\s_-]*(200|300)/i, /\b757\b/i],
+  b763:[/767[\s_-]*300/i, /767[\s_-]*400/i, /\b767\b/i],
+  a339:[/a?330[\s_-]*900/i, /a?330[\s_-]*800/i, /a?330[\s_-]*neo/i, /a?330[\s_-]*(300|200)/i],
+  b788:[/787[\s_-]*8/i, /787[\s_-]*10/i],
+  b789:[/787[\s_-]*9/i, /787[\s_-]*10/i],
+  a359:[/a?350[\s_-]*900/i, /a?350(?![\s_-]*1000)/i, /a?350[\s_-]*1000/i],
+  a35k:[/a?350[\s_-]*1000/i, /a?350[\s_-]*900/i],
+  b77w:[/777[\s_-]*(300|200)/i, /777[\s_-]*8/i, /\b777f\b/i],
+  b779:[/777[\s_-]*9/i, /777[\s_-]*8/i],
+  a388:[/a?380/i]
+};
+/** Sucht die beste Datei für ein Muster aus der Ordnerliste. */
+function matchAssetFile(id, files){
+  const pats=ASSET_MATCH[id]; if(!pats) return null;
+  const imgs=files.filter(f=>/\.(jpe?g|png|webp)$/i.test(f));
+  /* Eigene Ebenen haben Vorrang und werden anderswo behandelt */
+  const plain=imgs.filter(f=>!/-(base|mask|tail|shade)\.png$/i.test(f));
+  const named=plain.find(f=>new RegExp("^"+id+"\\.(jpe?g|png|webp)$","i").test(f));
+  if(named) return named;
+  for(const p of pats){
+    const hits=plain.filter(f=>p.test(f));
+    if(hits.length){
+      /* «white» bevorzugen, danach die kürzeste Bezeichnung */
+      hits.sort((a,b)=>{
+        const wa=/white/i.test(a)?0:1, wb=/white/i.test(b)?0:1;
+        if(wa!==wb) return wa-wb;
+        const ba=/blueprint|line[\s_-]*draw|drawing/i.test(a)?1:0;
+        const bb=/blueprint|line[\s_-]*draw|drawing/i.test(b)?1:0;
+        if(ba!==bb) return ba-bb;
+        return a.length-b.length;
+      });
+      return hits[0];
+    }
+  }
+  return null;
+}
+
 /* ================================================= Externe Grafikpakete ==
    Das Spiel durchsucht beim Start den Ordner graphics/AircraftTemplates/ und
    verwendet, was es dort findet. Nichts muss von Hand eingetragen werden.
@@ -1162,7 +1219,7 @@ function blobUrl(cv){
   try{ return cv.toDataURL("image/png"); }catch(e){ return ""; }
 }
 /** Untersucht ein Muster: welche Dateien liegen da, und wie ist das Bild aufgebaut. */
-async function probeAsset(id){
+async function probeAsset(id, fileName){
   ASSET_STATE[id]="prüft";
   let baseCv=null, url={}, derived=false;
 
@@ -1171,7 +1228,9 @@ async function probeAsset(id){
     baseCv=canvasFromImage(preBase);
     url.base=ASSET_DIR+id+"-base.png";
   } else {
-    let raw=await tryImage(ASSET_DIR+id+".jpg");
+    let raw=null;
+    if(fileName) raw=await tryImage(ASSET_DIR+fileName);
+    if(!raw) raw=await tryImage(ASSET_DIR+id+".jpg");
     if(!raw) raw=await tryImage(ASSET_DIR+id+".png");
     if(!raw){ ASSET_STATE[id]="fehlt"; return false; }
     /* Rohe Vorlage: Hintergrund vom Rand her freistellen */
@@ -1210,7 +1269,7 @@ async function probeAsset(id){
   ASSET_LAYERS[id]=Object.assign(ASSET_LAYERS[id]||{}, {baseCv, url, box, anchor:an});
   PLANE_ASSETS[id]={base:1, mask:1, tail:1, shade:!!sImg,
     w:baseCv.width, h:baseCv.height,
-    x0:an.x0, yc:an.yc, r:an.r, unit:an.unit, derived};
+    x0:an.x0, yc:an.yc, r:an.r, unit:an.unit, derived, file:fileName||null};
   ASSET_STATE[id]="da";
   return true;
 }
@@ -1233,10 +1292,19 @@ async function scanAssets(force){
       }
     }catch(e){}
   }
+  /* Ordnerliste holen und die Dateinamen zuordnen */
+  let fileMap={};
+  try{
+    const files=await listFolder(ASSET_DIR.replace(/\/$/,""));
+    if(files.length){
+      ACTL.forEach(t=>{ const f=matchAssetFile(t.id, files); if(f) fileMap[t.id]=f; });
+      if(Object.keys(fileMap).length) candidates=Object.keys(fileMap);
+    }
+  }catch(e){}
   const found=[];
   for(let i=0;i<candidates.length;i+=4){
     const batch=candidates.slice(i,i+4);
-    const res=await Promise.all(batch.map(id=>probeAsset(id).catch(()=>false)));
+    const res=await Promise.all(batch.map(id=>probeAsset(id, fileMap[id]).catch(()=>false)));
     res.forEach((ok,j)=>{ if(ok) found.push(batch[j]); });
     ASSET_SCAN.checked+=batch.length;
     ASSET_SCAN.found=found.length;
@@ -3366,7 +3434,7 @@ function monthClose(){
     setTimeout(()=>modal("Betrieb eingestellt",
       `<p>Die Liquidität von <b class="mono">${chf(S.cash)} CHF</b> deckt Löhne, Treibstoff und Leasingraten nicht mehr.</p>
        <p class="dim">Befördert wurden ${fmt(S.history.reduce((s,h)=>s+h.pax,0))} Passagiere in ${S.history.length} Monaten.</p>`,
-      [{t:"Neu beginnen",p:true,f:()=>{$("#veil").classList.remove("on"); startDialog();}}]),60);
+      [{t:"Neu beginnen",p:true,f:()=>{$("#veil").classList.remove("on"); mainMenu();}}]),60);
   }
   render();
 }
@@ -5638,8 +5706,8 @@ function paneData(p){
     ${ASSET_SCAN.running?`<div class="kv"><span>Suchlauf</span><span>${ASSET_SCAN.checked} geprüft …</span></div>`:""}
     ${Object.keys(PLANE_ASSETS).length
       ? Object.keys(PLANE_ASSETS).map(k=>`<div class="kv"><span>${esc(ACT[k]?ACT[k].name:k)}</span>
-          <span class="pos">${PLANE_ASSETS[k].w}×${PLANE_ASSETS[k].h}${PLANE_ASSETS[k].derived?" · aufbereitet":""}</span></div>`).join("")
-      : `<p class="dim" style="font-size:11px;margin-top:6px">Noch keine Zeichnungen gefunden. Legen Sie im Repository einen Ordner <span class="mono">assets/planes/</span> an und laden Sie dort eine Seitenansicht hoch, benannt nach der Musterkennung — etwa <span class="mono">a20n.jpg</span> für den Airbus A320neo. Mehr braucht es nicht; das Spiel stellt frei, erzeugt die Masken und misst die Ausrichtung selbst.</p>`}
+          <span class="pos">${PLANE_ASSETS[k].file?esc(PLANE_ASSETS[k].file):PLANE_ASSETS[k].w+"×"+PLANE_ASSETS[k].h}</span></div>`).join("")
+      : `<p class="dim" style="font-size:11px;margin-top:6px">Noch keine Zeichnungen gefunden. Laden Sie Seitenansichten in den Ordner <span class="mono">${ASSET_DIR}</span>. Die Dateinamen dürfen bleiben, wie sie sind — das Spiel ordnet sie selbst zu, etwa <span class="mono">A320_NEO_Pratt__Whitney_white_sm.jpg</span> dem Airbus A320neo.</p>`}
     <div class="kv"><span>Bildmarke · Startbild</span><span>${MISC.logo?"gefunden":"—"} · ${MISC.splash?"gefunden":"—"}</span></div>
     <div class="kv"><span>Eigene Aufkleber</span><span>${MISC.decals.length||"—"}</span></div>
     <div class="kv"><span>Flughafenbilder</span><span>${Object.keys(MISC.airports).length||"—"}</span></div>
@@ -5701,7 +5769,7 @@ function paneData(p){
   $("#restart").onclick=()=>modal("Neue Fluggesellschaft",
     "<p>Der aktuelle Spielstand geht verloren, sofern er nicht gesichert wurde.</p>",
     [{t:"Abbrechen",f:()=>$("#veil").classList.remove("on")},
-     {t:"Neu beginnen",p:true,f:()=>{$("#veil").classList.remove("on"); startDialog();}}]);
+     {t:"Neu beginnen",p:true,f:()=>{$("#veil").classList.remove("on"); mainMenu();}}]);
   $("#tplap").onclick=()=>{$("#apjson").value=JSON.stringify([
     ["SIR","Sitten","Schweiz",46.22,7.33,0.05,2000,0.85,1.35,1.40,0.70,"EU",[1320,360]],
     ["ACH","Altenrhein","Schweiz",47.48,9.56,0.10,1500,0.85,1.40,1.10,0.95,"EU",[1320,360]]],null,1);};
@@ -5924,6 +5992,227 @@ function showAirport(iata){
   modal(`${a.iata} — ${a.city}`,h,btns);
 }
 
+
+/* ============================================ Bestehende Gesellschaften ==
+   Wer nicht bei null anfangen will, übernimmt eine bestehende Airline: Flotte,
+   Basen, Personal und ein funktionierendes Streckennetz sind vorhanden, dafür
+   ist auch der Handlungsspielraum enger. Bewusst mittelgrosse Gesellschaften —
+   ein Weltkonzern wäre als Ausgangslage reizlos. */
+const LEGACY_AIRLINES = [
+ {id:"helvetic", name:"Helvetic Airways", code:"2L", bases:["ZRH","BRN"],
+  cash:34, rep:66, liv:{c1:"#c8102e",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"linie",glyph:"kreuz"},
+  fleet:[["e29e",5,0],["at72",2,1]],
+  dests:["MUC","VIE","HAM","BER","PMI","OLB","IBZ","CTA","PRG","BRI","FLR","JMK"],
+  txt:"Regionalairline im Wet-Lease-Geschäft. Kleine Flotte, kurze Strecken, wenig Puffer — der anspruchsvollste Einstieg."},
+ {id:"edelweiss", name:"Edelweiss Air", code:"WK", bases:["ZRH"],
+  cash:62, rep:74, liv:{c1:"#e2453a",c2:"#ffffff",body:"weiss",tail:"bogen",stripe:"schwung",glyph:"gipfel"},
+  fleet:[["a20n",4],["a21n",2],["a339",2]],
+  dests:["PMI","HER","RHO","LCA","HRG","AGA","DJE","CPT","MRU","PUJ","VAR","FUE"],
+  txt:"Ferienflieger mit gemischter Flotte. Starke Saison im Sommer, schwacher Winter — Auslastung steuern ist alles."},
+ {id:"luxair", name:"Luxair", code:"LG", bases:["LUX"],
+  cash:48, rep:70, liv:{c1:"#0b3a8f",c2:"#f2c200",body:"weiss",tail:"diagonale",stripe:"linie",glyph:"raute"},
+  fleet:[["dh8d",4],["e29e",3],["b38m",2]],
+  dests:["CDG","FRA","MUC","LHR","BCN","FCO","MXP","LIS","PMI","DUB","VIE","HAM"],
+  txt:"Nationale Airline eines kleinen Landes. Hohe Kaufkraft am Standort, aber ein winziger Heimatmarkt."},
+ {id:"airbaltic", name:"airBaltic", code:"BT", bases:["RIX"],
+  cash:56, rep:68, liv:{c1:"#8ac53f",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"schwung",glyph:"chevron"},
+  fleet:[["bcs3",8]],
+  dests:["TLL","VNO","HEL","ARN","CPH","OSL","BER","FRA","AMS","LGW","MUC","WAW","VIE","DUB"],
+  txt:"Einheitsflotte im Baltikum. Wartung und Ausbildung sind günstig, weil alles dasselbe Muster ist."},
+ {id:"croatia", name:"Croatia Airlines", code:"OU", bases:["ZAG"],
+  cash:41, rep:64, liv:{c1:"#0b3d91",c2:"#d7192d",body:"weiss",tail:"diagonale",stripe:"linie",glyph:"raute"},
+  fleet:[["dh8d",5],["a20n",3]],
+  dests:["SPU","DBV","PUY","FRA","MUC","VIE","ZRH","CDG","AMS","LHR","BRU","CPH"],
+  txt:"Zubringer für die grossen Netze, dazu Ferienverkehr an die Adria. Chronisch knapp bei Kasse."},
+ {id:"aegean", name:"Aegean Airlines", code:"A3", bases:["ATH","SKG"],
+  cash:78, rep:76, liv:{c1:"#0a4fa0",c2:"#ffffff",body:"weiss",tail:"bogen",stripe:"schwung",glyph:"schwinge"},
+  fleet:[["a20n",7],["a21n",3]],
+  dests:["HER","RHO","JMK","JTR","CFU","LCA","FCO","MXP","MUC","FRA","CDG","LHR","VIE","TLV"],
+  txt:"Solide aufgestellt, starke Sommersaison, gute Bewertungen. Der bequemste der bestehenden Betriebe."},
+ {id:"icelandair", name:"Icelandair", code:"FI", bases:["KEF"],
+  cash:70, rep:72, liv:{c1:"#0d5fbf",c2:"#ffffff",body:"weiss",tail:"welle",stripe:"schwung",glyph:"welle"},
+  fleet:[["b38m",5],["b763",2]],
+  dests:["LHR","CPH","OSL","AMS","CDG","FRA","JFK","BOS","YYZ","SEA","MAD","MUC"],
+  txt:"Drehscheibe zwischen Europa und Nordamerika. Das ganze Modell steht und fällt mit den Umsteigern."},
+ {id:"brussels", name:"Brussels Airlines", code:"SN", bases:["BRU"],
+  cash:88, rep:71, liv:{c1:"#0b3a8f",c2:"#ffffff",body:"weiss",tail:"streifen",stripe:"linie",glyph:"scheibe"},
+  fleet:[["a20n",6],["a21n",2],["a339",3]],
+  dests:["LHR","CDG","FCO","MAD","LIS","VIE","CPH","ARN","JFK","ADD","NBO","DKR","LOS","CMN"],
+  txt:"Europäisches Netz plus Afrika-Langstrecke. Grösser, aber mit teurer Kostenbasis."},
+ {id:"finnair", name:"Finnair", code:"AY", bases:["HEL"],
+  cash:96, rep:78, liv:{c1:"#0b2b6b",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"linie",glyph:"raute"},
+  fleet:[["a20n",6],["a21n",2],["a359",3]],
+  dests:["ARN","CPH","OSL","LHR","CDG","AMS","FRA","MUC","RIX","TLL","BKK","HND","ICN","DEL"],
+  txt:"Kurze Wege nach Asien über den Norden. Langstrecke trägt das Ergebnis, Europa füllt die Flieger."},
+ {id:"transavia", name:"Transavia", code:"HV", bases:["AMS","RTM"],
+  cash:74, rep:60, liv:{c1:"#0d7a4a",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"band",glyph:"chevron"},
+  fleet:[["b38m",8]],
+  dests:["PMI","ALC","AGP","FAO","IBZ","HER","AYT","TFS","LPA","NCE","BCN","LIS","RAK","HRG"],
+  txt:"Billigflieger mit Einheitsflotte und Ferienzielen. Marge über Menge, Ruf ist zweitrangig."}
+];
+
+/** Baut eine bestehende Gesellschaft auf: Flotte, Personal, Tagespläne. */
+function startExisting(idx){
+  const A=LEGACY_AIRLINES[idx]; if(!A) return;
+  const liv=Object.assign({}, DEFAULT_LIVERY, A.liv, {code:A.code, decals:[], layers:[]});
+  newGame({name:A.name, code:A.code, home:A.bases[0], level:"normal", livery:liv, flightStart:100});
+  /* Weitere Basen ohne Eröffnungskosten */
+  A.bases.slice(1).forEach(b=>{ if(AP[b] && !S.bases.includes(b)) S.bases.push(b); });
+  S.cash=A.cash*1e6;
+  S.rep=A.rep;
+  /* Die übernommene Gesellschaft verschwindet aus dem Wettbewerb */
+  const twin=(S.rivals||[]).find(x=>x.name.toLowerCase().startsWith(A.name.toLowerCase().slice(0,7)));
+  if(twin) S.rivals=S.rivals.filter(x=>x!==twin);
+
+  const dests=A.dests.filter(d=>AP[d]);
+  let n=0;
+  A.fleet.forEach(([type,cnt,bIdx])=>{
+    for(let i=0;i<cnt;i++){
+      const base=A.bases[bIdx!=null ? Math.min(bIdx,A.bases.length-1) : (n % A.bases.length)];
+      const ac=addAircraft(type,false,base, Math.round(rnd(24,120)));
+      ac.hours=Math.round(rnd(500, BAL.heavyCheckHrs*0.7));
+      const t=ACT[type];
+      /* Tagesplan: zwei bis drei Ziele, gestaffelte Abflugzeiten */
+      ac.plan.start = 6*60 + (n%7)*28;
+      const pick2=[];
+      for(let k=0;k<dests.length && pick2.length<3;k++){
+        const d=dests[(n*3+k) % dests.length];
+        if(pick2.includes(d)) continue;
+        if(acCanFly(ac, AP[base], AP[d])) continue;
+        pick2.push(d);
+      }
+      ac.plan.dests=[];
+      pick2.forEach(d=>{ ac.plan.dests.push(d, base); });
+      ensurePlan(ac);
+      /* zu lange Umläufe hinten kürzen */
+      let guard=0;
+      while(guard++<8){
+        const sch=scheduleOf(ac);
+        if(sch.blockSum<=t.block*60 && sch.duty<=BAL.maxDuty && !sch.legs.some(l=>l.issues.length)) break;
+        ac.plan.dests.splice(-2,2); ac.plan.nums.splice(-2,2);
+        if(!ac.plan.dests.length) break;
+      }
+      /* Kam nichts zustande, an der Hauptbasis mit dem nächstbesten Ziel neu ansetzen */
+      if(!ac.plan.dests.length){
+        ac.base=A.bases[0];
+        ac.reg=newRegistration(ac.base);
+        for(const dd of dests){
+          if(acCanFly(ac, AP[ac.base], AP[dd])) continue;
+          ac.plan.dests=[dd, ac.base]; ensurePlan(ac);
+          const sch=scheduleOf(ac);
+          if(sch.blockSum<=t.block*60 && !sch.legs.some(l=>l.issues.length)) break;
+          ac.plan.dests=[]; ac.plan.nums=[];
+        }
+      }
+      n++;
+    }
+  });
+  /* Personal nach Bedarf, mit etwas Reserve */
+  const need=pilotNeed(); S.pilots={};
+  for(const k in need) S.pilots[k]=Math.ceil(need[k]*1.08);
+  S.cabin=Math.ceil(cabinNeed()*1.08);
+  S.legacy=A.id;
+  logg(`${A.name} übernommen: ${S.fleet.length} Flugzeuge, ${S.bases.length} Station${S.bases.length>1?"en":""}.`,"good");
+  recomputeWeek(); buildDaySchedule(); render(); setSpeed(0);
+}
+
+
+/* ============================================================ Hauptmenü */
+function mainMenu(){
+  const cards=[
+    {k:"neu",  t:"Neue Airline gründen",
+     d:"Von null anfangen: Name, Heimatstation, Bemalung und Schwierigkeit frei wählen. Der offenste Weg, aber auch der längste."},
+    {k:"best", t:"Bestehende Airline führen",
+     d:"Eine der zehn mittelgrossen Gesellschaften übernehmen. Flotte, Basen, Personal und ein laufendes Netz sind vorhanden."},
+    {k:"szen", t:"Szenarien",
+     d:"Vorgegebene Ausgangslagen mit klarem Ziel. Noch in Arbeit."},
+    {k:"load", t:"Spielstand laden",
+     d:"Aus einer Datei oder aus der Cloud, wenn ein Konto hinterlegt ist."}
+  ];
+  modal("Skyline Manager",
+    `${MISC.splash?`<div class="planebox" style="padding:0;margin-bottom:12px"><img src="${esc(MISC.splash)}" style="width:100%;display:block" alt=""></div>`:""}
+     <p class="dim">Airline-Simulation in Echtzeit. Flotte beschaffen, Tagespläne bauen, gegen echte Wettbewerber bestehen.</p>
+     <div id="mm">${cards.map(c=>`<div class="choice" data-k="${c.k}" ${c.k==="szen"?'style="opacity:.5"':''}>
+       <div><div class="t">${c.t}${c.k==="szen"?" — bald":""}</div><div class="d">${c.d}</div></div>
+       <div class="mono amb">›</div></div>`).join("")}</div>`,
+    []);
+  $("#mX").style.display="none";
+  $("#mm").onclick=e=>{
+    const c=e.target.closest(".choice"); if(!c) return;
+    const k=c.dataset.k;
+    if(k==="neu"){ startDialog(); }
+    else if(k==="best"){ legacyDialog(); }
+    else if(k==="szen"){ toast("Szenarien folgen später."); }
+    else if(k==="load"){ loadMenu(); }
+  };
+}
+function loadMenu(){
+  modal("Spielstand laden",
+    `<div id="lm">
+      <div class="choice" data-k="file"><div><div class="t">Aus einer Datei</div>
+        <div class="d">Eine zuvor gesicherte JSON-Datei vom Gerät wählen.</div></div><div class="mono amb">›</div></div>
+      <div class="choice" data-k="cloud"><div><div class="t">Aus der Cloud</div>
+        <div class="d">${cloudReady()?(cloudSignedIn()?"Angemeldet als "+esc(CLOUD.mail||CLOUD.uid):"Anmeldung nötig"):"Noch kein Firebase-Projekt hinterlegt"}</div></div>
+        <div class="mono amb">›</div></div>
+     </div>`,
+    [{t:"Zurück",f:mainMenu}]);
+  $("#mX").style.display="none";
+  $("#lm").onclick=async e=>{
+    const c=e.target.closest(".choice"); if(!c) return;
+    if(c.dataset.k==="file"){ $("#veil").classList.remove("on"); loadGame(); }
+    else {
+      if(!cloudReady()||!cloudSignedIn()){
+        toast("Zuerst unter Daten ein Firebase-Konto hinterlegen — oder eine Airline gründen.");
+        return;
+      }
+      $("#veil").classList.remove("on");
+      await cloudPull("aktuell");
+    }
+  };
+}
+function legacyDialog(){
+  modal("Bestehende Airline führen",
+    `<p class="dim">Mittelgrosse Gesellschaften mit eigener Ausgangslage. Flotte, Basen, Personal und Tagespläne sind eingerichtet; das Startkapital ist knapper als bei einer Neugründung, dafür fliegt der Betrieb ab dem ersten Tag.</p>
+     <div id="lgl">${LEGACY_AIRLINES.map((A,i)=>{
+       const seats=A.fleet.reduce((a,[t,n])=>a+n*ACT[t].maxSeats,0);
+       const cnt=A.fleet.reduce((a,[,n])=>a+n,0);
+       return `<div class="choice" data-i="${i}">
+        <span style="flex:0 0 34px">${markSVG(Object.assign({},DEFAULT_LIVERY,A.liv,{code:A.code}),34)}</span>
+        <div style="flex:1"><div class="t">${esc(A.name)} <span class="dim">${A.code}</span></div>
+          <div class="d">${esc(A.txt)}</div>
+          <div class="d" style="margin-top:3px">${A.bases.join(" · ")} · ${cnt} Flugzeuge · ${A.fleet.map(([t,n])=>n+"× "+esc(ACT[t].name.split(" (")[0])).join(", ")}</div></div>
+        <div class="mono" style="text-align:right">${A.cash} Mio<br><span class="dim">Ruf ${A.rep}</span></div></div>`;}).join("")}</div>`,
+    [{t:"Zurück",f:mainMenu}]);
+  $("#mX").style.display="none";
+  $("#lgl").onclick=e=>{
+    const c=e.target.closest(".choice"); if(!c) return;
+    const i=+c.dataset.i, A=LEGACY_AIRLINES[i];
+    modal(A.name,
+      `<p>${esc(A.txt)}</p>
+       <div class="card">
+         <div class="kv"><span>Basen</span><span>${A.bases.map(b=>b+" — "+esc(AP[b].city)).join("<br>")}</span></div>
+         <div class="kv"><span>Flotte</span><span>${A.fleet.map(([t,n])=>n+"× "+esc(ACT[t].name)).join("<br>")}</span></div>
+         <div class="kv"><span>Startkapital · Ruf</span><span>${A.cash} Mio CHF · ${A.rep}</span></div>
+         <div class="kv"><span>Netz</span><span>${A.dests.slice(0,10).join(" ")}${A.dests.length>10?" …":""}</span></div>
+       </div>
+       <p class="dim">Name, Bemalung und Flugpläne lassen sich danach frei ändern. Die Gesellschaft verschwindet aus dem Wettbewerb.</p>`,
+      [{t:"Zurück",f:legacyDialog},
+       {t:"Übernehmen",p:true,f:()=>{ $("#veil").classList.remove("on"); $("#mX").style.display="";
+          startExisting(i);
+          setTimeout(()=>modal("Erste Schritte",
+            `<ol style="padding-left:18px;line-height:1.85">
+              <li>Unter <b>Flotte</b> die Tagespläne prüfen — sie sind gesetzt, aber selten optimal.</li>
+              <li>Unter <b>Netz</b> die Strecken durchgehen: Tarife anpassen, defizitäre Flüge streichen.</li>
+              <li>Unter <b>Personal</b> nachsehen, ob die Crews reichen.</li>
+              <li>Oben rechts die Uhr starten.</li>
+            </ol>`,
+            [{t:"Angehalten lassen",f:()=>$("#veil").classList.remove("on")},
+             {t:"Uhr starten",p:true,f:()=>{$("#veil").classList.remove("on"); setSpeed(1);}}]),320);
+       }}]);
+    $("#mX").style.display="none";
+  };
+}
+
 /* ========================================================== Startdialog */
 function startDialog(){
   const suggest=["BSL","ZRH","GVA","VIE","CPH","DUB","LIS","BER","MAN","OSL","HEL","PRG","BUD",
@@ -5945,13 +6234,15 @@ function startDialog(){
        `<option value="${k}" ${k==="normal"?"selected":""}>${v.n} — ${v.cash} Mio Startkapital, Elastizität ${v.elasticity}</option>`).join("")}</select>
      <p class="dim" id="gld" style="font-size:11px;margin-top:4px"></p>
      <h3 class="sub">Gestaltung</h3><div id="lvEd0"></div>`,
-    [{t:"Betrieb aufnehmen",p:true,f:()=>{
+    [{t:"Zurück",f:mainMenu},
+     {t:"Betrieb aufnehmen",p:true,f:()=>{
       const name=($("#gn").value||"Airline").trim();
       const code=($("#gc").value||"XX").trim().toUpperCase().slice(0,3);
       L.code=code;
       const fs0=clamp(+$("#gf").value||100,10,8000);
       newGame({name,code,home:$("#gh").value,level:$("#gl").value,livery:L,flightStart:fs0});
-      $("#veil").classList.remove("on"); focusAirport(S.bases[0]);
+      $("#veil").classList.remove("on"); $("#mX").style.display="";
+      focusAirport(S.bases[0]);
       recomputeWeek(); buildDaySchedule(); render(); setSpeed(0);
       setTimeout(()=>modal("Erste Schritte",
         `<ol style="padding-left:18px;line-height:1.85">
@@ -5980,7 +6271,7 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
 }
 applyBrand();
 renderMap();
-startDialog();
+mainMenu();
 </script>
 </body>
 </html>

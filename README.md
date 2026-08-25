@@ -99,11 +99,18 @@ eingetragen werden.**
 1. Ordner anlegen: *Add file → Create new file*, Dateiname
    `graphics/AircraftTemplates/.gitkeep` — durch die Schrägstriche legt GitHub
    die Ordner an.
-2. Eine Seitenansicht speichern, etwa die Fassung *all white* von norebbo.com.
-3. Nach der Musterkennung benennen: `a20n.jpg` für den Airbus A320neo,
-   `b789.jpg` für die Boeing 787-9. Die vollständige Liste zeigt das Spiel
-   unter *Daten → Grafikpaket → Musterkennungen zeigen*.
-4. Hochladen, **Commit changes**, Seite neu laden.
+2. Seitenansichten hineinladen, etwa die Fassungen *all white* von norebbo.com.
+3. **Die Dateinamen dürfen bleiben, wie sie sind.** Das Spiel liest die
+   Ordnerliste und ordnet selbst zu: `A320_NEO_Pratt__Whitney_white_sm.jpg`
+   landet beim Airbus A320neo, `Q400_white.jpg` bei der Dash 8, `CS300_white.jpg`
+   beim A220-300. Gibt es kein exakt passendes Muster, wird die nächstliegende
+   Vorlage genommen — bei einer Seitenansicht fällt das kaum auf.
+4. **Commit changes**, im Spiel unter *Daten → Grafikpaket* auf **Ordner neu
+   durchsuchen** klicken.
+
+Wer die Zuordnung selbst bestimmen will, benennt die Datei nach der
+Musterkennung: `a20n.jpg`, `b789.jpg`. Die Liste zeigt das Spiel unter
+*Daten → Grafikpaket → Musterkennungen zeigen*.
 
 Das Spiel stellt den Hintergrund frei, erzeugt die Farbmaske, leitet die
 Leitwerksmaske ab und misst Nase, Mittellinie und Rumpfradius selbst aus.
@@ -199,6 +206,22 @@ bei der die Dateien technisch herunterladbar sind.
 Rechtlich unbedenkliche Alternative sind Seitenrisse auf Wikimedia Commons
 unter CC BY-SA; dort genügen Namensnennung und Weitergabe unter gleichen
 Bedingungen.
+
+## Einstieg ins Spiel
+
+Beim Start erscheint ein Menü mit vier Wegen:
+
+- **Neue Airline gründen** — von null: Name, Heimatstation, Bemalung,
+  Schwierigkeit. Der offenste, aber längste Weg.
+- **Bestehende Airline führen** — eine von zehn mittelgrossen Gesellschaften
+  übernehmen, von Helvetic Airways in Bern und Zürich bis Finnair in Helsinki.
+  Flotte, Basen, Personal und Tagespläne sind eingerichtet, der Betrieb läuft ab
+  dem ersten Tag. Das Startkapital ist knapper als bei einer Neugründung.
+- **Szenarien** — vorgegebene Ausgangslagen mit klarem Ziel. Noch nicht gefüllt.
+- **Spielstand laden** — aus einer Datei oder aus der Cloud.
+
+Die übernommene Gesellschaft verschwindet aus dem Wettbewerb. Name, Bemalung
+und Flugpläne lassen sich danach frei ändern.
 
 ## Ohne Cloud
 
