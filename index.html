@@ -71,6 +71,8 @@ input[type=color]{width:100%;height:32px;padding:2px;background:#0a1322;border:1
 #speedctl button{padding:6px 9px;font-family:var(--mono);font-size:12px;min-width:36px}
 #speedctl button.on{background:var(--amber);color:#0d1119;border-color:var(--amber);font-weight:600}
 #speedctl #btnJump{min-width:44px;color:var(--blue);border-color:var(--line2)}
+#speedctl #btnMenu{min-width:38px;color:var(--dim);border-color:var(--line2)}
+#speedctl #btnMenu:hover{color:var(--amber);border-color:var(--amber)}
 #speedctl #btnJump.busy{background:var(--blue);color:#0d1119}
 #speedctl select{padding:5px 6px;font-size:11px;width:auto;min-width:112px}
 #nextEv{font-family:var(--mono);font-size:10px;color:var(--dim2);text-align:right;
@@ -323,6 +325,7 @@ table.tbl th.r,table.tbl td.r{text-align:right}
       <button data-sp="5">5×</button>
       <button data-sp="20">20×</button>
       <button id="btnJump" title="Zeit überspringen">▶▶</button>
+      <button id="btnMenu" title="Zum Hauptmenü">☰</button>
       <select id="jumpMode" title="Wie weit springen">
         <option value="event">bis Ereignis</option>
         <option value="day">bis morgen</option>
@@ -773,7 +776,32 @@ const AIRCRAFT_ROWS = [
 ["a35k","Airbus A350-1000","Airbus",480,16000,910,6300,265,3000,2900,11,30,"Grossraum",13.5,100,"A330","wb",1.85],
 ["b77w","Boeing 777-300ER","Boeing",550,13600,900,7300,175,3100,3200,12,10,"Grossraum",13,105,"B777","wb",1.94],
 ["b779","Boeing 777-9","Boeing",550,15500,900,6900,300,3100,3000,12,36,"Grossraum",13.5,105,"B777","wb",2.04],
-["a388","Airbus A380-800 (gebraucht)","Airbus",853,14800,900,11500,72,3000,4200,16,4,"Grossraum",13,120,"A380","dd",1.98]
+["a388","Airbus A380-800 (gebraucht)","Airbus",853,14800,900,11500,72,3000,4200,16,4,"Grossraum",13,120,"A380","dd",1.98],
+["at42","ATR 42-600","ATR",48,1300,490,420,18,1100,470,2,6,"Regional",8,20,"AT72","prop",0.6],
+["sf34","Saab 340B (gebraucht)","Saab",34,1400,470,340,3,1200,420,1,2,"Regional",8,20,"SF34","prop",0.54],
+["d328","Dornier 328","Dornier",33,1300,620,380,6,1100,450,1,4,"Regional",8,20,"D328","prop",0.55],
+["e145","Embraer ERJ-145","Embraer",50,2900,780,760,12,1700,620,1,4,"Regional",8.5,25,"E145","rjt",0.66],
+["cr10","CRJ1000","Mitsubishi",104,2800,810,1220,46,2000,890,3,8,"Regional",8.5,30,"CRJ7","rjt",0.9],
+["f100","Fokker 100 (gebraucht)","Fokker",109,3000,780,1450,7,1600,900,3,2,"Regional",9,30,"F100","rjt",0.86],
+["rj85","Avro RJ85","BAe",100,2200,760,1500,9,1200,950,3,2,"Regional",9,30,"RJ85","rjt",0.78],
+["md80","McDonnell Douglas MD-83 (gebraucht)","Boeing",155,4600,810,2400,5,2200,1400,4,2,"Schmalrumpf",10,40,"MD80","nb",1.1],
+["md90","McDonnell Douglas MD-90 (gebraucht)","Boeing",158,3800,810,2350,7,2200,1350,4,2,"Schmalrumpf",10,40,"MD80","nb",1.12],
+["a19n","Airbus A319neo","Airbus",160,6900,830,1950,101,2000,1100,4,18,"Schmalrumpf",10,40,"A320","nb",0.92],
+["a320","Airbus A320 (gebraucht)","Airbus",180,5700,830,2350,26,2100,1250,4,2,"Schmalrumpf",10,40,"A320","nb",1.0],
+["a321","Airbus A321 (gebraucht)","Airbus",220,5900,830,2600,31,2200,1400,5,2,"Schmalrumpf",10,45,"A320","nb",1.18],
+["b39m","Boeing 737-9","Boeing",220,6570,840,2280,116,2300,1200,5,18,"Schmalrumpf",10,45,"B737","nb",1.13],
+["a310","Airbus A310-300 (gebraucht)","Airbus",240,8000,850,4100,9,2400,2000,6,2,"Grossraum",11,70,"A310","wb",1.3],
+["b764","Boeing 767-400ER (gebraucht)","Boeing",375,10400,850,5000,38,2600,2450,7,2,"Grossraum",12,80,"B757","wb",1.52],
+["a332","Airbus A330-200 (gebraucht)","Airbus",380,13400,870,5200,55,2600,2350,8,3,"Grossraum",12.5,85,"A330","wb",1.5],
+["a333","Airbus A330-300 (gebraucht)","Airbus",440,11700,870,5500,62,2700,2500,9,3,"Grossraum",12.5,90,"A330","wb",1.62],
+["a338","Airbus A330-800neo","Airbus",406,15100,880,5050,175,2600,2300,8,24,"Grossraum",13,90,"A330","wb",1.46],
+["a346","Airbus A340-600 (gebraucht)","Airbus",475,13900,880,7900,28,3100,3400,12,3,"Grossraum",13,105,"A340","wb",1.96],
+["dc10","McDonnell Douglas DC-10-30 (gebraucht)","Boeing",380,9600,870,7200,4,3200,3000,10,2,"Grossraum",12,95,"DC10","wb",1.55],
+["b744","Boeing 747-400 (gebraucht)","Boeing",524,13400,900,10200,22,3000,3900,14,3,"Grossraum",13,115,"B747","dd",1.9],
+["b74f","Boeing 747-400F Frachter","Boeing",0,8200,900,10800,26,3000,4100,2,6,"Grossraum",13,150,"B747","dd",1.9],
+["b77f","Boeing 777F Frachter","Boeing",0,9200,890,7400,190,3200,3100,2,24,"Grossraum",13,150,"B777","wb",1.88],
+["b778","Boeing 777-8","Boeing",430,16200,900,6600,320,3000,2900,11,40,"Grossraum",14,100,"B777","wb",1.86],
+["b78x","Boeing 787-10","Boeing",460,11700,900,5700,225,2900,2500,10,26,"Grossraum",13,95,"B787","wb",1.78]
 ];
 /* Immatrikulationspräfix nach Land der Heimatbasis. Eine in Basel stationierte
    Maschine trägt HB-, eine in Stuttgart D-, eine in London G-. */
@@ -816,7 +844,7 @@ function newRegistration(base){
   return pre+"-"+Date.now().toString(36).slice(-4).toUpperCase();
 }
 
-const RATING_NAME = {
+const RATING_NAME = {B747:"Boeing 747", DC10:"DC-10", A340:"Airbus A340", A310:"Airbus A310", MD80:"MD-80", RJ85:"Avro RJ", F100:"Fokker 100", E145:"Embraer ERJ-145", D328:"Dornier 328", SF34:"Saab 340", 
   AT72:"ATR 72", DH8D:"Dash 8-Q400", CRJ7:"CRJ 700/900", E170:"Embraer E170/175",
   E190:"Embraer E190/195-E2", BCS:"Airbus A220", B737:"Boeing 737",
   A320:"Airbus A320-Familie", B757:"Boeing 757/767", A330:"Airbus A330/A350",
@@ -1236,19 +1264,82 @@ function matchAssetFile(id, files){
 const ASSET_DIR = "graphics/AircraftTemplates/";
 const MISC_DIR  = "graphics/misc/";
 const ASSET_MAX_W = 1400;          // grössere Vorlagen werden verkleinert
-let   PLANE_ASSETS = {};           // wird beim Suchlauf gefüllt
+/* Fertig vermessene Seitenansichten. Die Bilddateien liegen bereits als
+   JPG im Ordner graphics/AircraftTemplates — es muss nichts zusätzlich
+   hochgeladen werden. Hier steht nur, welcher Ausschnitt der Datei die
+   Ansicht mit ausgefahrenem Fahrwerk zeigt (sx, sy, sw, sh), wie gross sie
+   dargestellt wird und wo Rumpfmitte und Radius liegen. Freistellen und
+   Masken erzeugt der Browser daraus selbst, einmal je Muster. */
+const PLANE_ART = {
+  a19n:{f:"A319_NEO_Pratt__Whitney_white_sm.jpg",sx:107,sy:348,sw:810,sh:214,w:810,h:214,x0:6,x1:803,y0:0,y1:207,yc:115,r:47},
+  a20n:{f:"A320_NEO_Pratt__Whitney_white_sm.jpg",sx:57,sy:342,sw:910,sh:218,w:910,h:218,x0:6,x1:903,y0:0,y1:211,yc:116,r:49},
+  a21n:{f:"A321_NEO_pratt__whitney_white_sm.jpg",sx:30,sy:310,sw:961,sh:200,w:961,h:200,x0:6,x1:954,y0:0,y1:193,yc:107,r:45},
+  a21x:{f:"A321_NEO_LR_CFM_LEAP_white_sm.jpg",sx:30,sy:310,sw:961,sh:200,w:961,h:200,x0:6,x1:954,y0:0,y1:193,yc:107,r:45},
+  a310:{f:"A310-300_white.jpg",sx:92,sy:336,sw:851,sh:210,w:851,h:210,x0:6,x1:844,y0:0,y1:203,yc:115,r:48},
+  a320:{f:"a320_white.jpg",sx:57,sy:342,sw:911,sh:218,w:911,h:218,x0:6,x1:904,y0:0,y1:211,yc:116,r:49},
+  a321:{f:"airbus_a321_white_cm56_engines.jpg",sx:30,sy:310,sw:961,sh:200,w:961,h:200,x0:6,x1:954,y0:0,y1:193,yc:107,r:45},
+  a332:{f:"A330-200_PW_white.jpg",sx:63,sy:342,sw:901,sh:193,w:901,h:193,x0:6,x1:894,y0:0,y1:186,yc:108,r:41},
+  a333:{f:"A330-300_GE_white.jpg",sx:13,sy:338,sw:985,sh:197,w:985,h:197,x0:6,x1:978,y0:0,y1:190,yc:112,r:42},
+  a338:{f:"A330-800_NEO_white_sm.jpg",sx:63,sy:342,sw:900,sh:193,w:900,h:193,x0:6,x1:893,y0:0,y1:186,yc:108,r:41},
+  a339:{f:"A330-900_NEO_white_sm.jpg",sx:21,sy:338,sw:985,sh:197,w:985,h:197,x0:6,x1:978,y0:0,y1:190,yc:112,r:42},
+  a346:{f:"A340-600_white_sm.jpg",sx:16,sy:316,sw:1072,sh:180,w:1072,h:180,x0:6,x1:1065,y0:0,y1:173,yc:101,r:38},
+  a359:{f:"A350-1000_white.jpg",sx:39,sy:330,sw:939,sh:193,w:939,h:193,x0:6,x1:932,y0:0,y1:186,yc:112,r:38},
+  a35k:{f:"A350-1000_white.jpg",sx:39,sy:330,sw:939,sh:193,w:939,h:193,x0:6,x1:932,y0:0,y1:186,yc:112,r:38},
+  a388:{f:"A380-800_white.jpg",sx:25,sy:371,sw:977,sh:221,w:977,h:221,x0:6,x1:970,y0:0,y1:214,yc:123,r:56},
+  at42:{f:"ATR_42_white_sm.jpg",sx:120,sy:342,sw:785,sh:204,w:785,h:204,x0:6,x1:778,y0:0,y1:197,yc:118,r:49},
+  at72:{f:"ATR_42_white_sm.jpg",sx:120,sy:342,sw:785,sh:204,w:785,h:204,x0:6,x1:778,y0:0,y1:197,yc:118,r:49},
+  b38m:{f:"737_Max_8_white_sm.jpg",sx:37,sy:351,sw:961,sh:204,w:961,h:204,x0:6,x1:954,y0:0,y1:197,yc:115,r:48},
+  b39m:{f:"737-9_MAX_white_sm.jpg",sx:45,sy:346,sw:920,sh:187,w:920,h:187,x0:6,x1:913,y0:0,y1:180,yc:106,r:44},
+  b737:{f:"737-800_white_winglets.jpg",sx:37,sy:351,sw:961,sh:201,w:961,h:201,x0:6,x1:954,y0:0,y1:194,yc:115,r:48},
+  b744:{f:"747-400_pw_white.jpg",sx:21,sy:339,sw:979,sh:210,w:979,h:210,x0:6,x1:972,y0:0,y1:203,yc:120,r:49},
+  b74f:{f:"747-400F_white_sm.jpg",sx:21,sy:343,sw:979,sh:206,w:979,h:206,x0:6,x1:972,y0:0,y1:199,yc:119,r:46},
+  b752:{f:"757-300_white_winglets_sm.jpg",sx:53,sy:270,sw:897,sh:175,w:897,h:175,x0:6,x1:890,y0:0,y1:168,yc:94,r:34},
+  b763:{f:"767-300_winglets_white.jpg",sx:46,sy:341,sw:929,sh:199,w:929,h:199,x0:6,x1:922,y0:0,y1:192,yc:116,r:44},
+  b764:{f:"767-400_white.jpg",sx:47,sy:325,sw:929,sh:189,w:929,h:189,x0:6,x1:922,y0:0,y1:182,yc:113,r:40},
+  b778:{f:"777-8_white.jpg",sx:95,sy:313,sw:839,sh:189,w:839,h:189,x0:6,x1:832,y0:0,y1:182,yc:112,r:38},
+  b779:{f:"777-9_white.jpg",sx:54,sy:313,sw:927,sh:189,w:927,h:189,x0:6,x1:920,y0:0,y1:182,yc:112,r:38},
+  b77f:{f:"777F_white_sm.jpg",sx:36,sy:326,sw:952,sh:209,w:952,h:209,x0:6,x1:945,y0:0,y1:202,yc:118,r:45},
+  b77w:{f:"777-9_white.jpg",sx:54,sy:313,sw:927,sh:189,w:927,h:189,x0:6,x1:920,y0:0,y1:182,yc:112,r:38},
+  b788:{f:"787-8_white.jpg",sx:18,sy:338,sw:991,sh:208,w:991,h:208,x0:6,x1:984,y0:0,y1:201,yc:114,r:51},
+  b789:{f:"787-9_white.jpg",sx:25,sy:325,sw:978,sh:202,w:978,h:202,x0:6,x1:971,y0:0,y1:195,yc:116,r:46},
+  b78x:{f:"787-10_white_sm.jpg",sx:35,sy:292,sw:957,sh:182,w:957,h:182,x0:6,x1:950,y0:0,y1:175,yc:104,r:41},
+  bcs1:{f:"CS100_white.jpg",sx:61,sy:334,sw:912,sh:218,w:912,h:218,x0:6,x1:905,y0:0,y1:211,yc:117,r:48},
+  bcs3:{f:"CS300_white.jpg",sx:9,sy:334,sw:1006,sh:218,w:1006,h:218,x0:6,x1:999,y0:0,y1:211,yc:117,r:48},
+  cr10:{f:"CRJ-1000_white.jpg",sx:26,sy:281,sw:953,sh:171,w:953,h:171,x0:6,x1:952,y0:0,y1:164,yc:98,r:34},
+  cr9:{f:"CRJ-900_white_sm.jpg",sx:14,sy:304,sw:970,sh:182,w:970,h:182,x0:6,x1:969,y0:0,y1:175,yc:104,r:36},
+  d328:{f:"Dornier_328-110_white_sm.jpg",sx:40,sy:348,sw:925,sh:219,w:925,h:219,x0:6,x1:918,y0:0,y1:212,yc:120,r:60},
+  dc10:{f:"DC-10-30_white.jpg",sx:55,sy:337,sw:898,sh:206,w:898,h:206,x0:6,x1:891,y0:0,y1:199,yc:114,r:47},
+  dh8d:{f:"Q400_white.jpg",sx:34,sy:367,sw:1003,sh:203,w:1003,h:203,x0:6,x1:998,y0:0,y1:196,yc:121,r:44},
+  e145:{f:"ERJ-145_white.jpg",sx:48,sy:326,sw:922,sh:198,w:922,h:198,x0:6,x1:920,y0:0,y1:191,yc:113,r:35},
+  e175:{f:"ERJ-195_white.jpg",sx:55,sy:297,sw:941,sh:192,w:941,h:192,x0:6,x1:934,y0:0,y1:185,yc:107,r:40},
+  e29e:{f:"ERJ-190-E2_white.jpg",sx:32,sy:327,sw:964,sh:213,w:964,h:213,x0:6,x1:957,y0:0,y1:206,yc:116,r:43},
+  f100:{f:"Fokker_100_white_sm.jpg",sx:43,sy:329,sw:908,sh:201,w:908,h:201,x0:6,x1:904,y0:0,y1:194,yc:114,r:43},
+  md80:{f:"MD-80_white.jpg",sx:14,sy:330,sw:971,sh:195,w:971,h:195,x0:6,x1:970,y0:0,y1:188,yc:119,r:39},
+  md90:{f:"MD-90_white_sm.jpg",sx:49,sy:300,sw:941,sh:178,w:941,h:178,x0:6,x1:934,y0:0,y1:171,yc:109,r:36},
+  rj85:{f:"BAe_146-200_Avro_RJ85_white.jpg",sx:85,sy:329,sw:830,sh:201,w:830,h:201,x0:6,x1:825,y0:0,y1:194,yc:116,r:55},
+  sf34:{f:"Saab_340B_white.jpg",sx:65,sy:343,sw:872,sh:230,w:872,h:230,x0:6,x1:865,y0:0,y1:223,yc:117,r:51}
+};
+
 const ASSET_LAYERS = {};           // Bilddaten und Blob-Adressen je Muster
 const ASSET_STATE  = {};           // "da" | "fehlt" | "prüft"
 let   ASSET_SCAN   = {running:false, done:false, found:0, checked:0};
+const ASSET_WORK   = {};           // laufende Aufbereitungen je Muster
+
 
 function assetsFor(id){
-  const a=PLANE_ASSETS[id];
-  return (a && ASSET_STATE[id]==="da") ? a : null;
+  const a=PLANE_ART[id];
+  if(!a || ASSET_STATE[id]==="fehlt") return null;
+  if(!ASSET_LAYERS[id]){
+    prepareArt(id).then(ok=>{ if(ok && typeof render==="function" && S) render(); });
+    return null;                 /* bis dahin die eigene Zeichnung */
+  }
+  return a;
 }
 function assetUrl(id, kind){
   const L=ASSET_LAYERS[id];
   return (L && L.url && L.url[kind]) || "";
 }
+
 /** Lädt ein Bild und meldet, ob es vorhanden ist. */
 function tryImage(url){
   return new Promise(res=>{
@@ -1278,108 +1369,80 @@ function maskToAlpha(src){
 function blobUrl(cv){
   try{ return cv.toDataURL("image/png"); }catch(e){ return ""; }
 }
-/** Untersucht ein Muster: welche Dateien liegen da, und wie ist das Bild aufgebaut. */
-async function probeAsset(id, fileName){
-  ASSET_STATE[id]="prüft";
-  let baseCv=null, url={}, derived=false;
-
-  const preBase=await tryImage(ASSET_DIR+id+"-base.png");
-  if(preBase){
-    baseCv=canvasFromImage(preBase);
-    url.base=ASSET_DIR+id+"-base.png";
-  } else {
-    let raw=null;
-    if(fileName) raw=await tryImage(ASSET_DIR+fileName);
-    if(!raw) raw=await tryImage(ASSET_DIR+id+".jpg");
-    if(!raw) raw=await tryImage(ASSET_DIR+id+".png");
-    if(!raw){ ASSET_STATE[id]="fehlt"; return false; }
-    /* Rohe Vorlage: Hintergrund vom Rand her freistellen */
-    baseCv=prepCutout(canvasFromImage(raw), 42);
-    url.base=blobUrl(baseCv);
-    derived=true;
-  }
-
-  const box=prepBounds(baseCv);
-  if(box.w<20||box.h<10){ ASSET_STATE[id]="fehlt"; return false; }
-  const an=prepAnchor(baseCv, box);
-
-  /* Farbmaske: eigene Datei bevorzugt, sonst aus dem Bild ableiten */
-  const mImg=await tryImage(ASSET_DIR+id+"-mask.png");
-  if(mImg){ url.mask=ASSET_DIR+id+"-mask.png"; }
-  else {
-    const m=maskToAlpha(prepMask(baseCv, 110, null));
-    url.mask=blobUrl(m);
-    ASSET_LAYERS[id]=Object.assign(ASSET_LAYERS[id]||{}, {maskCv:m});
-    derived=true;
-  }
-
-  /* Leitwerk: eigene Datei, sonst aus dem hinteren Bereich über der Mittellinie */
-  const tImg=await tryImage(ASSET_DIR+id+"-tail.png");
-  if(tImg){ url.tail=ASSET_DIR+id+"-tail.png"; }
-  else {
-    const region={x0:Math.round(box.x0+box.w*0.72), x1:box.x1, y0:box.y0, y1:an.yc};
-    const t=maskToAlpha(prepMask(baseCv, 110, region));
-    url.tail=blobUrl(t);
-    ASSET_LAYERS[id]=Object.assign(ASSET_LAYERS[id]||{}, {tailCv:t});
-  }
-
-  const sImg=await tryImage(ASSET_DIR+id+"-shade.png");
-  if(sImg) url.shade=ASSET_DIR+id+"-shade.png";
-
-  ASSET_LAYERS[id]=Object.assign(ASSET_LAYERS[id]||{}, {baseCv, url, box, anchor:an});
-  PLANE_ASSETS[id]={base:1, mask:1, tail:1, shade:!!sImg,
-    w:baseCv.width, h:baseCv.height,
-    x0:an.x0, yc:an.yc, r:an.r, unit:an.unit, derived, file:fileName||null};
-  ASSET_STATE[id]="da";
-  return true;
+/** Bereitet ein Muster im Browser auf: Ausschnitt aus der Originaldatei
+    schneiden, Hintergrund vom Rand her entfernen, Farb- und Leitwerksmaske
+    ableiten. Geschieht einmal je Muster und wird dann im Speicher gehalten. */
+async function prepareArt(id){
+  const A=PLANE_ART[id]; if(!A) return false;
+  if(ASSET_LAYERS[id]) return true;
+  if(ASSET_WORK[id]) return ASSET_WORK[id];
+  ASSET_WORK[id]=(async()=>{
+    const img=await tryImage(ASSET_DIR+A.f);
+    if(!img){ ASSET_STATE[id]="fehlt"; return false; }
+    /* Ausschnitt der unteren Ansicht in der Zielgrösse zeichnen */
+    const cv=document.createElement("canvas");
+    cv.width=A.w; cv.height=A.h;
+    cv.getContext("2d").drawImage(img, A.sx, A.sy, A.sw, A.sh, 0, 0, A.w, A.h);
+    const base=prepCutout(cv, 16);
+    const maskCv=maskToAlpha(prepMask(base, 118, null));
+    const tx=Math.round(A.x0+(A.x1-A.x0)*0.70);
+    const tailCv=maskToAlpha(prepMask(base, 118,
+      {x0:tx, x1:A.x1, y0:0, y1:A.yc}));
+    ASSET_LAYERS[id]={baseCv:base, maskCv, tailCv,
+      url:{base:"", mask:"", tail:""}, anchor:{x0:A.x0, yc:A.yc, r:A.r}};
+    /* Für die SVG-Darstellung braucht es Adressen. Blob-Adressen sind kurz;
+       eingebettete Daten würden jede Flottenkarte um Hunderte Kilobyte blähen. */
+    const adresse=(cv)=>new Promise(res=>{
+      try{
+        if(cv.toBlob) cv.toBlob(b=>res(b?URL.createObjectURL(b):cv.toDataURL("image/png")),"image/png");
+        else res(cv.toDataURL("image/png"));
+      }catch(e){ res(""); }
+    });
+    try{
+      const [ub,um,ut]=await Promise.all([adresse(base), adresse(maskCv), adresse(tailCv)]);
+      ASSET_LAYERS[id].url={base:ub, mask:um, tail:ut};
+    }catch(e){}
+    ASSET_STATE[id]="da";
+    return true;
+  })();
+  const ok=await ASSET_WORK[id];
+  delete ASSET_WORK[id];
+  return ok;
 }
-/** Durchsucht den Ordner. Das Ergebnis wird gemerkt, damit spätere Starts
-    nur noch die tatsächlich vorhandenen Dateien anfassen. */
+/** Bereitet die Muster auf, die gerade gebraucht werden. */
+async function ensureArt(ids){
+  let neu=false;
+  for(const id of ids){
+    if(ASSET_LAYERS[id] || ASSET_STATE[id]==="fehlt") continue;
+    if(await prepareArt(id)) neu=true;
+  }
+  if(neu && typeof render==="function" && S) render();
+}
 async function scanAssets(force){
   if(ASSET_SCAN.running) return;
   ASSET_SCAN={running:true, done:false, found:0, checked:0};
-  let candidates=ACTL.map(t=>t.id);
-  if(!force){
-    try{
-      const raw=localStorage.getItem("skyline.assets");
-      if(raw){ const c=JSON.parse(raw);
-        if(c.t && Date.now()-c.t < 7*86400000 && Array.isArray(c.ids)){
-          candidates = c.ids.length ? c.ids : [];
-          if(!c.ids.length){ ASSET_SCAN={running:false,done:true,found:0,checked:0};
-            if(typeof renderPane==="function" && tab==="data") renderPane();
-            return; }
-        }
-      }
-    }catch(e){}
+  /* Zuerst nur prüfen, ob die Bilddateien überhaupt erreichbar sind */
+  const dateien=Array.from(new Set(Object.keys(PLANE_ART).map(k=>PLANE_ART[k].f)));
+  const da={};
+  for(let i=0;i<dateien.length;i+=6){
+    const teil=dateien.slice(i,i+6);
+    const res=await Promise.all(teil.map(f=>tryImage(ASSET_DIR+f)));
+    res.forEach((im,j)=>{ da[teil[j]]=!!im; });
+    ASSET_SCAN.checked+=teil.length;
+    ASSET_SCAN.found=Object.values(da).filter(Boolean).length;
   }
-  /* Ordnerliste holen und die Dateinamen zuordnen */
-  let fileMap={};
-  try{
-    const files=await listFolder(ASSET_DIR.replace(/\/$/,""));
-    if(files.length){
-      ACTL.forEach(t=>{ const f=matchAssetFile(t.id, files); if(f) fileMap[t.id]=f; });
-      if(Object.keys(fileMap).length) candidates=Object.keys(fileMap);
-    }
-  }catch(e){}
-  const found=[];
-  for(let i=0;i<candidates.length;i+=4){
-    const batch=candidates.slice(i,i+4);
-    const res=await Promise.all(batch.map(id=>probeAsset(id, fileMap[id]).catch(()=>false)));
-    res.forEach((ok,j)=>{ if(ok) found.push(batch[j]); });
-    ASSET_SCAN.checked+=batch.length;
-    ASSET_SCAN.found=found.length;
-    if(tab==="data" && typeof renderPane==="function") renderPane();
-  }
-  try{ localStorage.setItem("skyline.assets", JSON.stringify({t:Date.now(), ids:found})); }catch(e){}
+  Object.keys(PLANE_ART).forEach(id=>{
+    if(!da[PLANE_ART[id].f]) ASSET_STATE[id]="fehlt";
+  });
   ASSET_SCAN.running=false; ASSET_SCAN.done=true;
-  if(found.length && typeof render==="function") render();
-  else if(tab==="data" && typeof renderPane==="function") renderPane();
+  if(S) ensureArt(Array.from(new Set(S.fleet.map(a=>a.type))));
+  else if(typeof renderPane==="function" && tab==="data") renderPane();
 }
 function forgetAssets(){
   try{ localStorage.removeItem("skyline.assets"); }catch(e){}
-  Object.keys(PLANE_ASSETS).forEach(k=>delete PLANE_ASSETS[k]);
   Object.keys(ASSET_STATE).forEach(k=>delete ASSET_STATE[k]);
   Object.keys(ASSET_LAYERS).forEach(k=>delete ASSET_LAYERS[k]);
+  Object.keys(PLANE_IMG_CACHE).forEach(k=>delete PLANE_IMG_CACHE[k]);
   scanAssets(true);
 }
 
@@ -1528,7 +1591,7 @@ function liveryKey(L0){
 }
 /** Beschriftung, Signet und freie Ebenen über einem Grafikpaket. */
 function assetOverlaySVG(typeId, L0, VW, VH){
-  const A=PLANE_ASSETS[typeId]||{};
+  const A=PLANE_ART[typeId]||{};
   const r=(A.r||VH*0.11);                 // Bezugsradius für die Ebenenkoordinaten
   const x0=(A.x0!=null?A.x0:VW*0.03), yc=(A.yc!=null?A.yc:VH*0.55);
   const scale=(A.unit!=null?A.unit:(VW*0.94)/1000);
@@ -1790,14 +1853,14 @@ function planeSVG(typeId, liv, opts){
     SVG-Masken eingefärbt, damit sie in Listen genauso aussehen wie im
     Editor auf dem Canvas. */
 function planeAssetSVG(typeId, L0, o){
-  const A=PLANE_ASSETS[typeId]||{};
+  const A=PLANE_ART[typeId]||{};
   const VW=A.w||1600, VH=A.h||520;
   const id="A"+Math.random().toString(36).slice(2,9);
   const body=BODY_COLS[L0.body]||L0.c1;
   const wear=clamp(o.wear||0,0,1);
   const r=(A.r||VH*0.11);
   const x0=(A.x0!=null?A.x0:VW*0.03), yc=(A.yc!=null?A.yc:VH*0.55);
-  const scale=(A.unit!=null?A.unit:(VW*0.94)/1000);
+  const scale=(A.unit!=null?A.unit:((A.x1!=null?A.x1-A.x0:VW*0.94)/1000));
   const dark=lum(body)>0.5;
   const title=((typeof S!=="undefined"&&S&&S.name)?S.name:"Skyline").toUpperCase().slice(0,18);
   const img=(k,extra)=>`<image href="${assetUrl(typeId,k)}" x="0" y="0" width="${VW}" height="${VH}" ${extra||""}/>`;
@@ -1805,13 +1868,16 @@ function planeAssetSVG(typeId, L0, o){
     role="img" aria-label="${esc(ACT[typeId].name)} in der Hausbemalung">
     <defs>
       <mask id="${id}m" maskUnits="userSpaceOnUse" x="0" y="0" width="${VW}" height="${VH}">${img("mask")}</mask>
-      ${A.tail?`<mask id="${id}t" maskUnits="userSpaceOnUse" x="0" y="0" width="${VW}" height="${VH}">${img("tail")}</mask>`:""}
+      <mask id="${id}t" maskUnits="userSpaceOnUse" x="0" y="0" width="${VW}" height="${VH}">${img("tail")}</mask>
       <filter id="${id}w"><feColorMatrix type="saturate" values="${(1-wear*0.5).toFixed(2)}"/></filter>
     </defs>
     <g ${wear>0.02?`filter="url(#${id}w)"`:""}>
       ${img("base")}
       <rect width="${VW}" height="${VH}" fill="${body}" mask="url(#${id}m)" style="mix-blend-mode:multiply"/>
-      ${A.tail?`<rect width="${VW}" height="${VH}" fill="${L0.c1}" mask="url(#${id}t)" style="mix-blend-mode:multiply"/>`:""}
+      ${A.tail!==0?`<rect width="${VW}" height="${VH}" fill="${L0.c1}" mask="url(#${id}t)" style="mix-blend-mode:multiply"/>`:""}
+      ${L0.tailImg?`<image href="${esc(L0.tailImg)}" x="${(x0+(A.x1-A.x0)*0.70).toFixed(0)}" y="${(yc-(A.y1!=null?(yc-A.y0):r*6)).toFixed(0)}"
+        width="${((A.x1-A.x0)*0.30).toFixed(0)}" height="${(yc-(A.y0!=null?A.y0:0)).toFixed(0)}"
+        preserveAspectRatio="xMaxYMax meet" mask="url(#${id}t)"/>`:""}
       <g transform="translate(${x0},${yc}) scale(${scale.toFixed(4)})">
         ${(L0.layers||[]).map(l=>layerSVG(l,r/scale)).join("")}
         ${o.titles?`<text x="135" y="${(-r/scale*1.30).toFixed(1)}" font-family="Barlow Condensed,sans-serif"
@@ -3032,6 +3098,8 @@ function applyHubTransfers(){
    Beiladefracht im Unterdeck. Grossraumflugzeuge tragen ein Vielfaches
    dessen, was ein Schmalrumpf mitnehmen kann. */
 const CARGO_T = {
+  b74f:112, b77f:102, dc10:30, b744:28, a346:24, a333:22, a332:20, a338:19, b764:18, b778:26, b78x:24, a310:14, b39m:3.0, a19n:2.2, a320:2.4, a321:3.0, md80:2.0, md90:2.0, f100:1.4, rj85:1.2, cr10:0.9, e145:0.5, d328:0.35, sf34:0.3, at42:0.3,
+  
   at72:0.4, dh8d:0.5, cr9:0.6, e175:0.7, e29e:1.2, bcs1:1.6, bcs3:2.0,
   b737:2.2, a20n:2.6, b38m:2.8, a21n:3.2, a21x:3.2, b752:4.5,
   b763:16, a339:20, b788:15, b789:19, a359:21, a35k:24, b77w:28, b779:30, a388:22
@@ -3777,7 +3845,15 @@ function monthClose(){
   randomEvent();
 
   S.history.push({y:S.year,m:S.month,rev:M.rev+M.charter,cost:costs,profit,cash:S.cash,
-    pax:M.pax,lf:lfAll,rep:S.rep});
+    pax:M.pax,lf:lfAll,rep:S.rep,
+    /* vollständige Zahlen für Erfolgsrechnung und Bilanz */
+    fuel:M.fuel, maint:M.maint, crew:M.crew, fees:M.fees, svc:M.svcTotal||0,
+    lease:M.lease, dep:M.dep, station:M.station, overhead:M.overhead,
+    marketing:M.marketing||0, loyalty:M.loyalty||0, interest:M.interest,
+    hedge:M.hedge||0, dividend:M.dividend||0, charter:M.charter||0,
+    ask:M.ask, rpk:M.rpk, block:M.block, flights:M.flights,
+    debt:S.debt, flotte:fleetValue(), depot:portfolioValue(),
+    ek:S.cash+fleetValue()+portfolioValue()-S.debt});
   if(S.history.length>240) S.history.shift();
   S.lastMonth=Object.assign({},M,{costs,profit,lf:lfAll});
   S.acc=emptyAcc();
@@ -4212,6 +4288,7 @@ let tabResize=null;
 window.addEventListener("resize",()=>{ clearTimeout(tabResize); tabResize=setTimeout(buildTabs,150); });
 $$("#speedctl button[data-sp]").forEach(b=>b.addEventListener("click",()=>setSpeed(+b.dataset.sp)));
 $("#btnJump").addEventListener("click",()=>jumpAhead($("#jumpMode").value));
+$("#btnMenu").addEventListener("click",zumHauptmenu);
 $("#jumpMode").addEventListener("change",e=>{ if(S) S.jumpMode=e.target.value; });
 document.addEventListener("keydown",e=>{
   if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA") return;
@@ -4220,15 +4297,27 @@ document.addEventListener("keydown",e=>{
   if(e.key==="j"||e.key==="J"){ e.preventDefault(); jumpAhead((S&&S.jumpMode)||"event"); }
 });
 $("#mX").addEventListener("click",()=>$("#veil").classList.remove("on"));
-$("#veil").addEventListener("click",e=>{ if(e.target.id==="veil") $("#veil").classList.remove("on"); });
-function modal(title,html,btns){
+$("#veil").addEventListener("click",e=>{
+  if(e.target.id!=="veil") return;
+  /* Menüfenster lassen sich nicht durch Klick daneben schliessen — sonst
+     stünde man vor einem leeren Bildschirm ohne Weg zurück. */
+  if($("#veil").dataset.fest==="1") return;
+  $("#veil").classList.remove("on");
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape" && $("#veil").classList.contains("on") && $("#veil").dataset.fest!=="1")
+    $("#veil").classList.remove("on");
+});
+function modal(title,html,btns,fest){
   $("#mBody").onclick=null;
+  $("#veil").dataset.fest = fest ? "1" : "0";
   $("#mTitle").textContent=title; $("#mBody").innerHTML=html;
   const f=$("#mFoot"); f.innerHTML="";
   (btns||[{t:"Schliessen",f:()=>$("#veil").classList.remove("on")}]).forEach(b=>{
     const el=document.createElement("button"); el.textContent=b.t;
     if(b.p) el.className="primary"; el.addEventListener("click",b.f); f.appendChild(el);});
-  $("#veil").classList.add("on"); $("#mX").style.display="";
+  $("#veil").classList.add("on");
+  $("#mX").style.display = fest ? "none" : "";
 }
 function syncMapStyle(){
   if(!S) return;
@@ -4778,6 +4867,7 @@ function weekTimelineHTML(ac, active){
   }).join("")}</div>`;
 }
 function paneFleet(p){
+  ensureArt(Array.from(new Set(S.fleet.map(a=>a.type))));
   let h=`<h2 class="sec">Flotte und Wochenpläne</h2><div class="fleetgrid">`;
   if(S.orders.length){
     h+=`<h3 class="sub">Auftragsbuch</h3>`;
@@ -5123,6 +5213,7 @@ function sellAircraft(id,lease){
 
 /* ------------------------------------------------------------- Markt --- */
 function paneMarket(p){
+  ensureArt(ACTL.slice(0,10).map(t=>t.id).concat((S.usedMarket||[]).map(u=>u.type)));
   S.marketTab=S.marketTab||"used";
   let h=`<h2 class="sec">Flugzeugmarkt</h2>
   <div class="segbar" id="mkseg">
@@ -5206,6 +5297,7 @@ function paneFin(p){
   let h=`<h2 class="sec">Finanzen</h2>
   <div class="segbar" id="finseg">
     <button class="${S.finTab==="gv"?"on":""}" data-fs="gv">Erfolgsrechnung</button>
+    <button class="${S.finTab==="bil"?"on":""}" data-fs="bil">Bilanz</button>
     <button class="${S.finTab==="hedge"?"on":""}" data-fs="hedge">Hedging</button>
     <button class="${S.finTab==="stock"?"on":""}" data-fs="stock">Beteiligungen</button>
   </div>
@@ -5215,24 +5307,88 @@ function paneFin(p){
     <div class="tile"><b>${chf(S.debt)}</b><span>Fremdkapital</span></div>
     <div class="tile"><b>${chf(S.cash+fleetValue()+portfolioValue()-S.debt)}</b><span>Eigenkapital</span></div></div>`;
 
-  if(S.finTab==="gv"){
-    if(L){
-      const items=[["Umsatz (inkl. Charter)",L.rev,1],["davon Charter",L.charter||0,2],
-        ["Treibstoff",-L.fuel],["Technik und Wartung",-L.maint],["Personal",-L.crew],
-        ["Flughafengebühren",-L.fees],["Bordservice",-(L.svcTotal||0)],["Leasingraten",-L.lease],
-        ["Abschreibungen",-L.dep],["Stationen",-L.station],["Verwaltung",-L.overhead],
-        ["Marketing",-(L.marketing||0)],["Vielfliegerprogramm",-(L.loyalty||0)],
-        ["Zinsaufwand",-L.interest],["Hedging-Ergebnis",(L.hedge||0)],
-        ["Beteiligungserträge",(L.dividend||0)]];
-      h+=`<h3 class="sub">Erfolgsrechnung ${MONTHS[(S.month+11)%12]}</h3><table class="tbl">`;
-      items.forEach(([nm,v,head])=>h+=`<tr><td ${head===1?'style="color:var(--amber)"':head===2?'style="padding-left:16px;color:var(--dim)"':""}>${nm}</td>
-        <td class="r ${v<0?'':'pos'}">${v<0?"−"+chf(-v):chf(v)}</td></tr>`);
-      h+=`<tr><td style="font-weight:600;border-top:1px solid var(--line2)">Monatsergebnis</td>
-        <td class="r ${cls(L.profit)}" style="border-top:1px solid var(--line2);font-weight:600">${sgn(L.profit)}</td></tr></table>
-        <div class="kv" style="margin-top:8px"><span>Umsatzrendite</span><span class="${cls(L.profit)}">${L.rev?fmt(L.profit/L.rev*100,1):"–"}%</span></div>
-        <div class="kv"><span>Stückkosten je ASK</span><span>${L.ask?fmt(L.costs/L.ask*100,2):"–"} Rp.</span></div>
-        <div class="kv"><span>Erlös je RPK</span><span>${L.rpk?fmt(L.rev/L.rpk*100,2):"–"} Rp.</span></div>
-        <div class="kv"><span>Ergebnis je Flug</span><span class="${cls(L.profit)}">${L.flights?sgn(L.profit/L.flights):"–"}</span></div>`;
+  if(S.finTab==="gv" || S.finTab==="bil"){
+    S.finRef=S.finRef||"monat";
+    const H=S.history;
+    const akt=H[H.length-1];
+    const refIdx = S.finRef==="jahr" ? H.length-13 : H.length-2;
+    const ref = refIdx>=0 ? H[refIdx] : null;
+    h+=`<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span class="dim" style="font-size:11.5px">${akt?`Abschluss ${MONTHS[akt.m]} ${akt.y}`:"Noch kein Abschluss"}</span>
+      <div class="opts" id="finref">
+        <button class="sm ${S.finRef==="monat"?"on":""}" data-fr="monat">Vormonat</button>
+        <button class="sm ${S.finRef==="jahr"?"on":""}" data-fr="jahr">Vorjahr</button></div></div>`;
+    if(!akt){
+      h+=`<div class="empty"><b>Noch keine Zahlen</b>Nach dem ersten Monatsabschluss stehen hier Erfolgsrechnung und Bilanz.</div>`;
+    } else if(S.finTab==="gv"){
+      const A=pnlRows(akt), R=pnlRows(ref);
+      const z=(t,v,rv,stufe)=>({t,v,ref:rv,stufe});
+      const zeilen=[
+        z("Betriebsertrag", A.umsatz, R&&R.umsatz, 1),
+        z("Verkehrserlöse Passage", akt.rev-(akt.charter||0), R&&(ref.rev-(ref.charter||0)), 2),
+        z("Charterverkehr", akt.charter||0, R&&(ref.charter||0), 2),
+        z("Betriebsaufwand", -A.betrieb, R&&-R.betrieb, 1),
+        z("Treibstoff", -akt.fuel, R&&-ref.fuel, 2),
+        z("Technik und Wartung", -akt.maint, R&&-ref.maint, 2),
+        z("Personal", -akt.crew, R&&-ref.crew, 2),
+        z("Flughafen- und Flugsicherungsgebühren", -akt.fees, R&&-ref.fees, 2),
+        z("Bordservice", -akt.svc, R&&-ref.svc, 2),
+        z("Stationen und Ausbauten", -akt.station, R&&-ref.station, 2),
+        z("Leasingraten", -akt.lease, R&&-ref.lease, 2),
+        z("Marketing und Vielflieger", -(akt.marketing+akt.loyalty), R&&-(ref.marketing+ref.loyalty), 2),
+        z("Verwaltung", -akt.overhead, R&&-ref.overhead, 2),
+        z("Betriebsergebnis vor Abschreibungen", A.ebitda, R&&R.ebitda, 3),
+        z("Abschreibungen auf Flugzeugen", -akt.dep, R&&-ref.dep, 2),
+        z("Betriebsergebnis", A.ebit, R&&R.ebit, 3),
+        z("Finanzergebnis", A.fin, R&&R.fin, 1),
+        z("Zinsaufwand", -akt.interest, R&&-ref.interest, 2),
+        z("Ergebnis aus Treibstoffsicherung", akt.hedge||0, R&&(ref.hedge||0), 2),
+        z("Beteiligungserträge", akt.dividend||0, R&&(ref.dividend||0), 2),
+        z("Monatsergebnis", A.ergebnis, R&&R.ergebnis, 3)
+      ];
+      h+=finTable(zeilen, !!R);
+      h+=`<h3 class="sub">Kennzahlen</h3><table class="tbl">
+        <tr><th>Kennzahl</th><th class="r">Aktuell</th><th class="r">Vergleich</th></tr>
+        ${[["Umsatzrendite", akt.rev?akt.profit/akt.rev*100:0, ref&&ref.rev?ref.profit/ref.rev*100:null, "%"],
+           ["Stückkosten je ASK", akt.ask?akt.cost/akt.ask*100:0, ref&&ref.ask?ref.cost/ref.ask*100:null, " Rp."],
+           ["Erlös je RPK", akt.rpk?akt.rev/akt.rpk*100:0, ref&&ref.rpk?ref.rev/ref.rpk*100:null, " Rp."],
+           ["Sitzladefaktor", akt.lf*100, ref?ref.lf*100:null, "%"],
+           ["Ergebnis je Flug", akt.flights?akt.profit/akt.flights:0, ref&&ref.flights?ref.profit/ref.flights:null, ""],
+           ["Blockstunden", akt.block||0, ref?ref.block||0:null, " h"]
+          ].map(([t,v,rv,e])=>`<tr><td>${t}</td>
+            <td class="r">${e===""?sgn(v):fmt(v, e==="%"?1:2)+e}</td>
+            <td class="r">${rv==null?"—":`<span class="${v-rv>=0?'pos':'neg'}">${v-rv>=0?"+":"−"}${fmt(Math.abs(v-rv), e==="%"?1:2)}${e}</span>`}</td></tr>`).join("")}
+      </table>`;
+      if(H.length>1) h+=`<h3 class="sub">Ergebnisverlauf</h3><div class="card">${sparkline()}</div>`;
+    } else {
+      const A=balanceRows(akt), R=balanceRows(ref);
+      const z=(t,v,rv,stufe)=>({t,v,ref:rv,stufe});
+      h+=finTable([
+        z("Aktiven", A.aktiven, R&&R.aktiven, 1),
+        z("Flüssige Mittel", A.fluessig, R&&R.fluessig, 2),
+        z("Flugzeuge zum Buchwert", A.flotte, R&&R.flotte, 2),
+        z("Beteiligungen", A.depot, R&&R.depot, 2),
+        z("Total Aktiven", A.aktiven, R&&R.aktiven, 3),
+        z("Passiven", A.fk+A.ek, R&&(R.fk+R.ek), 1),
+        z("Fremdkapital", A.fk, R&&R.fk, 2),
+        z("Eigenkapital", A.ek, R&&R.ek, 2),
+        z("Total Passiven", A.fk+A.ek, R&&(R.fk+R.ek), 3)
+      ], !!R);
+      const quote=A.aktiven?A.ek/A.aktiven*100:0;
+      const rquote=R&&R.aktiven?R.ek/R.aktiven*100:null;
+      h+=`<h3 class="sub">Kennzahlen</h3><table class="tbl">
+        <tr><th>Kennzahl</th><th class="r">Aktuell</th><th class="r">Vergleich</th></tr>
+        <tr><td>Eigenkapitalquote</td><td class="r ${quote<20?'neg':quote>50?'pos':''}">${fmt(quote,1)}%</td>
+          <td class="r">${rquote==null?"—":`<span class="${quote-rquote>=0?'pos':'neg'}">${quote-rquote>=0?"+":"−"}${fmt(Math.abs(quote-rquote),1)}%</span>`}</td></tr>
+        <tr><td>Verschuldungsgrad</td><td class="r">${A.ek>0?fmt(A.fk/A.ek*100,0)+"%":"—"}</td>
+          <td class="r">${R&&R.ek>0?fmt(R.fk/R.ek*100,0)+"%":"—"}</td></tr>
+        <tr><td>Liquidität in Monatsausgaben</td>
+          <td class="r">${akt.cost?fmt(A.fluessig/akt.cost,1):"—"}</td>
+          <td class="r">${ref&&ref.cost?fmt(R.fluessig/ref.cost,1):"—"}</td></tr>
+        <tr><td>Flottenbuchwert je Flugzeug</td>
+          <td class="r">${S.fleet.length?chf(A.flotte/S.fleet.length):"—"}</td><td class="r">—</td></tr>
+      </table>
+      <p class="dim" style="font-size:11px;margin-top:7px">Bestellungen erscheinen erst mit der Auslieferung in der Bilanz; Anzahlungen sind bereits von den flüssigen Mitteln abgezogen.</p>`;
     }
     h+=`<h3 class="sub">Zusatzerlöse</h3><div class="card">
       <div class="row" style="justify-content:space-between"><div><b>Sitzplatzreservierung</b><br>
@@ -5246,14 +5402,6 @@ function paneFin(p){
       <div class="kv"><span>Jahreszins</span><span>${fmt(BAL.loanRate*100,1)}%</span></div>
       <div class="row" style="margin-top:8px"><button id="borrow">Kredit aufnehmen</button>
         <button id="repay">Tilgen</button></div></div>`;
-    if(S.history.length>1){
-      h+=`<h3 class="sub">Ergebnisverlauf</h3><div class="card">${sparkline()}</div>
-      <table class="tbl" style="margin-top:9px"><tr><th>Monat</th><th class="r">Umsatz</th>
-        <th class="r">Ergebnis</th><th class="r">SLF</th><th class="r">Liquidität</th></tr>
-      ${S.history.slice(-14).reverse().map(x=>`<tr><td>${String(x.m+1).padStart(2,"0")}/${x.y}</td>
-        <td class="r">${chf(x.rev)}</td><td class="r ${cls(x.profit)}">${sgn(x.profit)}</td>
-        <td class="r">${fmt(x.lf*100,0)}%</td><td class="r">${chf(x.cash)}</td></tr>`).join("")}</table>`;
-    }
   }
 
   if(S.finTab==="hedge"){
@@ -5314,6 +5462,7 @@ function paneFin(p){
 
   p.innerHTML=h;
   p.querySelectorAll("[data-fs]").forEach(b=>b.onclick=()=>{S.finTab=b.dataset.fs; renderPane();});
+  p.querySelectorAll("[data-fr]").forEach(b=>b.onclick=()=>{S.finRef=b.dataset.fr; renderPane();});
   const sf=$("#seatfee"); if(sf) sf.onclick=()=>{ S.seatFee=!S.seatFee;
     if(S.seatFee) S.rep=clamp(S.rep-1.5,5,99);
     logg(S.seatFee?"Sitzplatzreservierung eingeführt.":"Sitzplatzreservierung abgeschafft.","");
@@ -5365,6 +5514,47 @@ function creditLimit(){
   const earn=S.history.slice(-6).reduce((s,h)=>s+Math.max(0,h.profit),0);
   return Math.max(30e6, fleetValue()*0.62+earn*4);
 }
+
+/* ================================================ Erfolgsrechnung ========
+   Zahlen in gewohnter Gliederung, immer mit Vergleich — wahlweise Vormonat
+   oder derselbe Monat des Vorjahres. */
+function pnlRows(h){
+  if(!h) return null;
+  const umsatz = h.rev;
+  const betrieb = h.fuel+h.maint+h.crew+h.fees+h.svc+h.station+h.marketing+h.loyalty+h.overhead+h.lease;
+  const ebitda = umsatz - betrieb;
+  const ebit = ebitda - h.dep;
+  const fin = (h.hedge||0)+(h.dividend||0)-h.interest;
+  return {umsatz, betrieb, ebitda, ebit, fin, ergebnis: ebit+fin, h};
+}
+function balanceRows(h){
+  if(!h) return null;
+  const fluessig=h.cash, flotte=h.flotte||0, depot=h.depot||0;
+  const aktiven=fluessig+flotte+depot;
+  const fk=h.debt||0, ek=aktiven-fk;
+  return {fluessig, flotte, depot, aktiven, fk, ek, h};
+}
+function finDelta(a,b){
+  if(b==null||!isFinite(b)) return "";
+  const d=a-b;
+  if(Math.abs(d)<1) return `<span class="dim">±0</span>`;
+  const pct = Math.abs(b)>1 ? ` <span class="dim">(${d>0?"+":""}${fmt(d/Math.abs(b)*100,0)}%)</span>` : "";
+  return `<span class="${d>=0?'pos':'neg'}">${d>0?"+":"−"}${chf(Math.abs(d))}</span>${pct}`;
+}
+function finTable(zeilen, ref){
+  return `<table class="tbl"><tr><th>Position</th><th class="r">Betrag</th>
+    <th class="r">Veränderung</th></tr>
+    ${zeilen.map(z=>{
+      const stil = z.stufe===1 ? 'style="color:var(--amber);font-weight:600"'
+        : z.stufe===2 ? 'style="padding-left:14px;color:var(--dim)"'
+        : z.stufe===3 ? 'style="font-weight:600;border-top:1px solid var(--line2)"' : "";
+      const stil2 = z.stufe===3 ? 'style="border-top:1px solid var(--line2);font-weight:600"' : "";
+      return `<tr><td ${stil}>${z.t}</td>
+        <td class="r ${z.v<0?'neg':z.stufe===3?cls(z.v):''}" ${stil2}>${z.v<0?"−"+chf(-z.v):chf(z.v)}</td>
+        <td class="r" ${stil2}>${ref?finDelta(z.v, z.ref):""}</td></tr>`;}).join("")}
+  </table>`;
+}
+
 /* ================================================ Kleine Infografiken ====
    Zahlen sind schneller zu erfassen, wenn sie eine Form haben. */
 function donut(pct, size, label, col){
@@ -5419,167 +5609,6 @@ function sparkline(){
     <span>${String(h[0].m+1).padStart(2,"0")}/${h[0].y}</span>
     <span class="${cls(last)}">${sgn(last)}</span>
     <span>${String(h[h.length-1].m+1).padStart(2,"0")}/${h[h.length-1].y}</span></div>`;
-}
-function paneFin(p){
-  S.finTab=S.finTab||"gv";
-  const L=S.lastMonth;
-  let h=`<h2 class="sec">Finanzen</h2>
-  <div class="segbar" id="finseg">
-    <button class="${S.finTab==="gv"?"on":""}" data-fs="gv">Erfolgsrechnung</button>
-    <button class="${S.finTab==="hedge"?"on":""}" data-fs="hedge">Hedging</button>
-    <button class="${S.finTab==="stock"?"on":""}" data-fs="stock">Beteiligungen</button>
-  </div>
-  <div class="grid2">
-    <div class="tile"><b class="${cls(S.cash)}">${chf(S.cash)}</b><span>Liquidität</span></div>
-    <div class="tile"><b>${chf(fleetValue())}</b><span>Flottenbuchwert</span></div>
-    <div class="tile"><b>${chf(S.debt)}</b><span>Fremdkapital</span></div>
-    <div class="tile"><b>${chf(S.cash+fleetValue()+portfolioValue()-S.debt)}</b><span>Eigenkapital</span></div></div>`;
-
-  if(S.finTab==="gv"){
-    if(L){
-      const items=[["Umsatz (inkl. Charter)",L.rev,1],["davon Charter",L.charter||0,2],
-        ["Treibstoff",-L.fuel],["Technik und Wartung",-L.maint],["Personal",-L.crew],
-        ["Flughafengebühren",-L.fees],["Bordservice",-(L.svcTotal||0)],["Leasingraten",-L.lease],
-        ["Abschreibungen",-L.dep],["Stationen",-L.station],["Verwaltung",-L.overhead],
-        ["Marketing",-(L.marketing||0)],["Vielfliegerprogramm",-(L.loyalty||0)],
-        ["Zinsaufwand",-L.interest],["Hedging-Ergebnis",(L.hedge||0)],
-        ["Beteiligungserträge",(L.dividend||0)]];
-      h+=`<h3 class="sub">Erfolgsrechnung ${MONTHS[(S.month+11)%12]}</h3><table class="tbl">`;
-      items.forEach(([nm,v,head])=>h+=`<tr><td ${head===1?'style="color:var(--amber)"':head===2?'style="padding-left:16px;color:var(--dim)"':""}>${nm}</td>
-        <td class="r ${v<0?'':'pos'}">${v<0?"−"+chf(-v):chf(v)}</td></tr>`);
-      h+=`<tr><td style="font-weight:600;border-top:1px solid var(--line2)">Monatsergebnis</td>
-        <td class="r ${cls(L.profit)}" style="border-top:1px solid var(--line2);font-weight:600">${sgn(L.profit)}</td></tr></table>
-        <div class="kv" style="margin-top:8px"><span>Umsatzrendite</span><span class="${cls(L.profit)}">${L.rev?fmt(L.profit/L.rev*100,1):"–"}%</span></div>
-        <div class="kv"><span>Stückkosten je ASK</span><span>${L.ask?fmt(L.costs/L.ask*100,2):"–"} Rp.</span></div>
-        <div class="kv"><span>Erlös je RPK</span><span>${L.rpk?fmt(L.rev/L.rpk*100,2):"–"} Rp.</span></div>
-        <div class="kv"><span>Ergebnis je Flug</span><span class="${cls(L.profit)}">${L.flights?sgn(L.profit/L.flights):"–"}</span></div>`;
-    }
-    h+=`<h3 class="sub">Zusatzerlöse</h3><div class="card">
-      <div class="row" style="justify-content:space-between"><div><b>Sitzplatzreservierung</b><br>
-        <span class="dim" style="font-size:10.5px">8 CHF je Passagier, kostet etwas Ruf</span></div>
-        <button class="sm ${S.seatFee?'primary':''}" id="seatfee">${S.seatFee?"aktiv":"einführen"}</button></div>
-      <div class="row" style="justify-content:space-between;margin-top:8px"><div><b>Gepäckgebühr</b><br>
-        <span class="dim" style="font-size:10.5px">3.5% mehr Umsatz, spürbarer Rufverlust</span></div>
-        <button class="sm ${S.bagFee?'primary':''}" id="bagfee">${S.bagFee?"aktiv":"einführen"}</button></div></div>
-    <h3 class="sub">Finanzierung</h3><div class="card">
-      <div class="kv"><span>Kreditrahmen</span><span>${chf(creditLimit())}</span></div>
-      <div class="kv"><span>Jahreszins</span><span>${fmt(BAL.loanRate*100,1)}%</span></div>
-      <div class="row" style="margin-top:8px"><button id="borrow">Kredit aufnehmen</button>
-        <button id="repay">Tilgen</button></div></div>`;
-    if(S.history.length>1){
-      h+=`<h3 class="sub">Ergebnisverlauf</h3><div class="card">${sparkline()}</div>
-      <table class="tbl" style="margin-top:9px"><tr><th>Monat</th><th class="r">Umsatz</th>
-        <th class="r">Ergebnis</th><th class="r">SLF</th><th class="r">Liquidität</th></tr>
-      ${S.history.slice(-14).reverse().map(x=>`<tr><td>${String(x.m+1).padStart(2,"0")}/${x.y}</td>
-        <td class="r">${chf(x.rev)}</td><td class="r ${cls(x.profit)}">${sgn(x.profit)}</td>
-        <td class="r">${fmt(x.lf*100,0)}%</td><td class="r">${chf(x.cash)}</td></tr>`).join("")}</table>`;
-    }
-  }
-
-  if(S.finTab==="hedge"){
-    const t=hedgedTons(), avg=hedgeAvgPrice();
-    let monthKg=0; S.routes.forEach(r=>{ if(r.last&&r.last.ok) monthKg+=r.last.fuelKg*BAL.weeksPerMonth; });
-    h+=`<p class="dim">Terminkontrakte sichern eine Menge Kerosin zum heutigen Preis. Steigt der Marktpreis, gewinnen Sie die Differenz; fällt er, zahlen Sie drauf. Verrechnet wird am Monatsende gegen den tatsächlichen Verbrauch.</p>
-    <div class="grid3">
-      <div class="tile"><b>${fmt(S.fuel,2)}</b><span>Marktpreis CHF/kg</span></div>
-      <div class="tile"><b>${t?fmt(avg,2):"–"}</b><span>Ø gesichert</span></div>
-      <div class="tile"><b>${fmt(monthKg/1000,0)}</b><span>Verbrauch t/Monat</span></div></div>
-    <div class="card"><div class="kv"><span>Gesicherte Menge</span><span>${fmt(t,0)} t</span></div>
-      <div class="kv"><span>Deckung des Verbrauchs</span><span>${monthKg?fmt(t*1000/monthKg*100,0)+"% eines Monats":"–"}</span></div>
-      ${t?`<div class="kv"><span>Aktueller Buchgewinn</span><span class="${cls((S.fuel-avg))}">${sgn(t*1000*(S.fuel-avg))}</span></div>`:""}
-      <div class="kv"><span>Ergebnis letzter Monat</span><span class="${cls(L?L.hedge||0:0)}">${L?sgn(L.hedge||0):"–"}</span></div></div>`;
-    (S.hedges||[]).forEach(x=>h+=`<div class="card" style="padding:8px 10px">
-      <div class="row" style="justify-content:space-between">
-        <div><b class="mono">${fmt(x.left,0)} t</b> <span class="dim">von ${fmt(x.tons,0)} t</span></div>
-        <span class="pill ${S.fuel>x.price?'ok':'bad'}">${fmt(x.price,2)} CHF/kg · noch ${x.months} Mt</span></div></div>`);
-    h+=`<h3 class="sub">Neuen Kontrakt abschliessen</h3><div class="card">
-      <label class="f">Menge in Tonnen</label><input type="number" id="hqty" value="${Math.max(500,Math.round(monthKg/1000*3/100)*100)}" min="100" step="100">
-      <label class="f">Laufzeit</label>
-      <select id="hmon"><option value="3">3 Monate</option><option value="6" selected>6 Monate</option>
-        <option value="12">12 Monate</option></select>
-      <div class="kv" style="margin-top:8px"><span>Festpreis</span><span>${fmt(S.fuel,2)} CHF/kg</span></div>
-      <div class="kv"><span>Sicherheitsleistung</span><span id="hsum">–</span></div>
-      <button class="primary" id="hbuy" style="width:100%;margin-top:8px">Kontrakt kaufen</button></div>`;
-  }
-
-  if(S.finTab==="stock"){
-    h+=`<p class="dim">Die Wettbewerber sind bewertete Unternehmen. Pakete lassen sich in Fünf-Prozent-Schritten kaufen; ab 51% übernehmen Sie die Gesellschaft samt ihren Drehkreuzen. Mit wachsendem Anteil steigt der geforderte Aufschlag.</p>
-    <div class="grid3">
-      <div class="tile"><b>${chf(portfolioValue())}</b><span>Depotwert</span></div>
-      <div class="tile"><b>${Object.keys(S.holdings||{}).length}</b><span>Beteiligungen</span></div>
-      <div class="tile"><b>${(S.takeovers||[]).length}</b><span>Übernahmen</span></div></div>`;
-    if((S.takeovers||[]).length) h+=`<div class="card"><b>Übernommen</b><br>
-      <span class="dim">${S.takeovers.map(t=>esc(t.name)+" ("+String(t.m+1).padStart(2,"0")+"/"+t.y+")").join(" · ")}</span></div>`;
-    const list=(S.rivals||[]).map(x=>({x, v:rivalValue(x), h:holdings(x.id),
-      routes:(S.routes||[]).filter(r=>(r.rivals||[]).some(q=>q.id===x.id&&q.flights>0)).length}))
-      .sort((a,b)=>(b.h-a.h)||(b.routes-a.routes)||(b.v-a.v)).slice(0,26);
-    list.forEach(({x,v,h:hp,routes})=>{
-      h+=`<div class="card"><div class="row" style="justify-content:space-between">
-        <div class="row" style="gap:8px"><span style="flex:0 0 30px">${rivalMark(x,30)}</span>
-        <div><b>${esc(x.name)}</b> <span class="mono dim" style="font-size:10px">${AIRLINE_IATA[x.id]||""}</span><br>
-          <span class="dim" style="font-size:10.5px">${MODEL_NAME[x.model]} · ${x.hubs.slice(0,4).join(" ")}</span></div></div>
-        <div class="mono" style="text-align:right">${chf(v)}<br><span class="dim">Bewertung</span></div></div>
-        <div class="kv"><span>Ihr Anteil</span><span class="${hp>0?'amb':''}">${fmt(hp*100,0)}%</span></div>
-        ${hp>0?`<div class="bar"><i style="width:${clamp(hp*100,0,100)}%"></i></div>`:""}
-        <div class="kv"><span>Konkurriert auf</span><span>${routes} Ihrer Strecken</span></div>
-        <div class="kv"><span>Nächstes 5%-Paket</span><span>${chf(v*0.05*(1+0.30*hp+(hp+0.05>0.5?0.25:0)))}</span></div>
-        <div class="row" style="margin-top:7px">
-          <button class="sm" data-buy5="${x.id}">5% kaufen</button>
-          <button class="sm" data-buy20="${x.id}">20% kaufen</button>
-          ${hp>0?`<button class="sm" data-sell="${x.id}">10% verkaufen</button>`:""}
-          ${hp>=0.35&&hp<0.5?`<button class="sm primary" data-take="${x.id}">Auf 51% aufstocken</button>`:""}
-        </div></div>`;
-    });
-  }
-
-  p.innerHTML=h;
-  p.querySelectorAll("[data-fs]").forEach(b=>b.onclick=()=>{S.finTab=b.dataset.fs; renderPane();});
-  const sf=$("#seatfee"); if(sf) sf.onclick=()=>{ S.seatFee=!S.seatFee;
-    if(S.seatFee) S.rep=clamp(S.rep-1.5,5,99);
-    logg(S.seatFee?"Sitzplatzreservierung eingeführt.":"Sitzplatzreservierung abgeschafft.","");
-    render(); };
-  const bf=$("#bagfee"); if(bf) bf.onclick=()=>{ S.bagFee=!S.bagFee;
-    if(S.bagFee) S.rep=clamp(S.rep-3,5,99); else S.rep=clamp(S.rep+1.5,5,99);
-    logg(S.bagFee?"Gepäckgebühr eingeführt.":"Freigepäck wieder eingeführt.","");
-    render(); };
-  const hb=$("#hbuy");
-  if(hb){
-    const upd=()=>{ const q=Math.max(100,+$("#hqty").value||100);
-      $("#hsum").textContent=chf(q*1000*S.fuel*0.06); };
-    $("#hqty").oninput=upd; upd();
-    hb.onclick=()=>buyHedge(Math.max(100,+$("#hqty").value||100), +$("#hmon").value);
-  }
-  p.querySelectorAll("[data-buy5]").forEach(b=>b.onclick=()=>buyShares(b.dataset.buy5,0.05));
-  p.querySelectorAll("[data-buy20]").forEach(b=>b.onclick=()=>buyShares(b.dataset.buy20,0.20));
-  p.querySelectorAll("[data-sell]").forEach(b=>b.onclick=()=>sellShares(b.dataset.sell,0.10));
-  p.querySelectorAll("[data-take]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.take, need=0.51-holdings(id);
-    buyShares(id, Math.ceil(need*20)/20);
-  });
-  const bb=$("#borrow"); if(bb) bb.onclick=()=>{const max=creditLimit()-S.debt;
-    modal("Kredit aufnehmen",
-      `<p class="dim">Verfügbar: <b class="mono">${chf(Math.max(0,max))}</b></p>
-       <label class="f">Betrag in Mio CHF</label><input type="number" id="amt" value="10" min="1">`,
-      [{t:"Abbrechen",f:()=>$("#veil").classList.remove("on")},
-       {t:"Aufnehmen",p:true,f:()=>{const a=(+$("#amt").value||0)*1e6;
-          if(a<=0||a>max){toast("Betrag ausserhalb des Rahmens.");return;}
-          S.cash+=a; S.debt+=a; S.debtPeak=Math.max(S.debtPeak||0, S.debt);
-          logg(`Kredit über ${chf(a)} CHF aufgenommen.`,"warn");
-          $("#veil").classList.remove("on"); render();}}]);};
-  const rb=$("#repay"); if(rb) rb.onclick=()=>{
-    modal("Kredit tilgen",
-      `<p class="dim">Offen: <b class="mono">${chf(S.debt)}</b> · Liquidität: <b class="mono">${chf(S.cash)}</b></p>
-       <label class="f">Betrag in Mio CHF</label><input type="number" id="amt" value="5" min="1">`,
-      [{t:"Abbrechen",f:()=>$("#veil").classList.remove("on")},
-       {t:"Tilgen",p:true,f:()=>{const a=(+$("#amt").value||0)*1e6;
-          if(a<=0||a>S.debt||a>S.cash){toast("Betrag nicht möglich.");return;}
-          S.cash-=a; S.debt-=a; logg(`${chf(a)} CHF getilgt.`,"good");
-          $("#veil").classList.remove("on"); render();}}]);};
-}
-function portfolioValue(){
-  let v=0; Object.keys(S.holdings||{}).forEach(id=>{ const x=rivalById(id);
-    if(x) v+=rivalValue(x)*holdings(id); });
-  return v;
 }
 function creditLimit(){
   const earn=S.history.slice(-6).reduce((s,h)=>s+Math.max(0,h.profit),0);
@@ -6463,25 +6492,20 @@ function paneData(p){
     <p class="dim" style="font-size:11px;margin-top:6px">Stimmt der Programmstand nicht mit der zuletzt hochgeladenen Fassung überein, liegt auf dem Server noch die alte Datei — oder der Browser zeigt eine zwischengespeicherte Kopie.</p>
   </div>
 
-  <h3 class="sub">Grafikpaket</h3>
+  <h3 class="sub">Flugzeugzeichnungen</h3>
   <div class="card">
-    <div class="kv"><span>Ordner Flugzeuge</span><span class="mono">${ASSET_DIR}</span></div>
-    <div class="kv"><span>Ordner Übriges</span><span class="mono">${MISC_DIR}</span></div>
-    <div class="kv"><span>Gefundene Muster</span><span class="${Object.keys(PLANE_ASSETS).length?"pos":""}">${Object.keys(PLANE_ASSETS).length} von ${ACTL.length}</span></div>
+    <div class="kv"><span>Ordner</span><span class="mono">${ASSET_DIR}</span></div>
+    <div class="kv"><span>Muster mit Zeichnung</span>
+      <span class="pos">${ACTL.filter(t=>PLANE_ART[t.id]&&ASSET_STATE[t.id]!=="fehlt").length} von ${ACTL.length}</span></div>
+    <div class="kv"><span>Bereits aufbereitet</span><span>${Object.keys(ASSET_LAYERS).length}</span></div>
     ${ASSET_SCAN.running?`<div class="kv"><span>Suchlauf</span><span>${ASSET_SCAN.checked} geprüft …</span></div>`:""}
-    ${Object.keys(PLANE_ASSETS).length
-      ? Object.keys(PLANE_ASSETS).map(k=>`<div class="kv"><span>${esc(ACT[k]?ACT[k].name:k)}</span>
-          <span class="pos">${PLANE_ASSETS[k].file?esc(PLANE_ASSETS[k].file):PLANE_ASSETS[k].w+"×"+PLANE_ASSETS[k].h}</span></div>`).join("")
-      : `<p class="dim" style="font-size:11px;margin-top:6px">Noch keine Zeichnungen gefunden. Laden Sie Seitenansichten in den Ordner <span class="mono">${ASSET_DIR}</span>. Die Dateinamen dürfen bleiben, wie sie sind — das Spiel ordnet sie selbst zu, etwa <span class="mono">A320_NEO_Pratt__Whitney_white_sm.jpg</span> dem Airbus A320neo.</p>`}
-    <div class="kv"><span>Bildmarke · Startbild</span><span>${MISC.logo?"gefunden":"—"} · ${MISC.splash?"gefunden":"—"}</span></div>
-    <div class="kv"><span>Eigene Aufkleber</span><span>${MISC.decals.length||"—"}</span></div>
-    <div class="kv"><span>Flughafenbilder</span><span>${Object.keys(MISC.airports).length||"—"}</span></div>
-    <div class="kv"><span>Airline-Logos gefunden</span><span>${Object.keys(ART_INDEX.tail).length} Heck · ${Object.keys(ART_INDEX.box).length} Signet · ${Object.keys(ART_INDEX.long).length} breit</span></div>
-    <div class="kv"><span>davon zugeordnet</span><span>${Object.keys(AIRLINE_ART.tail).length} Wettbewerber</span></div>
-    ${S.icao?`<div class="kv"><span>Eigene Kennung</span><span>${esc(S.icao)}${artFor(S.icao,"tail")?" · Heck gefunden":" · kein Bild"}</span></div>`:""}
+    ${ACTL.filter(t=>ASSET_STATE[t.id]==="fehlt").length
+      ? `<div class="kv"><span class="neg">Datei fehlt</span><span class="neg">${
+          ACTL.filter(t=>ASSET_STATE[t.id]==="fehlt").map(t=>t.id).join(", ")}</span></div>`
+      : `<p class="dim" style="font-size:11px;margin-top:6px">Die Zeichnungen werden aus den Originaldateien im Ordner erzeugt: Ausschnitt schneiden, Hintergrund entfernen, Masken ableiten. Das geschieht einmal je Muster, sobald es gebraucht wird.</p>`}
     <div class="row" style="margin-top:8px">
-      <button class="sm primary" id="scanBtn">Ordner neu durchsuchen</button>
-      <button class="sm" id="prepBtn">Vorlage von Hand aufbereiten</button>
+      <button class="sm primary" id="scanBtn">Neu aufbereiten</button>
+      <button class="sm" id="prepBtn">Eigene Vorlage aufbereiten</button>
       <button class="sm" id="idsBtn">Musterkennungen zeigen</button></div>
   </div>
 
@@ -6543,10 +6567,12 @@ scanScenarios();
 scanAirlineArt();
 scanScenarios(); forgetAssets(); };
   const ib=$("#idsBtn"); if(ib) ib.onclick=()=>modal("Musterkennungen",
-    `<p class="dim">So müssen die Dateien im Ordner <span class="mono">${ASSET_DIR}</span> heissen. Eine einzige Datei je Muster genügt.</p>
+    `<p class="dim">Welche Datei im Ordner <span class="mono">${ASSET_DIR}</span> zu welchem Muster gehört. Die Zuordnung ist fest hinterlegt, die Dateinamen müssen nicht geändert werden.</p>
      <table class="tbl"><tr><th>Muster</th><th>Dateiname</th><th class="r">Status</th></tr>
-     ${ACTL.map(t=>`<tr><td>${esc(t.name)}</td><td class="mono">${t.id}.jpg</td>
-       <td class="r ${ASSET_STATE[t.id]==="da"?"pos":"dim"}">${ASSET_STATE[t.id]==="da"?"gefunden":"—"}</td></tr>`).join("")}</table>`);
+     ${ACTL.map(t=>`<tr><td>${esc(t.name)}</td>
+       <td class="mono" style="font-size:10px">${PLANE_ART[t.id]?esc(PLANE_ART[t.id].f):"—"}</td>
+       <td class="r ${ASSET_STATE[t.id]==="fehlt"?"neg":"pos"}">${
+         ASSET_STATE[t.id]==="fehlt"?"fehlt":ASSET_LAYERS[t.id]?"bereit":"vorhanden"}</td></tr>`).join("")}</table>`);
   $("#save").onclick=saveGame; $("#load").onclick=loadGame;
   $("#restart").onclick=()=>modal("Neue Fluggesellschaft",
     "<p>Der aktuelle Spielstand geht verloren, sofern er nicht gesichert wurde.</p>",
@@ -7103,7 +7129,7 @@ function scLabel(c){
     verloren:{art:"kasse", wert:0}}
 
    Bilder liegen unter Graphics/Scenarios/<id>.jpg. */
-const SCENARIO_DIR = ["Graphics/Scenarios","graphics/Scenarios","graphics/scenarios"];
+const SCENARIO_DIR = ["graphics/Scenarios","graphics/scenarios","Graphics/Scenarios"];
 const SCENARIOS = [
  {id:"operation-outback", name:"Operation Outback",
   text:"Qantas und Virgin beherrschen den roten Kontinent. Die Küstenmetropolen sind hochprofitabel, aber hart umkämpft; das weite Inland und Asien bieten Nischen. Brechen Sie das Monopol auf und werden Sie Australiens neuer Nationalcarrier.",
@@ -7240,14 +7266,22 @@ async function scanScenarios(){
     const files=await listFolder(d);
     if(!files.length) continue;
     files.filter(f=>/\.(jpe?g|png|webp)$/i.test(f)).forEach(f=>{
-      SCENARIO_ART[f.replace(/\.[^.]+$/,"").toLowerCase()]=d+"/"+f;
+      SCENARIO_ART[artKey(f.replace(/\.[^.]+$/,""))]=d+"/"+f;
     });
     break;
   }
 }
+/* Die Bilddateien heissen wie das Szenario, aber ohne Leer- und Sonderzeichen —
+   und mal mit, mal ohne Bindestrich. Deshalb wird beides auf reine Buchstaben
+   heruntergebrochen und dann verglichen. */
+function artKey(x){
+  return String(x||"").toLowerCase()
+    .replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/ß/g,"ss")
+    .replace(/[^a-z0-9]/g,"");
+}
 function scenarioImage(sc){
-  const k=(sc.id||sc.name||"").toLowerCase();
-  return SCENARIO_ART[k] || SCENARIO_ART[k.replace(/\s+/g,"-")] || SCENARIO_ART[k.replace(/\s+/g,"_")] || null;
+  const k1=artKey(sc.name), k2=artKey(sc.id);
+  return SCENARIO_ART[k1] || SCENARIO_ART[k2] || null;
 }
 /** Prüft nach jedem Monatsabschluss, ob Sieg oder Niederlage eingetreten ist. */
 function currentScenario(){ return S.scenario && SCENARIOS.find(x=>x.id===S.scenario); }
@@ -7370,24 +7404,29 @@ function scenarioDialog(){
         Das Gerüst steht: Ausgangslage, Flotte, Startkapital, wirtschaftliche Sonderbedingungen sowie Sieg- und Niederlagebedingungen lassen sich je Szenario festlegen. Bilder werden aus <span class="mono">Graphics/Scenarios/</span> geladen.</div>
        <p class="dim">Gefundene Bilder: ${Object.keys(SCENARIO_ART).length||"keine"}${
          Object.keys(SCENARIO_ART).length?" — "+Object.keys(SCENARIO_ART).join(", "):""}</p>`,
-      [{t:"Zurück",p:true,f:mainMenu}]);
-    $("#mX").style.display="none";
+      [{t:"Zurück",p:true,f:mainMenu}], true);
     return;
   }
   modal("Szenarien",
     `<p class="dim">Vorgegebene Ausgangslagen mit klarem Ziel. Wirtschaftliche Rahmenbedingungen können abweichen.</p>
      <div id="scl">${SCENARIOS.map(sc=>{
        const img=scenarioImage(sc);
-       return `<div class="choice" data-i="${esc(sc.id)}" style="align-items:stretch">
-         ${img?`<span style="flex:0 0 92px"><img src="${esc(img)}" style="width:92px;height:62px;object-fit:cover;border-radius:3px" alt=""></span>`:""}
-         <div style="flex:1"><div class="t">${esc(sc.name)}</div>
+       return `<div class="misscard" data-i="${esc(sc.id)}">
+         ${img?`<div class="missimg"><img src="${esc(img)}" alt="" loading="lazy"></div>`:""}
+         <div class="missbody">
+           <div class="row" style="justify-content:space-between;align-items:flex-start">
+             <div class="t">${esc(sc.name)}</div><div class="mono amb">›</div></div>
            <div class="d">${esc(sc.text||"")}</div>
-           <div class="d" style="margin-top:3px">${(sc.bases||[]).join(" · ")} · ${(sc.fleet||[]).reduce((a,[,n])=>a+n,0)} Flugzeuge · ${sc.cash} Mio · ${DIFFICULTY[sc.difficulty||"normal"].n}</div></div>
-         <div class="mono amb">›</div></div>`;}).join("")}</div>`,
-    [{t:"Zurück",f:mainMenu}]);
-  $("#mX").style.display="none";
+           <div class="missmeta">
+             <span>${(sc.bases||[]).join(" · ")}</span>
+             <span>${(sc.fleet||[]).reduce((a,[,n])=>a+n,0)} Flugzeuge</span>
+             <span>${sc.cash} Mio</span>
+             <span>${DIFFICULTY[sc.difficulty||"normal"].n}</span>
+             <span>${(sc.ziele||[]).length} Ziele</span></div>
+         </div></div>`;}).join("")}</div>`,
+    [{t:"Zurück",f:mainMenu}], true);
   $("#scl").onclick=e=>{
-    const c=e.target.closest(".choice"); if(!c) return;
+    const c=e.target.closest(".misscard"); if(!c) return;
     const sc=SCENARIOS.find(x=>x.id===c.dataset.i); if(!sc) return;
     const img=scenarioImage(sc);
     modal(sc.name,
@@ -7406,9 +7445,8 @@ function scenarioDialog(){
          ${sc.verloren?`<div class="kv"><span class="dim">Gescheitert bei</span><span class="dim">${esc(sc.verloren.text||"")}</span></div>`:""}
        </div>`,
       [{t:"Zurück",f:scenarioDialog},
-       {t:"Starten",p:true,f:()=>{ $("#veil").classList.remove("on"); $("#mX").style.display="";
-          startScenario(sc.id); }}]);
-    $("#mX").style.display="none";
+       {t:"Starten",p:true,f:()=>{ $("#veil").classList.remove("on"); $("#veil").dataset.fest="0";
+          $("#mX").style.display=""; startScenario(sc.id); }}], true);
   };
 }
 
@@ -7496,7 +7534,7 @@ function setTab(t){
 
 /* Fassungskennung — steht im Hauptmenü und unter Daten. So lässt sich auf
    einen Blick prüfen, welcher Stand tatsächlich auf dem Server liegt. */
-const APP_VERSION = "2026-08-27 · Airline-Logos";
+const APP_VERSION = "2026-08-27b · Flotte & Bilanz";
 
 
 
@@ -8047,6 +8085,27 @@ function applyEffect(w){
 }
 
 /* ============================================================ Hauptmenü */
+/** Zurück ins Hauptmenü — vorher wird gefragt, ob gesichert werden soll. */
+function zumHauptmenu(){
+  if(!S){ mainMenu(); return; }
+  setSpeed(0);
+  const cloud = cloudReady() && cloudSignedIn();
+  modal("Zum Hauptmenü",
+    `<p>Der laufende Betrieb wird verlassen. Ungesicherte Fortschritte gehen verloren.</p>
+     <div class="card"><div class="kv"><span>Gesellschaft</span><span>${esc(S.name)}</span></div>
+       <div class="kv"><span>Stand</span><span>${clockLabel()}</span></div>
+       <div class="kv"><span>Liquidität · Flotte</span><span>${chf(S.cash)} · ${S.fleet.length}</span></div></div>
+     <p class="dim">${cloud
+       ? "Ein Cloud-Konto ist hinterlegt — der Stand lässt sich dort sichern."
+       : "Kein Cloud-Konto hinterlegt. Sichern legt eine Datei auf diesem Gerät ab."}</p>`,
+    [{t:"Abbrechen",f:()=>{$("#veil").classList.remove("on");}},
+     {t:"Ohne Sichern",f:()=>{$("#veil").classList.remove("on"); mainMenu();}},
+     {t:cloud?"Sichern und schliessen":"Als Datei sichern",p:true,f:async()=>{
+        $("#veil").classList.remove("on");
+        if(cloud) await cloudPush("aktuell"); else saveGame();
+        setTimeout(mainMenu, cloud?400:900);
+     }}]);
+}
 function mainMenu(){
   const cards=[
     {k:"neu",  t:"Neue Airline gründen",
@@ -8066,8 +8125,7 @@ function mainMenu(){
        <div class="mono amb">›</div></div>`).join("")}</div>
      <p class="dim" style="font-size:10.5px;text-align:right;margin-top:9px">
        Fassung ${APP_VERSION} · ${SCENARIOS.length} Szenarien</p>`,
-    []);
-  $("#mX").style.display="none";
+    [], true);
   $("#mm").onclick=e=>{
     const c=e.target.closest(".choice"); if(!c) return;
     const k=c.dataset.k;
@@ -8086,8 +8144,7 @@ function loadMenu(){
         <div class="d">${cloudReady()?(cloudSignedIn()?"Angemeldet als "+esc(CLOUD.mail||CLOUD.uid):"Anmeldung nötig"):"Noch kein Firebase-Projekt hinterlegt"}</div></div>
         <div class="mono amb">›</div></div>
      </div>`,
-    [{t:"Zurück",f:mainMenu}]);
-  $("#mX").style.display="none";
+    [{t:"Zurück",f:mainMenu}], true);
   $("#lm").onclick=async e=>{
     const c=e.target.closest(".choice"); if(!c) return;
     if(c.dataset.k==="file"){ $("#veil").classList.remove("on"); loadGame(); }
@@ -8116,8 +8173,7 @@ function legacyDialog(){
           <div class="d">${esc(A.txt)}</div>
           <div class="d" style="margin-top:3px">${A.bases.join(" · ")} · ${cnt} Flugzeuge · ${A.fleet.map(([t,n])=>n+"× "+esc(ACT[t].name.split(" (")[0])).join(", ")}</div></div>
         <div class="mono" style="text-align:right">${A.cash} Mio<br><span class="dim">Ruf ${A.rep}</span></div></div>`;}).join("")}</div>`,
-    [{t:"Zurück",f:mainMenu}]);
-  $("#mX").style.display="none";
+    [{t:"Zurück",f:mainMenu}], true);
   $("#lgl").onclick=e=>{
     const c=e.target.closest(".choice"); if(!c) return;
     const i=+c.dataset.i, A=LEGACY_AIRLINES[i];
@@ -8134,7 +8190,7 @@ function legacyDialog(){
        </div>
        <p class="dim">Name, Bemalung und Flugpläne lassen sich danach frei ändern. Die Gesellschaft verschwindet aus dem Wettbewerb.</p>`,
       [{t:"Zurück",f:legacyDialog},
-       {t:"Übernehmen",p:true,f:()=>{ $("#veil").classList.remove("on"); $("#mX").style.display="";
+       {t:"Übernehmen",p:true,f:()=>{ $("#veil").classList.remove("on"); $("#veil").dataset.fest="0"; $("#mX").style.display="";
           startExisting(i);
           setTimeout(()=>modal("Erste Schritte",
             `<ol style="padding-left:18px;line-height:1.85">
@@ -8178,7 +8234,7 @@ function startDialog(){
       L.code=code;
       const fs0=clamp(+$("#gf").value||100,10,8000);
       newGame({name,code,home:$("#gh").value,level:$("#gl").value,livery:L,flightStart:fs0});
-      $("#veil").classList.remove("on"); $("#mX").style.display="";
+      $("#veil").classList.remove("on"); $("#veil").dataset.fest="0"; $("#mX").style.display="";
       focusAirport(S.bases[0]);
       recomputeWeek(); buildDaySchedule(); render(); setSpeed(0);
       setTimeout(()=>modal("Erste Schritte",
