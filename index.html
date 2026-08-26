@@ -70,6 +70,11 @@ input[type=color]{width:100%;height:32px;padding:2px;background:#0a1322;border:1
 #speedctl{display:flex;gap:2px}
 #speedctl button{padding:6px 9px;font-family:var(--mono);font-size:12px;min-width:36px}
 #speedctl button.on{background:var(--amber);color:#0d1119;border-color:var(--amber);font-weight:600}
+#speedctl #btnJump{min-width:44px;color:var(--blue);border-color:var(--line2)}
+#speedctl #btnJump.busy{background:var(--blue);color:#0d1119}
+#speedctl select{padding:5px 6px;font-size:11px;width:auto;min-width:112px}
+#nextEv{font-family:var(--mono);font-size:10px;color:var(--dim2);text-align:right;
+  width:100%;margin-top:3px;letter-spacing:.04em}
 #ticker{position:absolute;right:12px;top:12px;width:260px;max-height:42%;overflow:hidden;
   background:rgba(8,14,26,.9);border:1px solid var(--line2);border-radius:var(--r);
   padding:7px 9px;font-family:var(--mono);font-size:10.5px;backdrop-filter:blur(3px)}
@@ -142,6 +147,11 @@ body.lightmap #tip span,body.lightmap #legend div,body.lightmap #ticker .tk{colo
 body.lightmap #ticker .tk b{color:#22303f}
 body.lightmap #maptools button{background:rgba(252,251,248,.92);color:#22303f;border-color:#c9c0ae}
 body.lightmap #mapinfo h4{color:#a8620d}
+#planhint{position:absolute;left:50%;top:12px;transform:translateX(-50%);display:none;
+  background:rgba(242,169,59,.94);color:#0d1119;border-radius:var(--r);padding:7px 13px;
+  font-family:var(--disp);font-size:13px;letter-spacing:.08em;text-transform:uppercase;
+  box-shadow:0 6px 20px rgba(0,0,0,.45);z-index:7;cursor:pointer}
+#planhint.on{display:block}
 #mapinfo{position:absolute;left:12px;top:12px;background:rgba(8,14,26,.92);border:1px solid var(--line2);
   border-radius:var(--r);padding:9px 12px;font-size:11px;max-width:270px;backdrop-filter:blur(3px);display:none}
 #mapinfo h4{margin:0 0 5px;font-family:var(--disp);font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber)}
@@ -166,6 +176,25 @@ body.lightmap #mapinfo h4{color:#a8620d}
 #tabs button{border:none;border-radius:3px 3px 0 0;background:transparent;padding:8px 10px;font-family:var(--disp);
   font-size:13.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);flex:1 1 auto;
   border-bottom:2px solid transparent;white-space:nowrap;min-width:66px}
+#tabs button .badge{display:inline-block;min-width:16px;height:16px;line-height:16px;
+  padding:0 4px;margin-left:5px;border-radius:9px;background:var(--red);color:#fff;
+  font-family:var(--mono);font-size:10px;font-weight:600;text-align:center;vertical-align:middle}
+#tabs button.on .badge{background:var(--red)}
+@media(max-width:880px){
+  #tabs button .ic{position:relative}
+  #tabs button .badge{position:absolute;top:-5px;left:9px;margin:0;font-size:9px;
+    min-width:14px;height:14px;line-height:14px}
+}
+.mailrow{display:flex;gap:9px;align-items:flex-start;padding:9px 10px;border-bottom:1px solid var(--line);
+  cursor:pointer;transition:background .15s}
+.mailrow:hover{background:#16243a}
+.mailrow.un{background:rgba(74,168,224,.07)}
+.mailrow.un .ms{font-weight:600;color:var(--txt)}
+.mailrow .mi{flex:0 0 22px;text-align:center;font-size:14px}
+.mailrow .ms{flex:1;font-size:12.5px;color:var(--dim)}
+.mailrow .mp{font-size:10.5px;color:var(--dim2);margin-top:2px}
+.mailrow .md{font-family:var(--mono);font-size:9.5px;color:var(--dim2);white-space:nowrap}
+.undot{width:7px;height:7px;border-radius:50%;background:var(--blue);display:inline-block;margin-right:5px}
 #tabs button .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--red);
   margin-left:4px;vertical-align:middle}
 #tabs button:hover{background:#122240;color:var(--txt)}
@@ -293,7 +322,15 @@ table.tbl th.r,table.tbl td.r{text-align:right}
       <button data-sp="1" class="on">1×</button>
       <button data-sp="5">5×</button>
       <button data-sp="20">20×</button>
+      <button id="btnJump" title="Zeit überspringen">▶▶</button>
+      <select id="jumpMode" title="Wie weit springen">
+        <option value="event">bis Ereignis</option>
+        <option value="day">bis morgen</option>
+        <option value="week">eine Woche</option>
+        <option value="month">bis Monatsende</option>
+      </select>
     </div>
+    <div id="nextEv"></div>
   </div>
 </div>
 <div id="app">
@@ -306,6 +343,7 @@ table.tbl th.r,table.tbl td.r{text-align:right}
       <button id="btnAnim">Flüge anhalten</button><button id="btnWx">Wetter aus</button>
       <button id="btnStyle">Tageskarte</button><button id="btnBord">Grenzen aus</button></div>
     <div id="mapinfo"></div>
+    <div id="planhint"></div>
     <div id="ticker"><h5>Flugbetrieb</h5><div id="tkl"></div></div>
     <div id="mapsize"><button id="btnMapSize">Karte grösser</button></div>
     <button id="sideToggle" title="Bedienfeld ein- und ausblenden">⤢</button>
@@ -1637,7 +1675,14 @@ function planeSVG(typeId, liv, opts){
 
   // Leitwerksbemalung
   let tail="";
-  if(L0.tail==="vollton") tail = `<rect x="${n1(0.60*L)}" y="${n1(T*1.2)}" width="${n1(0.55*L)}" height="${n1(-T*1.6)}" fill="${c1}"/>`;
+  if(L0.tailImg){
+    /* Fertiges Leitwerksbild hat Vorrang vor den gezeichneten Mustern. Es
+       sitzt in der Fläche der Seitenflosse und wird darauf beschnitten,
+       kann also nicht darüber hinausragen. */
+    tail = `<image href="${esc(L0.tailImg)}" x="${n1(0.585*L)}" y="${n1(T*1.30)}"
+      width="${n1(0.60*L)}" height="${n1(-T*1.34)}" preserveAspectRatio="xMidYMid meet"/>`;
+  }
+  else if(L0.tail==="vollton") tail = `<rect x="${n1(0.60*L)}" y="${n1(T*1.2)}" width="${n1(0.55*L)}" height="${n1(-T*1.6)}" fill="${c1}"/>`;
   else if(L0.tail==="verlauf"){
     tail = `<rect x="${n1(0.60*L)}" y="${n1(T*1.2)}" width="${n1(0.55*L)}" height="${n1(-T*1.6)}" fill="url(#${id}tg)"/>`;
     defs += grad(id+"tg", `<stop offset="0%" stop-color="${mix(c1,c2,0.55)}"/><stop offset="62%" stop-color="${c1}"/><stop offset="100%" stop-color="${shade(c1,-0.28)}"/>`,0,1);
@@ -1733,7 +1778,7 @@ function planeSVG(typeId, liv, opts){
      ${(L0.layers||[]).map(l=>layerSVG(l,r)).join("")}
      ${(L0.decals||[]).map(k=>{const D=DECALS[k]; if(!D) return "";
         return `<g transform="translate(${n1(D.x*L)},${n1(r*D.y)}) scale(${(D.s*r/13).toFixed(3)})">${D.f(L0.c1)}</g>`;}).join("")}
-     ${o.titles?`<text x="${n1(0.135*L)}" y="${n1(-r*1.30)}" font-family="Barlow Condensed,sans-serif"
+     ${o.titles?`<text x="${n1(0.135*L)}" y="${n1(-r*1.30)}" textLength="${n1(Math.min(0.42*L, String(title).length*r*0.46))}" lengthAdjust="spacingAndGlyphs" font-family="Barlow Condensed,sans-serif"
         font-size="${n1(titleSize)}" font-weight="700" letter-spacing="${n1(r*0.10)}"
         fill="${titleCol}">${esc(title)}</text>`:""}
      <text x="${n1(0.72*L)}" y="${n1(r*0.78)}" font-family="IBM Plex Mono,monospace" font-size="${n1(r*0.36)}"
@@ -2045,6 +2090,9 @@ function newGame(cfg){
     service:{eco:1,prem:1,biz:1,first:1}, weather:[], reviews:[], punctuality:0.86,
     charters:[], charterJobs:[], achievements:{}, pending:null,
     hedges:[], holdings:{}, takeovers:[], loyalty:false, seatFee:false, mapStyle:"nacht",
+    inbox:[], mailSeq:0, rel:{crew:70, airports:70, partners:55}, blocks:[],
+    curfewHits:0, tutorial:{done:false, erledigt:{}}, jumpMode:"event",
+    dayReport:null, lastStop:null, tarifGesehen:false,
     flightHistory:[], finTab:"gv",
     lastMonth:null, ownAirports:[] };
   applyDifficulty(cfg.level||"normal");
@@ -3062,13 +3110,27 @@ const AIRLINE_IATA = {
   VOZ:"VA", JST:"JQ", AXM:"AK", IGO:"6E", SWA:"WN", JBU:"B6", WJA:"WS"
 };
 const ART_DIRS = {
-  tail:["Graphics/Tails","graphics/Tails","graphics/tails"],
-  box: ["Graphics/AirlineLogobox","graphics/AirlineLogobox","Graphics/AirlineLogbox","graphics/airlinelogobox"],
-  long:["Graphics/AirlineLogolong","graphics/AirlineLogolong","graphics/airlinelogolong"]
+  tail:["graphics/Tails","graphics/tails","Graphics/Tails"],
+  box: ["graphics/AirlineLogobox","graphics/airlinelogobox","Graphics/AirlineLogobox"],
+  long:["graphics/AirlineLogolong","graphics/airlinelogolong","Graphics/AirlineLogolong"]
 };
+/* Die Dateien sind nach ICAO-Kürzel benannt — OAW für Helvetic Airways,
+   EDW für Edelweiss. Im Spiel bleibt daneben das IATA-Kürzel sichtbar, weil
+   es Reisenden geläufiger ist. */
+const ART_INDEX = {tail:{}, box:{}, long:{}};
 const AIRLINE_ART = {tail:{}, box:{}, long:{}};
-let ART_READY=false;
+let ART_READY=false, ART_COUNT=0;
+
+/* Wo mein Kürzel nicht dem echten ICAO-Kürzel entspricht, wird hier
+   richtiggestellt — sonst findet die Suche kein Bild. */
+const ICAO_FIX = {
+  ISS:"ICE", CSA:"TVS", LDM:"LGL", HOP:"DLA", IBK:"IBS", ADR:"ASL",
+  NOZ:"NAX", AZA:"ITY", TUI:"TUI", CTN:"CTN"
+};
+const icaoOf = x => (x && (ICAO_FIX[x.id] || x.id)) || "";
+
 async function scanAirlineArt(){
+  ART_COUNT=0;
   for(const kind of ["tail","box","long"]){
     let files=[], dir=null;
     for(const d of ART_DIRS[kind]){
@@ -3080,14 +3142,30 @@ async function scanAirlineArt(){
     files.filter(f=>/\.(png|jpe?g|svg|webp)$/i.test(f)).forEach(f=>{
       index[f.replace(/\.[^.]+$/,"").toUpperCase()]=dir+"/"+f;
     });
+    ART_INDEX[kind]=index;
+    ART_COUNT+=Object.keys(index).length;
     COMPETITOR_DATABASE.forEach(x=>{
-      const cands=[x.id, AIRLINE_IATA[x.id]].filter(Boolean).map(c=>c.toUpperCase());
+      const cands=[icaoOf(x), x.id, AIRLINE_IATA[x.id]].filter(Boolean).map(c=>c.toUpperCase());
       for(const c of cands){ if(index[c]){ AIRLINE_ART[kind][x.id]=index[c]; break; } }
     });
   }
   ART_READY=true;
-  const n=Object.keys(AIRLINE_ART.tail).length+Object.keys(AIRLINE_ART.box).length;
-  if(n && typeof render==="function") render();
+  if(S) applyPlayerArt();
+  if(ART_COUNT && typeof render==="function") render();
+}
+/** Bild zu einem beliebigen Kürzel — ICAO bevorzugt, IATA als Rückfall. */
+function artFor(code, kind){
+  if(!code) return null;
+  const idx=ART_INDEX[kind]||{};
+  return idx[String(code).toUpperCase()] || null;
+}
+/** Setzt Heckflosse und Schriftzug der eigenen Gesellschaft, sobald gefunden. */
+function applyPlayerArt(){
+  if(!S || !S.icao) return;
+  const t=artFor(S.icao,"tail"), l=artFor(S.icao,"long"), b=artFor(S.icao,"box");
+  if(t && S.livery && !S.livery.tailImgManuell) S.livery.tailImg=t;
+  if(l) S.logoLong=l;
+  if(b) S.logoBox=b;
 }
 function airlineArt(x, kind){ return x && AIRLINE_ART[kind] ? AIRLINE_ART[kind][x.id] : null; }
 /** Bildmarke einer Gesellschaft, mit Rückfall auf das gezeichnete Leitwerk. */
@@ -3398,6 +3476,7 @@ function simRoute(r, legList, monthIdx, ctx){
     const cost = part.fuel+part.maint+part.crew+pFees+pSvc;
     const st = {reg:part.ac.reg, no:part.leg.no, from:part.leg.from, to:part.leg.to,
       dep:part.leg.dep, arr:part.leg.arr, block:part.leg.block,
+      curfew: part.leg.issues.some(x=>/Sperrzeit/.test(x)),
       tag:timeLabel(part.leg.dep), wx:part.wx, transfer:part.transfer,
       flights:part.fl, seats:pSeats, pax:Math.min(pPax,pSeats),
       lf: pSeats? Math.min(pPax/pSeats,1) : 0, rev:pRev, cost, profit:pRev-cost};
@@ -3448,6 +3527,8 @@ function buildDaySchedule(){
   S.fleet.forEach(ac=>{
     if(ac.status!=="aktiv") return;
     if(charterBusy(ac.id)) return;
+    if(blockActive("ac",ac.id)) return;
+    if(blockActive("type",ac.type)) return;
     const sch=scheduleOf(ac);
     const legs=sch.week[wd].legs;
     if(!legs.length) return;
@@ -3455,6 +3536,9 @@ function buildDaySchedule(){
       if(l.issues.length) return;
       const st=LEGSTATS[legKey(ac.id,wd,l.i)];
       const f=st?Math.max(st.flights,1):1;
+      if(blockActive("region", AP[l.to]?AP[l.to].region:"") ||
+         blockActive("region", AP[l.from]?AP[l.from].region:"")) return;
+      if(blockActive("wx", l.from) || blockActive("wx", l.to)) return;
       const old=prev[ac.id+"#"+l.i];
       S.daySched.push({ac:ac.id, reg:ac.reg, i:l.i, day:wd, from:l.from, to:l.to, no:l.no,
         dep:l.dep, arr:l.arr, dist:l.dist,
@@ -3507,8 +3591,16 @@ function stepMinutes(dm){
   renderHeader();
 }
 function creditFlight(f){
+  if(f.cancelled){
+    S.acc=S.acc||emptyAcc();
+    S.acc.cancel=(S.acc.cancel||0)+1;
+    tickerPush("arr", `${S.code} ${f.no} ${f.from}→${f.to} annulliert`, f.arr);
+    return;
+  }
   const net=f.rev-f.cost;
   S.cash+=net;
+  const stx=LEGSTATS[legKey(f.ac,f.day,f.i)];
+  if(stx && stx.curfew) S.curfewHits=(S.curfewHits||0)+1;
   /* Jeden abgeschlossenen Flug einzeln festhalten */
   const st=LEGSTATS[legKey(f.ac,f.day,f.i)];
   S.flightHistory=S.flightHistory||[];
@@ -3558,6 +3650,7 @@ function newDay(){
   S.daySchedDay=null;
   recomputeWeek();
   buildDaySchedule();
+  rollDisruptions();
   renderMap();
 }
 
@@ -3665,6 +3758,8 @@ function monthClose(){
       return false; }
     return true; });
 
+  updateRelations(M);
+  S.curfewHits=Math.max(0,(S.curfewHits||0)-4);
   S.thinMonth=null;
   S.reviews=(makeReviews()).concat(S.reviews||[]).slice(0,80);
   rollWeather(); rollCharters(); rollUsed(); checkAchievements();
@@ -3997,11 +4092,18 @@ function renderMap(){
   svg.setAttribute("viewBox",`0 0 ${MAPW} ${MAPH}`);
   svg.innerHTML=`<g id="cam" transform="translate(${view.x},${view.y}) scale(${view.k})">${parts.join("")}</g>`;
   bindMapHover();
+  const ph=document.getElementById("planhint");
+  if(ph){
+    ph.classList.toggle("on", !!PLAN_FROM);
+    ph.textContent = PLAN_FROM ? `Ziel wählen · ab ${PLAN_FROM} · Abbrechen` : "";
+    ph.onclick=()=>mapPlanCancel();
+  }
   buildPlanes();
 }
 function bindMapHover(){
   $$("#map .apt").forEach(el=>{
-    el.addEventListener("click",e=>{e.stopPropagation(); showAirport(el.dataset.i);});
+    el.addEventListener("click",e=>{e.stopPropagation();
+      if(PLAN_FROM) mapPlanTo(el.dataset.i); else showAirport(el.dataset.i);});
     el.addEventListener("mouseenter",()=>highlight(el.dataset.i));
     el.addEventListener("mousemove",e=>{
       const a=AP[el.dataset.i], t=$("#tip"); t.style.display="block";
@@ -4108,11 +4210,14 @@ function focusAirport(iata){
 var tab="ops";
 let tabResize=null;
 window.addEventListener("resize",()=>{ clearTimeout(tabResize); tabResize=setTimeout(buildTabs,150); });
-$$("#speedctl button").forEach(b=>b.addEventListener("click",()=>setSpeed(+b.dataset.sp)));
+$$("#speedctl button[data-sp]").forEach(b=>b.addEventListener("click",()=>setSpeed(+b.dataset.sp)));
+$("#btnJump").addEventListener("click",()=>jumpAhead($("#jumpMode").value));
+$("#jumpMode").addEventListener("change",e=>{ if(S) S.jumpMode=e.target.value; });
 document.addEventListener("keydown",e=>{
   if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA") return;
   if(e.code==="Space"){ e.preventDefault(); setSpeed(S&&S.speed?0:1); }
   if(e.key==="1") setSpeed(1); if(e.key==="2") setSpeed(5); if(e.key==="3") setSpeed(20);
+  if(e.key==="j"||e.key==="J"){ e.preventDefault(); jumpAhead((S&&S.jumpMode)||"event"); }
 });
 $("#mX").addEventListener("click",()=>$("#veil").classList.remove("on"));
 $("#veil").addEventListener("click",e=>{ if(e.target.id==="veil") $("#veil").classList.remove("on"); });
@@ -4135,20 +4240,33 @@ function applyBrand(){
   const L=(S&&S.livery)||DEFAULT_LIVERY, acc=uiAccent(L.c1);
   document.documentElement.style.setProperty("--amber",acc);
   document.documentElement.style.setProperty("--amber-d",shade(acc,-0.45));
-  $("#brandMark").innerHTML=markSVG(L,30);
+  /* Signet: eigenes Bild, sonst gezeichnete Marke */
+  $("#brandMark").innerHTML = (S&&S.logoBox)
+    ? `<img src="${esc(S.logoBox)}" alt="" style="width:30px;height:30px;object-fit:contain;display:block">`
+    : markSVG(L,30);
 }
 function render(){ if(S){ recomputeWeek(); buildDaySchedule(); }
   syncMapStyle(); applyBrand(); renderHeader(); renderMap(); renderPane(); renderTicker(); }
 function renderHeader(){
   if(!S) return;
-  $("#brandName").innerHTML=`${esc(S.name.length>16?S.code:S.name)}<small>${esc(S.code)} · Skyline Manager</small>`;
-  $("#hCash").textContent=chf(S.cash); $("#hCash").className="num "+cls(S.cash);
+  /* Schriftzug oben links: breites Logo, sonst Name */
+  $("#brandName").innerHTML = S.logoLong
+    ? `<img src="${esc(S.logoLong)}" alt="${esc(S.name)}"
+         style="height:26px;max-width:210px;object-fit:contain;object-position:left;display:block">
+       <small>${esc(S.code)}${S.icao?" · "+esc(S.icao):""} · ${S.bases.join(" · ")}</small>`
+    : `${esc(S.name.length>16?S.code:S.name)}<small>${esc(S.code)}${S.icao?" · "+esc(S.icao):""} · Skyline Manager</small>`;
+  animateNum($("#hCash"), S.cash, v=>chf(v)); $("#hCash").className="num "+cls(S.cash);
   const p=S.lastMonth?S.lastMonth.profit:0;
   $("#hProfit").textContent=S.lastMonth?sgn(p):"–";
   $("#hProfit").className="num "+(S.lastMonth?cls(p):"");
   $("#hFleet").textContent=S.fleet.length+(S.orders.length?"+"+S.orders.reduce((s,o)=>s+o.n,0):"");
   $("#hRoutes").textContent=S.routes.length;
   renderTicker();
+  const nx=nextEventPreview();
+  const ne=$("#nextEv");
+  if(ne) ne.textContent = nx ? `Nächstes: ${nx.txt} in ${nx.tage} Tag${nx.tage===1?"":"en"}` : "";
+  const jm=$("#jumpMode"); if(jm && S.jumpMode) jm.value=S.jumpMode;
+  updateBadges();
   const acc=S.acc||{};
   if(acc.pax||S.lastMonth) animateNum($("#hPax"), acc.pax||S.lastMonth.pax, v=>fmt(Math.round(v)));
   else $("#hPax").textContent="–";
@@ -4160,16 +4278,17 @@ function renderHeader(){
 function renderPane(){
   if(!S) return;
   const p=$("#pane"); p.scrollTop=0;
-  ({ops:paneOps,net:paneNet,fleet:paneFleet,market:paneMarket,fin:paneFin,
+  ({ops:paneOps,net:paneNet,fleet:paneFleet,inbox:paneInbox,market:paneMarket,fin:paneFin,
     staff:paneStaff,charter:paneCharter,guest:paneGuest,ach:paneAch,
-    brand:paneBrand,log:paneLog,data:paneData})[tab](p);
+    brand:paneBrand,data:paneData})[tab](p);
+  buildTabs(true);
 }
 
 /* ------------------------------------------------------------ Lage ----- */
 function paneOps(p){
   const L=S.lastMonth, A=S.acc||emptyAcc();
   const dNo=clockDate().getUTCDate();
-  let h=`<h2 class="sec">Lagebild ${monthLabel()}</h2>${scenarioPanel()}
+  let h=`<h2 class="sec">Lagebild ${monthLabel()}</h2>${tutorialPanel()}${jumpReportHTML()}${scenarioPanel()}
   <div class="card"><div class="row" style="justify-content:space-between">
     <div><b>Laufender Monat</b> <span class="dim">Tag ${dNo}</span></div>
     <span class="pill ${S.speed?'ok':'warn'}">${S.speed?S.speed+"× läuft":"angehalten"}</span></div>
@@ -4202,6 +4321,20 @@ function paneOps(p){
     <div class="kv"><span>Kerosinpreis</span><span class="${S.fuel>1.05?'neg':S.fuel<0.72?'pos':''}">${fmt(S.fuel,2)} CHF/kg</span></div>
     <div class="kv"><span>Konjunkturindex</span><span class="${S.economy>1.04?'pos':S.economy<0.94?'neg':''}">${fmt(S.economy*100,0)}</span></div>
     <div class="kv"><span>Flotte einsatzbereit</span><span>${S.fleet.filter(a=>a.status==="aktiv").length} von ${S.fleet.length}</span></div></div>`;
+  const sperren=(S.blocks||[]).filter(b=>b.bis>S.clock);
+  if(sperren.length){
+    h+=`<h3 class="sub">Laufende Einschränkungen</h3>`;
+    sperren.forEach(b=>{
+      const rest=Math.max(1,Math.round((b.bis-S.clock)/DAYMS));
+      const was = b.art==="ac" ? (S.fleet.find(a=>a.id===b.wert)||{}).reg||b.wert
+        : b.art==="type" ? (ACT[b.wert]?ACT[b.wert].name:b.wert)
+        : b.art==="region" ? (REGION_NAME[b.wert]||b.wert)
+        : b.art==="wx" ? (AP[b.wert]?AP[b.wert].city:b.wert)
+        : "Belegschaft";
+      h+=`<div class="kv"><span>${esc(was)}</span>
+        <span class="neg">${esc(b.grund)} · noch ${rest} Tag${rest>1?"e":""}</span></div>`;
+    });
+  }
   if((S.weather||[]).length){
     h+=`<h3 class="sub">Wetterlage</h3>`;
     S.weather.forEach(z=>h+=`<div class="card" style="padding:8px 10px">
@@ -4215,6 +4348,7 @@ function paneOps(p){
     S.transferInfo.slice(0,6).forEach(t=>h+=`<div class="kv"><span>${t.from} → ${t.hub} → ${t.to}</span>
       <span>${fmt(t.pax/7,0)} Pax/Tag · Umstieg ${fmt(t.gap,0)} min</span></div>`);
   }
+  h+=relPanel();
   h+=`<h3 class="sub">Stationen</h3>`;
   const mv=airportMovements();
   S.bases.forEach(b=>{
@@ -4236,6 +4370,8 @@ function paneOps(p){
   p.querySelectorAll("[data-focus]").forEach(b=>b.onclick=()=>focusAirport(b.dataset.focus));
   p.querySelectorAll("[data-closebase]").forEach(b=>b.onclick=()=>closeBase(b.dataset.closebase));
   p.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>upgradeDialog(b.dataset.up));
+  p.querySelectorAll("[data-tut]").forEach(b=>b.onclick=()=>setTab(b.dataset.tut));
+  const ts=$("#tutSkip"); if(ts) ts.onclick=()=>{ S.tutorial.done=true; render(); };
   $("#addBase").onclick=baseDialog;
 }
 
@@ -4364,6 +4500,7 @@ function flightHistoryDialog(filter){
   modal(title, h);
 }
 function routeDetail(key){
+  if(S&&S.tutorial&&!S.tutorial.done) S.tarifGesehen=true;
   const r=S.routes.find(x=>x.key===key); if(!r) return;
   const A=AP[r.from],B=AP[r.to],d=distKm(A,B),L=r.last;
   const map=weeklyLegs(), legs=map[key]||[];
@@ -4386,7 +4523,7 @@ function routeDetail(key){
     ${(L&&L.ok&&L.split?L.split.rivals:rivalsOn(r).map(v=>{const x=rivalById(v.id);
         return {id:v.id, name:x?x.name:v.id, share:null, flights:v.flights, fare:v.fare};}))
       .map(v=>{const x=rivalById(v.id); return `<div class="kv" style="padding-left:10px">
-      <span style="color:var(--dim2)">${x?`<span style="display:inline-block;vertical-align:middle;margin-right:5px">${rivalMark(x,18)}</span>`:""}${esc(v.name)} <span class="pill">${x?MODEL_NAME[x.model]:""}</span></span>
+      <span style="color:var(--dim2)">${x?`<span style="display:inline-block;vertical-align:middle;margin-right:5px">${rivalMark(x,18)}</span>`:""}${esc(v.name)}${x?` <span class="mono dim" style="font-size:10px">${AIRLINE_IATA[x.id]||""} · ${icaoOf(x)}</span>`:""} <span class="pill">${x?MODEL_NAME[x.model]:""}</span></span>
       <span>${v.share!=null?fmt(v.share*100,1)+"% · ":""}${fmt(v.flights/7,1)}/Tag · Tarif ${fmt(v.fare*100,0)}${x?" · Ruf "+fmt(x.rep,0):""}</span></div>`;}).join("")}
     ${L&&L.ok&&L.transferPax?`<div class="kv"><span>davon Umsteiger</span><span>${fmt(L.transferPax/7,0)} Pax pro Tag</span></div>`:""}
     ${L&&L.ok&&L.cargoRev?`<div class="kv"><span>Frachterlös</span><span>${chf(L.cargoRev*BAL.weeksPerMonth)} pro Monat · ${fmt(L.cargoT,1)} t je Woche</span></div>`:""}
@@ -4498,7 +4635,7 @@ function rivalDialog(){
       <span style="flex:0 0 34px">${rivalMark(x,34)}</span>
       <div style="flex:1"><input type="text" data-rn="${x.id}" value="${esc(x.name)}" maxlength="34"
         style="font-family:var(--disp);font-size:15px;letter-spacing:.05em;background:transparent;border:none;padding:0;width:100%">
-        <div class="dim" style="font-size:10.5px">${MODEL_NAME[x.model]} · Drehkreuze ${x.hubs.slice(0,5).join(" ")}</div></div>
+        <div class="dim" style="font-size:10.5px">${AIRLINE_IATA[x.id]||""} · ${icaoOf(x)} · ${MODEL_NAME[x.model]} · Drehkreuze ${x.hubs.slice(0,5).join(" ")}</div></div>
       <span class="pill warn">${on.length} Ihrer Strecken</span></div>
       <div class="kv"><span>Preisniveau · Ruf</span><span>${fmt(x.fareMod*100,0)} · ${fmt(x.rep,0)}</span></div>
       <div class="kv"><span>Angriffslust</span><span>${fmt(x.aggro*(BAL.aggroMult||1)*100,0)}</span></div>
@@ -4659,9 +4796,10 @@ function paneFleet(p){
     const t=ACT[ac.type], s=seatsOf(ac), sch=scheduleOf(ac), days=planDays(ac);
     const wb=acWeeklyBlock(ac);
     const inAir=(S.daySched||[]).some(f=>f.ac===ac.id && f.started && !f.done);
-    const dotCls = ac.status==="wartung" ? "mnt" : !sch.flights ? "nop" : inAir ? "air" : "idle";
-    const dotTxt = ac.status==="wartung" ? "im Grosscheck" : !sch.flights ? "ohne Flugplan"
-      : inAir ? "in der Luft" : "am Boden";
+    const gesperrt = blockReason("ac",ac.id) || (blockActive("type",ac.type)?blockReason("type",ac.type):null);
+    const dotCls = ac.status==="wartung" ? "mnt" : gesperrt ? "mnt" : !sch.flights ? "nop" : inAir ? "air" : "idle";
+    const dotTxt = ac.status==="wartung" ? "im Grosscheck" : gesperrt ? gesperrt
+      : !sch.flights ? "ohne Flugplan" : inAir ? "in der Luft" : "am Boden";
     const st = ac.status==="wartung" ? `<span class="pill bad">Grosscheck</span>`
       : !sch.flights ? `<span class="pill warn">kein Flugplan</span>`
       : sch.warn.length ? `<span class="pill bad">${sch.warn.length} Hinweis${sch.warn.length>1?"e":""}</span>`
@@ -5158,7 +5296,8 @@ function paneFin(p){
     list.forEach(({x,v,h:hp,routes})=>{
       h+=`<div class="card"><div class="row" style="justify-content:space-between">
         <div class="row" style="gap:8px"><span style="flex:0 0 30px">${rivalMark(x,30)}</span>
-        <div><b>${esc(x.name)}</b><br><span class="dim" style="font-size:10.5px">${MODEL_NAME[x.model]} · ${x.hubs.slice(0,4).join(" ")}</span></div></div>
+        <div><b>${esc(x.name)}</b> <span class="mono dim" style="font-size:10px">${AIRLINE_IATA[x.id]||""}</span><br>
+          <span class="dim" style="font-size:10.5px">${MODEL_NAME[x.model]} · ${x.hubs.slice(0,4).join(" ")}</span></div></div>
         <div class="mono" style="text-align:right">${chf(v)}<br><span class="dim">Bewertung</span></div></div>
         <div class="kv"><span>Ihr Anteil</span><span class="${hp>0?'amb':''}">${fmt(hp*100,0)}%</span></div>
         ${hp>0?`<div class="bar"><i style="width:${clamp(hp*100,0,100)}%"></i></div>`:""}
@@ -5377,7 +5516,8 @@ function paneFin(p){
     list.forEach(({x,v,h:hp,routes})=>{
       h+=`<div class="card"><div class="row" style="justify-content:space-between">
         <div class="row" style="gap:8px"><span style="flex:0 0 30px">${rivalMark(x,30)}</span>
-        <div><b>${esc(x.name)}</b><br><span class="dim" style="font-size:10.5px">${MODEL_NAME[x.model]} · ${x.hubs.slice(0,4).join(" ")}</span></div></div>
+        <div><b>${esc(x.name)}</b> <span class="mono dim" style="font-size:10px">${AIRLINE_IATA[x.id]||""}</span><br>
+          <span class="dim" style="font-size:10.5px">${MODEL_NAME[x.model]} · ${x.hubs.slice(0,4).join(" ")}</span></div></div>
         <div class="mono" style="text-align:right">${chf(v)}<br><span class="dim">Bewertung</span></div></div>
         <div class="kv"><span>Ihr Anteil</span><span class="${hp>0?'amb':''}">${fmt(hp*100,0)}%</span></div>
         ${hp>0?`<div class="bar"><i style="width:${clamp(hp*100,0,100)}%"></i></div>`:""}
@@ -5466,6 +5606,10 @@ function paneStaff(p){
   const rats=Array.from(new Set(Object.keys(need).concat(Object.keys(S.pilots),
     S.pilotsTrain.map(x=>x.r), S.orders.map(o=>ACT[o.type].rating))));
   let h=`<h2 class="sec">Personal</h2>
+  <div class="card"><div class="kv"><span>Stimmung in der Belegschaft</span>
+    <span style="color:${relColor((S.rel||{}).crew||0)}">${fmt((S.rel||{}).crew||0,0)} · ${relLabel((S.rel||{}).crew||0)}</span></div>
+    <div class="bar"><i style="width:${(S.rel||{}).crew||0}%;background:${relColor((S.rel||{}).crew||0)}"></i></div>
+    <p class="dim" style="font-size:11px;margin-top:6px">Steigt mit Reserve über dem Bedarf und anständiger Bezahlung, sinkt bei Dauerbelastung und Ausfällen. Unter 42 werden Forderungen laut.</p></div>
   <p class="dim">Cockpitcrews sind an eine Musterberechtigung gebunden. Der Bedarf richtet sich nach den geplanten Blockstunden: ${BAL.dutyPerCrewWeek} Stunden pro Crew und Woche.</p>
   <h3 class="sub">Cockpit nach Musterberechtigung</h3>`;
   if(!rats.length) h+=`<div class="empty"><b>Noch keine Berechtigungen</b>Sobald ein Muster bestellt ist, können Sie ausbilden.</div>`;
@@ -5663,6 +5807,47 @@ function paneAch(p){
   p.innerHTML=h;
 }
 
+
+/* ------------------------------------------------------------ Postfach -- */
+function paneInbox(p){
+  S.inboxTab=S.inboxTab||"post";
+  const un=mailUnread(), offen=mailOpen().length;
+  let h=`<h2 class="sec">Postfach</h2>
+  <div class="segbar" id="ibseg">
+    <button class="${S.inboxTab==="post"?"on":""}" data-ib="post">Posteingang${un?" ("+un+")":""}</button>
+    <button class="${S.inboxTab==="log"?"on":""}" data-ib="log">Ereignisprotokoll</button></div>`;
+  if(S.inboxTab==="post"){
+    if(offen) h+=`<div class="card" style="border-color:var(--amber)">
+      <b class="amb">${offen} offene Entscheidung${offen>1?"en":""}</b><br>
+      <span class="dim" style="font-size:11px">Solange nicht entschieden ist, bleibt die Uhr stehen, sobald sie anläuft.</span></div>`;
+    h+=`<div class="row" style="margin-bottom:8px">
+      <button class="sm" id="ibRead">Alles als gelesen</button>
+      <button class="sm" id="ibClear">Gelesene entfernen</button></div>`;
+    const list=(S.inbox||[]);
+    if(!list.length) h+=`<div class="empty"><b>Keine Nachrichten</b>Berichte, Störungen und Entscheidungen erscheinen hier, sobald der Betrieb läuft.</div>`;
+    list.forEach(m=>{
+      const K=MAIL_KIND[m.kind]||MAIL_KIND.bericht;
+      const wartet=m.optionen && m.entschieden==null;
+      h+=`<div class="mailrow ${m.read?"":"un"}" data-m="${m.id}">
+        <span class="mi" style="color:${K.col}">${K.ic}</span>
+        <div style="flex:1">
+          <div class="ms">${m.read?"":'<span class="undot"></span>'}${esc(m.subj)}
+            ${wartet?'<span class="pill warn" style="margin-left:5px">offen</span>':""}</div>
+          <div class="mp">${esc(m.kurz||K.n)}</div></div>
+        <span class="md">${mailDate(m).slice(0,9)}</span></div>`;
+    });
+  } else {
+    h+=`<div class="log">${S.log.map(l=>`<div class="li ${l.k}">
+      <span class="t">${esc(l.d)}</span> ${esc(l.t)}</div>`).join("")}</div>`;
+  }
+  p.innerHTML=h;
+  p.querySelectorAll("[data-ib]").forEach(b=>b.onclick=()=>{S.inboxTab=b.dataset.ib; renderPane();});
+  p.querySelectorAll("[data-m]").forEach(el=>el.onclick=()=>mailShow(el.dataset.m));
+  const r1=$("#ibRead"); if(r1) r1.onclick=()=>{ (S.inbox||[]).forEach(m=>m.read=true); render(); };
+  const r2=$("#ibClear"); if(r2) r2.onclick=()=>{
+    S.inbox=(S.inbox||[]).filter(m=>!m.read || (m.optionen&&m.entschieden==null)); render(); };
+}
+
 /* ------------------------------------------------------------- Marke --- */
 function liveryEditor(container, L, onChange, code){
   const previewType=(S&&S.fleet.length)?S.fleet[0].type:"a20n";
@@ -5711,7 +5896,8 @@ function liveryEditor(container, L, onChange, code){
     container.querySelector("#c2").oninput=e=>{L.c2=e.target.value;live();};
     container.querySelector("#c2").onchange=upd;
     container.querySelectorAll("#bd button").forEach(b=>b.onclick=()=>{L.body=b.dataset.b;upd();});
-    container.querySelectorAll("#tl button").forEach(b=>b.onclick=()=>{L.tail=b.dataset.t;upd();});
+    container.querySelectorAll("#tl button").forEach(b=>b.onclick=()=>{
+      L.tail=b.dataset.t; L.tailImg=null; L.tailImgManuell=true; upd();});
     container.querySelectorAll("#st button").forEach(b=>b.onclick=()=>{L.stripe=b.dataset.s;upd();});
     container.querySelectorAll("#gl button").forEach(b=>b.onclick=()=>{L.glyph=b.dataset.g;upd();});
     container.querySelectorAll("#ti button").forEach(b=>b.onclick=()=>{L.titles=b.dataset.i;upd();});
@@ -5917,12 +6103,6 @@ function brandFree(box){
   };
   draw();
 }
-function paneLog(p){
-  p.innerHTML=`<h2 class="sec">Meldungen</h2><div id="log">`+
-    (S.log.length?S.log.map(e=>`<div class="e ${e.k}"><time>${e.d}</time>${esc(e.t)}</div>`).join("")
-      :`<div class="dim">Noch keine Meldungen.</div>`)+`</div>`;
-}
-
 
 /* ====================================================== Wolkenspeicher ===
    Spielstände liegen bei Firebase, damit derselbe Stand am Rechner und am
@@ -6264,7 +6444,6 @@ function prepDialog(){
   }
 }
 
-/* ------------------------------------------------------------- Daten --- */
 function paneData(p){
   p.innerHTML=`<h2 class="sec">Daten und Spielstand</h2>
   <h3 class="sub">Spielstand</h3>
@@ -6274,6 +6453,15 @@ function paneData(p){
   <h3 class="sub">Spielstand in der Cloud</h3>
   <p class="dim">Damit derselbe Stand am Rechner und am Telefon offen ist. Es braucht ein eigenes, kostenloses Firebase-Projekt: Firestore anlegen, unter «Authentication» die Anmeldung mit E-Mail und Passwort aktivieren, dann Web-API-Schlüssel und Projekt-ID hier eintragen. Die Zugangsdaten bleiben in diesem Browser.</p>
   <div class="card" id="cloudBox"></div>
+
+  <h3 class="sub">Fassung</h3>
+  <div class="card">
+    <div class="kv"><span>Programmstand</span><span class="mono">${APP_VERSION}</span></div>
+    <div class="kv"><span>Szenarien · Flughäfen</span><span>${SCENARIOS.length} · ${APL.length}</span></div>
+    <div class="kv"><span>Wettbewerber · Muster</span><span>${(S.rivals||[]).length} · ${ACTL.length}</span></div>
+    <div class="row" style="margin-top:8px"><button class="sm" id="reloadBtn">Neu laden und Zwischenspeicher leeren</button></div>
+    <p class="dim" style="font-size:11px;margin-top:6px">Stimmt der Programmstand nicht mit der zuletzt hochgeladenen Fassung überein, liegt auf dem Server noch die alte Datei — oder der Browser zeigt eine zwischengespeicherte Kopie.</p>
+  </div>
 
   <h3 class="sub">Grafikpaket</h3>
   <div class="card">
@@ -6288,7 +6476,9 @@ function paneData(p){
     <div class="kv"><span>Bildmarke · Startbild</span><span>${MISC.logo?"gefunden":"—"} · ${MISC.splash?"gefunden":"—"}</span></div>
     <div class="kv"><span>Eigene Aufkleber</span><span>${MISC.decals.length||"—"}</span></div>
     <div class="kv"><span>Flughafenbilder</span><span>${Object.keys(MISC.airports).length||"—"}</span></div>
-    <div class="kv"><span>Airline-Logos</span><span>${Object.keys(AIRLINE_ART.tail).length} Heck · ${Object.keys(AIRLINE_ART.box).length} Signet · ${Object.keys(AIRLINE_ART.long).length} breit</span></div>
+    <div class="kv"><span>Airline-Logos gefunden</span><span>${Object.keys(ART_INDEX.tail).length} Heck · ${Object.keys(ART_INDEX.box).length} Signet · ${Object.keys(ART_INDEX.long).length} breit</span></div>
+    <div class="kv"><span>davon zugeordnet</span><span>${Object.keys(AIRLINE_ART.tail).length} Wettbewerber</span></div>
+    ${S.icao?`<div class="kv"><span>Eigene Kennung</span><span>${esc(S.icao)}${artFor(S.icao,"tail")?" · Heck gefunden":" · kein Bild"}</span></div>`:""}
     <div class="row" style="margin-top:8px">
       <button class="sm primary" id="scanBtn">Ordner neu durchsuchen</button>
       <button class="sm" id="prepBtn">Vorlage von Hand aufbereiten</button>
@@ -6332,12 +6522,21 @@ function paneData(p){
     applyDifficulty(b.dataset.df);
     logg(`Schwierigkeit auf ${diffCfg().n} gestellt.`,"warn"); render();});
   renderCloudBox();
+  const rb2=$("#reloadBtn");
+  if(rb2) rb2.onclick=async()=>{
+    try{
+      if("caches" in window){ const ks=await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); }
+      if(navigator.serviceWorker){ const rs=await navigator.serviceWorker.getRegistrations();
+        await Promise.all(rs.map(r=>r.unregister())); }
+    }catch(e){}
+    location.reload(true);
+  };
   const pb=$("#prepBtn"); if(pb) pb.onclick=prepDialog;
   const sb=$("#scanBtn"); if(sb) sb.onclick=()=>{ toast("Ordner werden durchsucht …");
     try{ Object.keys(localStorage).filter(k=>k.startsWith("skyline.dir.")).forEach(k=>localStorage.removeItem(k)); }catch(e){}
     Object.keys(FOLDER_CACHE).forEach(k=>delete FOLDER_CACHE[k]);
     MISC.decals=[]; MISC.logo=null; MISC.splash=null; MISC.airports={};
-    ["tail","box","long"].forEach(k=>AIRLINE_ART[k]={});
+    ["tail","box","long"].forEach(k=>{AIRLINE_ART[k]={}; ART_INDEX[k]={};});
     scanAirlineArt();
 scanScenarios();
     scanMisc();
@@ -6505,6 +6704,11 @@ function adoptSave(d){
   if(!S.finTab) S.finTab="gv";
   if(!S.mapStyle) S.mapStyle="nacht";
   if(!S.flightNums) S.flightNums={};
+  if(!S.inbox) S.inbox=[];
+  if(!S.rel) S.rel={crew:70, airports:70, partners:55};
+  if(!S.blocks) S.blocks=[];
+  if(!S.tutorial) S.tutorial={done:true, erledigt:{}};
+  if(!S.jumpMode) S.jumpMode="event";
   S.fleet.forEach(ac=>{ if(!ac.plan) ac.plan={start:390,dests:[],days:[1,1,1,1,1,1,1],nums:[]};
     if(!ac.plan) ac.plan={};
     if(!ac.cab) ac.cab=CABIN_PRESETS[ACT[ac.type].cat==="Grossraum"?"standard":"europa"].f(ACT[ac.type]);
@@ -6544,13 +6748,17 @@ function showAirport(iata){
     <div class="kv"><span>Kaufkraft · Tourismus · Geschäft</span><span>${fmt(a.income*100,0)} · ${fmt(a.tourism*100,0)} · ${fmt(a.biz*100,0)}</span></div>
     <div class="kv"><span>Bewegungen pro Woche</span><span>${fmt(mv,0)} von ${tot}</span></div>
     <label class="f">Längste Piste</label>${runwaySVG(a.runway)}</div>
+  <div class="row" style="margin:8px 0"><button class="sm primary" id="planFrom">Strecke ab ${iata} planen</button></div>
   <div class="planebox" style="padding:0">${MISC.airports&&MISC.airports[iata]
     ? `<img src="${esc(MISC.airports[iata])}" style="width:100%;display:block;aspect-ratio:16/9;object-fit:cover" alt="">`
     : airportChartSVG(a)}</div>`;
+  setTimeout(()=>{ const pf=$("#planFrom");
+    if(pf) pf.onclick=()=>{ $("#veil").classList.remove("on"); mapPlanStart(iata); }; },0);
   const hc=hubCarriers(iata);
   if(hc.length){
     h+=`<h3 class="sub">Gesellschaften mit Drehkreuz hier</h3>`;
-    hc.forEach(x=>h+=`<div class="kv"><span><span style="display:inline-block;vertical-align:middle;margin-right:5px">${rivalMark(x,18)}</span>${esc(x.name)}</span>
+    hc.forEach(x=>h+=`<div class="kv"><span><span style="display:inline-block;vertical-align:middle;margin-right:5px">${rivalMark(x,18)}</span>${esc(x.name)}
+      <span class="mono dim" style="font-size:10px">${AIRLINE_IATA[x.id]||""}</span></span>
       <span>${MODEL_NAME[x.model]} · Ruf ${fmt(x.rep,0)} · Tarif ${fmt(x.fareMod*100,0)}</span></div>`);
     h+=`<p class="dim" style="font-size:11px;margin-top:5px">Eine Station an einem fremden Drehkreuz bedeutet harten Wettbewerb — dafür grosse Märkte.</p>`;
   }
@@ -6583,52 +6791,52 @@ function showAirport(iata){
    ist auch der Handlungsspielraum enger. Bewusst mittelgrosse Gesellschaften —
    ein Weltkonzern wäre als Ausgangslage reizlos. */
 const LEGACY_AIRLINES = [
- {id:"helvetic", name:"Helvetic Airways", code:"2L", bases:["ZRH","BRN"],
+ {id:"helvetic", name:"Helvetic Airways", code:"2L", icao:"OAW", bases:["ZRH","BRN"],
   cash:34, rep:66, liv:{c1:"#c8102e",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"linie",glyph:"kreuz"},
   fleet:[["e29e",5,0],["at72",2,1]],
   dests:["MUC","VIE","HAM","BER","PMI","OLB","IBZ","CTA","PRG","BRI","FLR","JMK"],
   txt:"Regionalairline im Wet-Lease-Geschäft. Kleine Flotte, kurze Strecken, wenig Puffer — der anspruchsvollste Einstieg."},
- {id:"edelweiss", name:"Edelweiss Air", code:"WK", bases:["ZRH"],
+ {id:"edelweiss", name:"Edelweiss Air", code:"WK", icao:"EDW", bases:["ZRH"],
   cash:62, rep:74, liv:{c1:"#e2453a",c2:"#ffffff",body:"weiss",tail:"bogen",stripe:"schwung",glyph:"gipfel"},
   fleet:[["a20n",4],["a21n",2],["a339",2]],
   dests:["PMI","HER","RHO","LCA","HRG","AGA","DJE","CPT","MRU","PUJ","VAR","FUE"],
   txt:"Ferienflieger mit gemischter Flotte. Starke Saison im Sommer, schwacher Winter — Auslastung steuern ist alles."},
- {id:"luxair", name:"Luxair", code:"LG", bases:["LUX"],
+ {id:"luxair", name:"Luxair", code:"LG", icao:"LGL", bases:["LUX"],
   cash:48, rep:70, liv:{c1:"#0b3a8f",c2:"#f2c200",body:"weiss",tail:"diagonale",stripe:"linie",glyph:"raute"},
   fleet:[["dh8d",4],["e29e",3],["b38m",2]],
   dests:["CDG","FRA","MUC","LHR","BCN","FCO","MXP","LIS","PMI","DUB","VIE","HAM"],
   txt:"Nationale Airline eines kleinen Landes. Hohe Kaufkraft am Standort, aber ein winziger Heimatmarkt."},
- {id:"airbaltic", name:"airBaltic", code:"BT", bases:["RIX"],
+ {id:"airbaltic", name:"airBaltic", code:"BT", icao:"BTI", bases:["RIX"],
   cash:56, rep:68, liv:{c1:"#8ac53f",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"schwung",glyph:"chevron"},
   fleet:[["bcs3",8]],
   dests:["TLL","VNO","HEL","ARN","CPH","OSL","BER","FRA","AMS","LGW","MUC","WAW","VIE","DUB"],
   txt:"Einheitsflotte im Baltikum. Wartung und Ausbildung sind günstig, weil alles dasselbe Muster ist."},
- {id:"croatia", name:"Croatia Airlines", code:"OU", bases:["ZAG"],
+ {id:"croatia", name:"Croatia Airlines", code:"OU", icao:"CTN", bases:["ZAG"],
   cash:41, rep:64, liv:{c1:"#0b3d91",c2:"#d7192d",body:"weiss",tail:"diagonale",stripe:"linie",glyph:"raute"},
   fleet:[["dh8d",5],["a20n",3]],
   dests:["SPU","DBV","PUY","FRA","MUC","VIE","ZRH","CDG","AMS","LHR","BRU","CPH"],
   txt:"Zubringer für die grossen Netze, dazu Ferienverkehr an die Adria. Chronisch knapp bei Kasse."},
- {id:"aegean", name:"Aegean Airlines", code:"A3", bases:["ATH","SKG"],
+ {id:"aegean", name:"Aegean Airlines", code:"A3", icao:"AEE", bases:["ATH","SKG"],
   cash:78, rep:76, liv:{c1:"#0a4fa0",c2:"#ffffff",body:"weiss",tail:"bogen",stripe:"schwung",glyph:"schwinge"},
   fleet:[["a20n",7],["a21n",3]],
   dests:["HER","RHO","JMK","JTR","CFU","LCA","FCO","MXP","MUC","FRA","CDG","LHR","VIE","TLV"],
   txt:"Solide aufgestellt, starke Sommersaison, gute Bewertungen. Der bequemste der bestehenden Betriebe."},
- {id:"icelandair", name:"Icelandair", code:"FI", bases:["KEF"],
+ {id:"icelandair", name:"Icelandair", code:"FI", icao:"ICE", bases:["KEF"],
   cash:70, rep:72, liv:{c1:"#0d5fbf",c2:"#ffffff",body:"weiss",tail:"welle",stripe:"schwung",glyph:"welle"},
   fleet:[["b38m",5],["b763",2]],
   dests:["LHR","CPH","OSL","AMS","CDG","FRA","JFK","BOS","YYZ","SEA","MAD","MUC"],
   txt:"Drehscheibe zwischen Europa und Nordamerika. Das ganze Modell steht und fällt mit den Umsteigern."},
- {id:"brussels", name:"Brussels Airlines", code:"SN", bases:["BRU"],
+ {id:"brussels", name:"Brussels Airlines", code:"SN", icao:"BEL", bases:["BRU"],
   cash:88, rep:71, liv:{c1:"#0b3a8f",c2:"#ffffff",body:"weiss",tail:"streifen",stripe:"linie",glyph:"scheibe"},
   fleet:[["a20n",6],["a21n",2],["a339",3]],
   dests:["LHR","CDG","FCO","MAD","LIS","VIE","CPH","ARN","JFK","ADD","NBO","DKR","LOS","CMN"],
   txt:"Europäisches Netz plus Afrika-Langstrecke. Grösser, aber mit teurer Kostenbasis."},
- {id:"finnair", name:"Finnair", code:"AY", bases:["HEL"],
+ {id:"finnair", name:"Finnair", code:"AY", icao:"FIN", bases:["HEL"],
   cash:96, rep:78, liv:{c1:"#0b2b6b",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"linie",glyph:"raute"},
   fleet:[["a20n",6],["a21n",2],["a359",3]],
   dests:["ARN","CPH","OSL","LHR","CDG","AMS","FRA","MUC","RIX","TLL","BKK","HND","ICN","DEL"],
   txt:"Kurze Wege nach Asien über den Norden. Langstrecke trägt das Ergebnis, Europa füllt die Flieger."},
- {id:"transavia", name:"Transavia", code:"HV", bases:["AMS","RTM"],
+ {id:"transavia", name:"Transavia", code:"HV", icao:"TRA", bases:["AMS","RTM"],
   cash:74, rep:60, liv:{c1:"#0d7a4a",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"band",glyph:"chevron"},
   fleet:[["b38m",8]],
   dests:["PMI","ALC","AGP","FAO","IBZ","HER","AYT","TFS","LPA","NCE","BCN","LIS","RAK","HRG"],
@@ -6775,7 +6983,8 @@ function startExisting(idx){
   const need=pilotNeed(); S.pilots={};
   for(const k in need) S.pilots[k]=Math.ceil(need[k]*1.08);
   S.cabin=Math.ceil(cabinNeed()*1.08);
-  S.legacy=A.id;
+  S.legacy=A.id; S.icao=A.icao||null; S.tutorial={done:true, erledigt:{}};
+  applyPlayerArt();
   logg(`${A.name} übernommen: ${S.fleet.length} Flugzeuge, ${S.bases.length} Station${S.bases.length>1?"en":""}.`,"good");
   recomputeWeek(); buildDaySchedule(); render(); setSpeed(0);
 }
@@ -7150,7 +7359,7 @@ function startScenario(id){
   const need=pilotNeed(); S.pilots={};
   for(const k in need) S.pilots[k]=Math.ceil(need[k]*1.05);
   S.cabin=Math.ceil(cabinNeed()*1.05);
-  S.scenario=sc.id; S.scenarioDone=null;
+  S.scenario=sc.id; S.scenarioDone=null; S.tutorial={done:true, erledigt:{}};
   logg(`Szenario «${sc.name}» begonnen.`,"good");
   recomputeWeek(); buildDaySchedule(); render(); setSpeed(0);
 }
@@ -7227,24 +7436,39 @@ function animateNum(el, to, fmtFn){
 
 /* Am Telefon wandert die Navigation nach unten: vier feste Reiter mit Zeichen
    und ein Sammelknopf für alles Übrige — mit dem Daumen erreichbar. */
-const TAB_ICON = {ops:"◉", net:"⇄", fleet:"✈", market:"🛒", fin:"💰", staff:"👥",
-  charter:"📋", guest:"★", ach:"🏆", brand:"🎨", log:"📰", data:"⚙"};
-const TAB_MAIN = ["ops","net","fleet","fin"];
-const TAB_NAME = {ops:"Lage", net:"Netz", fleet:"Flotte", market:"Markt", fin:"Finanzen",
-  staff:"Personal", charter:"Charter", guest:"Gäste", ach:"Erfolge", brand:"Marke",
-  log:"Meldungen", data:"Daten"};
+const TAB_ICON = {ops:"◉", net:"⇄", fleet:"✈", inbox:"✉", market:"🛒", fin:"💰", staff:"👥",
+  charter:"📋", guest:"★", ach:"🏆", brand:"🎨", data:"⚙"};
+const TAB_MAIN = ["ops","net","fleet","inbox"];
+const TAB_NAME = {ops:"Lage", net:"Netz", fleet:"Flotte", inbox:"Postfach", market:"Markt",
+  fin:"Finanzen", staff:"Personal", charter:"Charter", guest:"Gäste", ach:"Erfolge",
+  brand:"Marke", data:"Daten"};
 var mobileNav=null;
-function buildTabs(){
+/** Nur die Zähler auffrischen — die Reiter selbst bleiben stehen. */
+function updateBadges(){
+  const b=document.querySelector('#tabs [data-t="inbox"]');
+  if(!b || !S) return;
+  const n=mailUnread();
+  let el=b.querySelector(".badge");
+  if(!n){ if(el) el.remove(); return; }
+  if(!el){
+    el=document.createElement("span"); el.className="badge";
+    const ic=b.querySelector(".ic");
+    (ic||b).appendChild(el);
+  }
+  el.textContent=n>99?"99+":String(n);
+}
+function buildTabs(force){
   const wrap=$("#tabs");
   const narrow=window.innerWidth<=880;
-  if(narrow===mobileNav && wrap.dataset.built) return;
+  if(!force && narrow===mobileNav && wrap.dataset.built) return;
   mobileNav=narrow; wrap.dataset.built="1";
+  const bdg=k=>k==="inbox"&&S&&mailUnread()?`<span class="badge">${mailUnread()}</span>`:"";
   if(!narrow){
     wrap.innerHTML=Object.keys(TAB_NAME).map(k=>
-      `<button data-t="${k}" class="${tab===k?'on':''}">${TAB_NAME[k]}</button>`).join("");
+      `<button data-t="${k}" class="${tab===k?'on':''}">${TAB_NAME[k]}${bdg(k)}</button>`).join("");
   } else {
     wrap.innerHTML=TAB_MAIN.map(k=>
-      `<button data-t="${k}" class="${tab===k?'on':''}"><span class="ic">${TAB_ICON[k]}</span>${TAB_NAME[k]}</button>`).join("")
+      `<button data-t="${k}" class="${tab===k?'on':''}"><span class="ic">${TAB_ICON[k]}${bdg(k)}</span>${TAB_NAME[k]}</button>`).join("")
       +`<button data-more="1" class="${TAB_MAIN.includes(tab)?'':'on'}"><span class="ic">☰</span>Mehr</button>`;
   }
   wrap.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>setTab(b.dataset.t));
@@ -7270,6 +7494,558 @@ function setTab(t){
   renderPane();
 }
 
+/* Fassungskennung — steht im Hauptmenü und unter Daten. So lässt sich auf
+   einen Blick prüfen, welcher Stand tatsächlich auf dem Server liegt. */
+const APP_VERSION = "2026-08-27 · Airline-Logos";
+
+
+
+
+
+
+
+/* ====================================================== Erster Monat ====
+   Vier Handgriffe, die man am Anfang gemacht haben muss. Erledigt sich von
+   selbst, sobald der Spieler sie tut — kein Klicken durch Erklärtexte. */
+const TUT_STEPS = [
+  {id:"strecke", t:"Eine Strecke aufnehmen",
+   d:"Auf der Karte einen Flughafen anklicken und «Strecke ab … planen» wählen — oder unter «Flotte» den Wochenplan öffnen.",
+   f:()=>S.routes.length>0, tab:"fleet"},
+  {id:"crew", t:"Genug Personal einstellen",
+   d:"Unter «Personal» Cockpit und Kabine mindestens auf den Bedarf bringen. Etwas Reserve verhindert Ausfälle.",
+   f:()=>(S.crewFactor||0)>=0.999, tab:"staff"},
+  {id:"tarif", t:"Einen Tarif prüfen",
+   d:"Im Netz eine Strecke öffnen und den Tarif ansehen. Zu teuer heisst leere Sitze, zu billig heisst kein Geld.",
+   f:()=>S.tarifGesehen===true, tab:"net"},
+  {id:"uhr", t:"Die Uhr starten",
+   d:"Oben rechts 1× drücken oder mit ▶▶ bis zum nächsten Ereignis springen.",
+   f:()=>S.history.length>0 || (S.acc&&S.acc.flights>0), tab:null}
+];
+function tutorialPanel(){
+  const T=S.tutorial; if(!T || T.done) return "";
+  TUT_STEPS.forEach(x=>{ try{ if(x.f()) T.erledigt[x.id]=true; }catch(e){} });
+  const fertig=TUT_STEPS.filter(x=>T.erledigt[x.id]).length;
+  if(fertig>=TUT_STEPS.length){ T.done=true;
+    return `<div class="card" style="border-color:var(--green)">
+      <b class="pos">Der Betrieb läuft.</b><br>
+      <span class="dim" style="font-size:11px">Ab hier gibt es keine Vorgaben mehr. Behalten Sie die Auslastung im Auge, halten Sie etwas Reserve in der Kasse — und lesen Sie das Postfach.</span></div>`; }
+  return `<div class="card" style="border-color:var(--blue)">
+    <div class="row" style="justify-content:space-between">
+      <b>Erste Schritte</b><span class="pill">${fertig} von ${TUT_STEPS.length}</span></div>
+    ${TUT_STEPS.map(x=>{const ok=T.erledigt[x.id];
+      return `<div class="kv" style="align-items:flex-start">
+        <span style="flex:1">${ok?'<span class="pos">✓</span> ':'<span class="dim">○</span> '}
+          <b style="${ok?'opacity:.5':''}">${esc(x.t)}</b>
+          ${ok?"":`<br><span class="dim" style="font-size:10.5px">${esc(x.d)}</span>`}</span>
+        ${ok||!x.tab?"":`<button class="sm" data-tut="${x.tab}">hin</button>`}</div>`;}).join("")}
+    <div class="row" style="margin-top:7px"><button class="sm" id="tutSkip">Nicht mehr anzeigen</button></div>
+  </div>`;
+}
+
+/* ============================================ Planen auf der Karte ======
+   Zwei Flughäfen anklicken, Maschine und Tage wählen — fertig. Die Listen
+   im Netz- und Flottenreiter bleiben unverändert bestehen; das hier ist der
+   schnellere Weg für eine neue Strecke. */
+let PLAN_FROM=null;
+function mapPlanStart(iata){
+  PLAN_FROM=iata;
+  toast(`Ab ${iata}: jetzt das Ziel auf der Karte anklicken.`);
+  renderMap();
+}
+function mapPlanCancel(){ PLAN_FROM=null; renderMap(); }
+function mapPlanTo(iata){
+  const from=PLAN_FROM; PLAN_FROM=null;
+  if(!from || from===iata){ renderMap(); return; }
+  const A=AP[from], B=AP[iata];
+  const kandidaten=S.fleet.filter(ac=>ac.status==="aktiv" && !acCanFly(ac,A,B)
+    && (ac.base===from || ac.base===iata));
+  const alle=S.fleet.filter(ac=>ac.status==="aktiv" && !acCanFly(ac,A,B));
+  const liste=kandidaten.length?kandidaten:alle;
+  const m=marketDemand(A,B,S.month);
+  let sel=liste.length?liste[0].id:null, tage=[1,1,1,1,1,1,1];
+  const body=()=>`
+    <div class="kv"><span>Strecke</span><span>${from} ↔ ${iata} · ${fmt(m.d)} km</span></div>
+    <div class="kv"><span>Markt</span><span>${fmt(m.daily,0)} Passagiere pro Tag, beide Richtungen</span></div>
+    <div class="kv"><span>Wettbewerb</span><span>${fmt(competitorBase(A,B)/7,1)} Flüge pro Tag</span></div>
+    <label class="f">Flugzeug</label>
+    <div id="mpl">${liste.length?liste.map(ac=>{
+      const s2=seatsOf(ac), bm=blockMinutes(ACT[ac.type], m.d);
+      return `<div class="choice ${sel===ac.id?'on':''}" data-a="${ac.id}">
+        <div><div class="t">${ac.reg} · ${esc(ACT[ac.type].name)}</div>
+          <div class="d">${s2.total} Sitze · Basis ${ac.base} · ${fmt(bm/60,1)} h je Richtung
+            · ${fmt(acWeeklyBlock(ac),1)} h Wochenblock belegt</div></div>
+        <div class="mono">${ac.base===from||ac.base===iata?"passend":"andere Basis"}</div></div>`;}).join("")
+      :`<div class="dim" style="padding:8px">Keine Maschine kann diese Strecke fliegen — Reichweite oder Pistenlänge.</div>`}</div>
+    <label class="f">An welchen Tagen</label>
+    <div class="daysel" id="mpd">${DAYS.map((d,i)=>
+      `<button class="${tage[i]?'on':''}" data-d="${i}">${d}</button>`).join("")}</div>
+    <p class="dim" style="font-size:11px;margin-top:6px">Hin- und Rückflug werden an den gewählten Tagen an den bestehenden Umlauf angehängt. Passt es zeitlich nicht, meldet es der Wochenplan.</p>`;
+  modal(`Strecke ${from} – ${iata} aufnehmen`, body(),
+    [{t:"Abbrechen",f:()=>{$("#veil").classList.remove("on"); renderMap();}},
+     {t:"Aufnehmen",p:true,f:()=>{
+        if(!sel){ toast("Keine passende Maschine."); return; }
+        const ac=S.fleet.find(x=>x.id===sel);
+        const ab = ac.base===iata ? iata : from;
+        const zu = ab===from ? iata : from;
+        ensurePlan(ac);
+        let n=0;
+        for(let d=0;d<7;d++){ if(!tage[d]) continue;
+          ac.plan.week[d].dests.push(zu, ab); n++; }
+        ensurePlan(ac);
+        const sch=scheduleOf(ac);
+        logg(`${ac.reg}: ${ab}–${zu} an ${n} Tagen aufgenommen.`, sch.warn.length?"warn":"good");
+        $("#veil").classList.remove("on");
+        render();
+        if(sch.warn.length) setTimeout(()=>planDialog(ac.id),200);
+     }}]);
+  $("#mpl").onclick=e=>{const c=e.target.closest(".choice"); if(!c)return;
+    sel=c.dataset.a; $("#mBody").innerHTML=body(); wire();};
+  const wire=()=>{
+    $("#mpl").onclick=e=>{const c=e.target.closest(".choice"); if(!c)return;
+      sel=c.dataset.a; $("#mBody").innerHTML=body(); wire();};
+    $("#mpd").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+      const i=+b.dataset.d; tage[i]=tage[i]?0:1; $("#mBody").innerHTML=body(); wire();});
+  };
+  wire();
+}
+
+/* ==================================================== Beziehungswerte ====
+   Drei Zahlen mit Gedächtnis: Belegschaft, Flughäfen und Partner. Sie
+   verändern sich langsam über Monate und steuern, wie oft und wie hart
+   Störungen zuschlagen. Per Knopfdruck lässt sich hier nichts reparieren. */
+const REL_NAME={crew:"Belegschaft", airports:"Flughäfen", partners:"Partner"};
+function relLabel(v){
+  return v>=80?"ausgezeichnet":v>=65?"gut":v>=48?"brauchbar":v>=32?"angespannt":"zerrüttet";
+}
+function relColor(v){ return v>=65?"var(--green)":v>=45?"var(--amber)":"var(--red)"; }
+/** Monatliche Fortschreibung aus dem tatsächlichen Verhalten. */
+function updateRelations(M){
+  S.rel=S.rel||{crew:70, airports:70, partners:55};
+  const R=S.rel;
+
+  /* Belegschaft: Reserve, Blockstunden, Lohnniveau, Ausfälle */
+  const reserve=(S.crewFactor||1);
+  let dc=0;
+  dc += reserve>1.12 ? 1.6 : reserve>1.03 ? 0.5 : -2.2;
+  const stdProCrew = S.fleet.length ? S.fleet.reduce((a,x)=>a+acWeeklyBlock(x),0)/Math.max(S.cabin,1)*4.345 : 0;
+  dc += stdProCrew>78 ? -1.8 : stdProCrew<58 ? 0.8 : 0;
+  dc += BAL.cabinPay>=6200 ? 1.0 : BAL.cabinPay<=5200 ? -1.2 : 0;
+  dc -= (M.cancel||0)*7;
+  if(S.rel.crew<50 && (S.acc||{}).cancel) dc-=0.6;
+  R.crew=clamp(R.crew+dc, 0, 100);
+
+  /* Flughäfen: Pünktlichkeit, Sperrzeitverstösse, Ausbauten, Gebühren */
+  let da=0;
+  da += (S.punctuality||0.88)>0.92 ? 1.4 : (S.punctuality||0.88)<0.80 ? -1.8 : 0.2;
+  da -= Math.min(6, (S.curfewHits||0)*0.35);
+  da += Object.keys(S.baseUp||{}).reduce((a,k)=>a+baseUp(k).length,0)*0.25;
+  R.airports=clamp(R.airports+da, 0, 100);
+
+  /* Partner: Umsteiger, Codeshare, Umbuchungsverhalten */
+  let dp=0;
+  dp += S.codeshare ? 1.2 : -0.3;
+  const tr=(S.transferInfo||[]).reduce((a,x)=>a+x.pax,0);
+  dp += tr>2000 ? 1.4 : tr>400 ? 0.6 : 0;
+  dp += loyaltyActive() ? 0.4 : 0;
+  R.partners=clamp(R.partners+dp, 0, 100);
+}
+/** Wirkung auf die Störungshäufigkeit. */
+function relRisk(){
+  const R=S.rel||{crew:70,airports:70,partners:55};
+  return {
+    crew: clamp(1.8 - R.crew/60, 0.5, 2.2),
+    airports: clamp(1.6 - R.airports/70, 0.5, 1.9)
+  };
+}
+function relPanel(){
+  const R=S.rel||{};
+  return `<h3 class="sub">Beziehungen</h3>
+  <div class="card"><p class="dim" style="font-size:11px;margin:0 0 7px">
+    Wachsen und schrumpfen über Monate. Sie entscheiden mit, wie oft etwas schiefgeht.</p>
+    ${Object.keys(REL_NAME).map(k=>{const v=R[k]||0;
+      return `<div class="kv"><span>${REL_NAME[k]}</span>
+        <span style="color:${relColor(v)}">${fmt(v,0)} · ${relLabel(v)}</span></div>
+        <div class="bar"><i style="width:${v}%;background:${relColor(v)}"></i></div>`;}).join("")}
+  </div>`;
+}
+
+/* ====================================================== Zeit überspringen
+   Statt zuzuschauen: bis zum nächsten Ereignis springen. Die Simulation
+   rechnet in Stundenschritten weiter und hält an, sobald etwas eintritt. */
+let JUMPING=false, JUMP_STOP=false;
+function stopForEvent(stufe){
+  if(stufe>=2){ JUMP_STOP=true; S.stopGrund=S.stopGrund||"Ereignis"; }
+}
+const JUMP_MODES={
+  event: "bis zum nächsten Ereignis",
+  day:   "bis morgen früh",
+  week:  "bis nächste Woche",
+  month: "bis Monatsende"
+};
+/** Was steht als Nächstes an? Für die Vorschau neben dem Knopf. */
+function nextEventPreview(){
+  const out=[];
+  const tage=(ms)=>Math.max(0, Math.round(ms/DAYMS));
+  const d=clockDate();
+  const monEnde=Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+1, 1, 0, 0);
+  out.push({t:monEnde-S.clock, txt:"Monatsabschluss"});
+  (S.orders||[]).forEach(o=>out.push({t:o.left*30*DAYMS, txt:`Auslieferung ${o.n}× ${ACT[o.type].name}`}));
+  S.fleet.forEach(ac=>{
+    const rest=BAL.heavyCheckHrs-(ac.hours||0);
+    const wo=acWeeklyBlock(ac);
+    if(wo>0 && rest>0) out.push({t:rest/wo*7*DAYMS, txt:`Grosscheck ${ac.reg}`});
+  });
+  (S.charters||[]).forEach(c=>out.push({t:c.until-S.clock, txt:`Charter ${c.from}–${c.to} endet`}));
+  (S.blocks||[]).forEach(b=>out.push({t:b.bis-S.clock, txt:`${b.grund} endet`}));
+  (S.pilotsTrain||[]).forEach(x=>out.push({t:x.m*30*DAYMS, txt:`${x.n} Cockpitmitglieder fertig`}));
+  out.sort((a,b)=>a.t-b.t);
+  const n=out.find(x=>x.t>0);
+  return n ? {tage:tage(n.t), txt:n.txt} : null;
+}
+async function jumpAhead(mode){
+  if(!S || JUMPING) return;
+  if(mailOpen().length){ toast("Zuerst die offene Entscheidung im Postfach beantworten."); setTab("inbox"); return; }
+  JUMPING=true; JUMP_STOP=false; S.stopGrund=null;
+  const start=S.clock, vorher=snapshotState();
+  const d0=clockDate();
+  const grenze = mode==="day"   ? Date.UTC(d0.getUTCFullYear(),d0.getUTCMonth(),d0.getUTCDate()+1,5,0)
+    : mode==="week"  ? S.clock+7*DAYMS
+    : mode==="month" ? Date.UTC(d0.getUTCFullYear(),d0.getUTCMonth()+1,1,5,0)
+    : S.clock+60*DAYMS;
+  const btn=$("#btnJump"); if(btn){ btn.classList.add("busy"); btn.textContent="läuft …"; }
+  const schritt=()=>{
+    let n=0;
+    while(!JUMP_STOP && S.clock<grenze && n<48){ stepMinutes(60); n++; }
+    if(!JUMP_STOP && S.clock<grenze){ setTimeout(schritt,0); return; }
+    JUMPING=false;
+    if(btn){ btn.classList.remove("busy"); }
+    finishJump(start, vorher);
+  };
+  setSpeed(0);
+  schritt();
+}
+function snapshotState(){
+  return {cash:S.cash, pax:(S.acc||{}).pax||0, rev:(S.acc||{}).rev||0,
+    rep:S.rep, flights:(S.acc||{}).flights||0, unread:mailUnread()};
+}
+/** Kurzer Bericht darüber, was seit dem letzten Halt geschah. */
+function finishJump(start, v){
+  const dauer=Math.max(1,Math.round((S.clock-start)/DAYMS));
+  const neu=mailUnread()-v.unread;
+  const a=S.acc||{};
+  const dCash=S.cash-v.cash;
+  S.dayReport={dauer, cash:dCash, pax:a.pax-v.pax, fluege:a.flights-v.flights,
+    rep:S.rep-v.rep, neu, grund:S.stopGrund};
+  render();
+  const offen=mailOpen();
+  if(offen.length){ setTimeout(()=>mailShow(offen[0].id),160); return; }
+  if(neu>0){ setTab("inbox"); }
+}
+function jumpReportHTML(){
+  const r=S.dayReport; if(!r) return "";
+  return `<div class="card" style="border-color:var(--blue)">
+    <div class="row" style="justify-content:space-between">
+      <b>Bericht über ${r.dauer} Tag${r.dauer>1?"e":""}</b>
+      ${r.neu?`<span class="pill warn">${r.neu} neue Nachricht${r.neu>1?"en":""}</span>`:`<span class="pill ok">ruhig</span>`}</div>
+    <div class="kv"><span>Ergebnis</span><span class="${cls(r.cash)}">${sgn(r.cash)}</span></div>
+    <div class="kv"><span>Flüge · Passagiere</span><span>${fmt(r.fluege)} · ${fmt(Math.round(r.pax))}</span></div>
+    <div class="kv"><span>Ruf</span><span class="${cls(r.rep)}">${r.rep>=0?"+":""}${fmt(r.rep,1)}</span></div>
+  </div>`;
+}
+
+/* ========================================================== Störungen ====
+   Keine Würfelwürfe aus dem Nichts: Jede Störung hat einen Auslöser im
+   Zustand der Gesellschaft. Alte Flotte bricht öfter, Crews ohne Reserve
+   fallen aus, Billigservice rächt sich in der Presse. Drei Stufen — Ticker,
+   Meldung, Entscheidung — damit nicht jede Kleinigkeit den Spieler stoppt. */
+const DAYMS = 86400000;
+function addBlock(b){ S.blocks=S.blocks||[]; S.blocks.push(b); }
+function blockActive(art, wert){
+  return (S.blocks||[]).some(b=>b.art===art && b.wert===wert && b.bis>S.clock);
+}
+function pruneBlocks(){ S.blocks=(S.blocks||[]).filter(b=>b.bis>S.clock); }
+function blockReason(art, wert){
+  const b=(S.blocks||[]).find(x=>x.art===art && x.wert===wert && x.bis>S.clock);
+  return b?b.grund:null;
+}
+/** Streicht die heute noch offenen Flüge eines Flugzeugs. */
+function cancelToday(acId){
+  let n=0, pax=0;
+  (S.daySched||[]).forEach(f=>{ if(f.ac===acId && !f.done){ f.done=true; f.cancelled=true;
+    n++; pax+=f.pax; } });
+  return {n, pax};
+}
+function cancelRoute(from, to){
+  let n=0, pax=0;
+  (S.daySched||[]).forEach(f=>{ if(!f.done && (f.from===from||f.to===from||f.from===to||f.to===to)){
+    f.done=true; f.cancelled=true; n++; pax+=f.pax; } });
+  return {n, pax};
+}
+/* Reisendenbetreuung nach einem Ausfall — dieselben drei Wege, jedes Mal */
+function betreuung(pax, ort){
+  return [
+    {l:"Auf andere Gesellschaften umbuchen", d:"Teuer, aber die Reisenden kommen heute an.",
+     kosten:Math.round(pax*185), wirkung:{rep:0.4, partners:1.5, airports:0.5}},
+    {l:"Eigener Ersatzflug morgen früh", d:"Günstig, kostet eine Nacht im Hotel und etwas Ruf.",
+     kosten:Math.round(pax*95), wirkung:{rep:-1.2, crew:-0.8}},
+    {l:"Nur die gesetzliche Entschädigung", d:"Billigste Lösung, das Publikum merkt es sich.",
+     kosten:Math.round(pax*55), wirkung:{rep:-3.0, partners:-1.5}}
+  ];
+}
+function paxWord(n){ return fmt(Math.round(n))+" Reisende"; }
+
+/** Tägliche Prüfung auf Störungen. */
+function rollDisruptions(){
+  if(!S || !S.fleet.length) return;
+  pruneBlocks();
+  const aktiv=S.fleet.filter(a=>a.status==="aktiv");
+  if(!aktiv.length) return;
+  const wochentag=weekdayIdx();
+
+  /* 1 — Technische Störung: Wahrscheinlichkeit steigt mit Alter und Stunden */
+  aktiv.forEach(ac=>{
+    if(blockActive("ac",ac.id)) return;
+    const alter=ac.age/12, nutzung=(ac.hours||0)/BAL.heavyCheckHrs;
+    const hangar=hasUpgrade(ac.base,"hangar")?0.6:1;
+    const pFail=(0.0011 + alter*0.00028 + nutzung*0.0022)*hangar*relRisk().airports;
+    if(Math.random()>pFail) return;
+    const heute=(S.daySched||[]).filter(f=>f.ac===ac.id && !f.done);
+    const ort = heute.length ? heute[0].from : ac.base;
+    const pax = heute.reduce((a,f)=>a+f.pax,0) || 90;
+    const daheim = ort===ac.base;
+    const teil=Math.round(rnd(35,140)*1000);
+    mailAdd({kind:"stoerung", subj:`Technische Störung ${ac.reg} in ${ort}`,
+      kurz:`${ACT[ac.type].name} · ${heute.length} Flüge betroffen`,
+      stufe:3,
+      body:`<p>Bei der Vorflugkontrolle in <b>${ort}</b> ${daheim?"an der Basis":"auf Aussenstation"} wurde an <b>${ac.reg}</b> ein Defekt festgestellt. Heute stehen noch ${heute.length} Flüge mit rund ${paxWord(pax)} an.</p>
+             <p class="dim">${daheim?"An der eigenen Basis ist die Technik vor Ort — das verkürzt die Sache.":"Auf Aussenstation muss Material und Personal eingeflogen werden."}</p>`,
+      optionen:[
+        {l:`Ersatzteil und Technik einfliegen (${chf(teil)})`,
+         d:daheim?"Bis zum Abend behoben, ein bis zwei Flüge fallen aus.":"Die Maschine steht morgen wieder bereit, heute fällt alles aus.",
+         kosten:teil,
+         f:()=>{ const c=cancelToday(ac.id);
+           if(!daheim) addBlock({art:"ac", wert:ac.id, bis:S.clock+DAYMS, grund:"technische Störung"});
+           S.rep=clamp(S.rep-0.4,5,99);
+           logg(`${ac.reg}: Reparatur veranlasst, ${c.n} Flüge entfallen.`,"warn"); }},
+        {l:"Am Boden lassen, Flüge annullieren",
+         d:"Kostet nichts an Material, dafür Ruf und Entschädigungen.",
+         f:()=>{ const c=cancelToday(ac.id);
+           addBlock({art:"ac", wert:ac.id, bis:S.clock+DAYMS*2, grund:"technische Störung"});
+           S.cash-=c.pax*120; S.rep=clamp(S.rep-2.2,5,99);
+           logg(`${ac.reg} bleibt am Boden, ${c.n} Flüge annulliert.`,"bad"); }},
+        {l:"Andere Maschine umleiten",
+         d:"Der Umlauf des Ersatzflugzeugs bricht zusammen — Sie sehen es im Wochenplan.",
+         f:()=>{ const c=cancelToday(ac.id);
+           addBlock({art:"ac", wert:ac.id, bis:S.clock+DAYMS, grund:"technische Störung"});
+           const andere=aktiv.filter(x=>x.id!==ac.id && ACT[x.type].cat===ACT[ac.type].cat);
+           if(andere.length){ const e=pick(andere);
+             const c2=cancelToday(e.id);
+             addBlock({art:"ac", wert:e.id, bis:S.clock+DAYMS*0.6, grund:"Ersatzeinsatz"});
+             logg(`${e.reg} springt für ${ac.reg} ein, ${c2.n} eigene Flüge entfallen.`,"warn");
+           } else { S.rep=clamp(S.rep-1.5,5,99);
+             logg("Keine passende Ersatzmaschine verfügbar.","bad"); } }}
+      ]});
+    stopForEvent(3);
+  });
+
+  /* 2 — Wetter über eigenen Stationen */
+  S.bases.concat(S.routes.map(r=>r.to)).slice(0,24).forEach(code=>{
+    const a=AP[code]; if(!a) return;
+    const w=wxAt(a);
+    if(w<0.55 || Math.random()>w*0.09) return;
+    if(blockActive("wx",code)) return;
+    addBlock({art:"wx", wert:code, bis:S.clock+DAYMS, grund:"Wetter"});
+    const c=cancelRoute(code,code);
+    if(!c.n) return;
+    const pax=Math.max(c.pax,40);
+    mailAdd({kind:"stoerung", subj:`Wetter legt ${code} lahm`,
+      kurz:`${c.n} Flüge annulliert · ${paxWord(pax)}`, stufe:3,
+      body:`<p>Über <b>${esc(a.city)}</b> steht ein Schlechtwettergebiet. ${c.n} Flüge sind annulliert, ${paxWord(pax)} stranden.</p>
+            <p class="dim">Wie gehen Sie mit den Betroffenen um? Die Entscheidung spricht sich herum.</p>`,
+      optionen:betreuung(pax, code)});
+    stopForEvent(3);
+  });
+
+  /* 3 — Krankheitswelle, wenn keine Reserve da ist */
+  const reserve=(S.crewFactor||1);
+  if(reserve<1.02 && Math.random()<0.02*relRisk().crew && !blockActive("crew","all")){
+    addBlock({art:"crew", wert:"all", bis:S.clock+DAYMS*3, grund:"Krankheitswelle"});
+    const betroffen=aktiv.slice(0,Math.max(1,Math.round(aktiv.length*0.25)));
+    let n=0; betroffen.forEach(ac=>{ n+=cancelToday(ac.id).n; });
+    mailAdd({kind:"personal", subj:"Krankheitswelle in der Kabine",
+      kurz:`${n} Flüge betroffen · keine Reserve vorhanden`, stufe:2,
+      body:`<p>Eine Grippewelle hat die Kabinenbesatzung erwischt. Weil kaum Reserve eingeplant ist, fallen heute ${n} Flüge aus.</p>
+            <p class="dim">Unter «Personal» lässt sich die Reserve dauerhaft erhöhen — das kostet Lohn, verhindert aber genau solche Tage.</p>`});
+    S.rep=clamp(S.rep-1.2,5,99);
+    stopForEvent(2);
+  }
+
+  /* 4 — Unmut der Belegschaft wächst zur Forderung */
+  if(S.rel.crew<42 && !S.streikPhase && Math.random()<0.05){
+    S.streikPhase=1;
+    const mehr=Math.round(BAL.cabinPay*0.08);
+    mailAdd({kind:"personal", subj:"Personalvertretung stellt Forderungen",
+      kurz:"Ultimatum über vier Wochen", stufe:3,
+      body:`<p>Die Belegschaft ist seit Monaten unzufrieden: knappe Reserve, hohe Blockstunden, Löhne unter dem Branchenschnitt. Die Vertretung verlangt eine Erhöhung und droht mit Ausstand.</p>
+            <p class="dim">Zufriedenheit der Belegschaft: <b>${fmt(S.rel.crew,0)}</b> von 100.</p>`,
+      optionen:[
+        {l:`Erhöhung zusagen (+8% Personalkosten)`, d:"Teuer, beendet die Sache sofort.",
+         f:()=>{ BAL.cabinPay=Math.round(BAL.cabinPay*1.08); BAL.pilotPay=Math.round(BAL.pilotPay*1.06);
+           S.rel.crew=clamp(S.rel.crew+22,0,100); S.streikPhase=0;
+           logg("Lohnerhöhung zugesagt, die Lage beruhigt sich.","good"); }},
+        {l:"Verhandeln, kleinere Zugeständnisse", d:"Halber Preis, halbe Wirkung — das Risiko bleibt.",
+         f:()=>{ BAL.cabinPay=Math.round(BAL.cabinPay*1.04);
+           S.rel.crew=clamp(S.rel.crew+9,0,100); S.streikPhase=0;
+           S.strikeRisk=(S.strikeRisk||0)+0.10;
+           logg("Teileinigung mit der Personalvertretung.",""); }},
+        {l:"Ablehnen", d:"Kostet nichts — vorerst.",
+         f:()=>{ S.rel.crew=clamp(S.rel.crew-8,0,100); S.strikeRisk=(S.strikeRisk||0)+0.35;
+           S.streikPhase=2; logg("Forderung abgelehnt. Die Stimmung kippt.","bad"); }}
+      ]});
+    stopForEvent(3);
+  }
+
+  /* 5 — Behördliche Prüfung nach wiederholten Verstössen */
+  if((S.curfewHits||0)>=12 && Math.random()<0.08){
+    S.curfewHits=0;
+    const busse=Math.round(rnd(180,520))*1000;
+    mailAdd({kind:"behoerde", subj:"Aufsichtsbehörde eröffnet ein Verfahren",
+      kurz:`Verstösse gegen Nachtflugverbote · ${chf(busse)}`, stufe:2,
+      body:`<p>Wiederholte Starts und Landungen innerhalb der Sperrzeiten sind aktenkundig geworden. Die Behörde verhängt eine Busse von <b>${chf(busse)} CHF</b> und behält sich Auflagen vor.</p>
+            <p class="dim">Die Warnhinweise im Wochenplan sind nicht nur Kosmetik.</p>`});
+    S.cash-=busse; S.rel.airports=clamp(S.rel.airports-8,0,100);
+    stopForEvent(2);
+  }
+
+  /* 6 — Der virale Moment */
+  if(Math.random()<0.006){
+    const gut=avgServiceRep()>0.2 && (S.punctuality||0.85)>0.88;
+    const schlecht=avgServiceRep()<-0.2 || (S.punctuality||0.85)<0.78;
+    if(gut||schlecht){
+      const d=gut?rnd(2.5,5):-rnd(3,6);
+      S.rep=clamp(S.rep+d,5,99);
+      mailAdd({kind:gut?"chance":"stoerung", subj:gut?"Ein Video macht die Runde":"Ein Video macht die Runde",
+        kurz:(gut?"+":"")+fmt(d,1)+" Ruf",
+        stufe:2,
+        body:gut
+          ? `<p>Ein Reisender hat eine Szene an Bord gefilmt — aufmerksames Personal, pünktlicher Anschluss. Der Beitrag wird zehntausendfach geteilt.</p><p class="dim">Der Ruf steigt um ${fmt(d,1)} Punkte.</p>`
+          : `<p>Ein Reisender hat eine Szene an Bord gefilmt, die niemand sehen sollte: gereiztes Personal, verspäteter Anschluss, keine Information.</p><p class="dim">Der Ruf sinkt um ${fmt(-d,1)} Punkte.</p>`});
+      stopForEvent(2);
+    }
+  }
+
+  /* 7 — Luftraumsperrung */
+  if(Math.random()<0.0022 && !(S.blocks||[]).some(b=>b.art==="region"&&b.bis>S.clock)){
+    const regionen=Array.from(new Set(S.routes.map(r=>AP[r.to]?AP[r.to].region:null).filter(Boolean)));
+    if(regionen.length){
+      const rg=pick(regionen), tage=Math.round(rnd(2,6));
+      const grund=pick(["Vulkanasche","ein Streik der Flugsicherung","eine militärische Sperrung","ein schwerer Sturmzug"]);
+      addBlock({art:"region", wert:rg, bis:S.clock+DAYMS*tage, grund:"Luftraumsperrung"});
+      const betroffen=S.routes.filter(r=>AP[r.from].region===rg||AP[r.to].region===rg).length;
+      mailAdd({kind:"stoerung", subj:`Luftraum über ${REGION_NAME[rg]||rg} gesperrt`,
+        kurz:`${tage} Tage · ${betroffen} Strecken betroffen`, stufe:2,
+        body:`<p>Wegen ${grund} ist der Luftraum für rund ${tage} Tage gesperrt. ${betroffen} Ihrer Strecken sind betroffen und fallen aus.</p>
+              <p class="dim">Ein breit gestreutes Netz federt so etwas ab. Wer alles auf eine Region setzt, steht still.</p>`});
+      stopForEvent(2);
+    }
+  }
+
+  /* 8 — Musterstilllegung: Klumpenrisiko der Einheitsflotte */
+  if(Math.random()<0.0016){
+    const typen={}; aktiv.forEach(a=>typen[a.type]=(typen[a.type]||0)+1);
+    const t=Object.keys(typen).sort((a,b)=>typen[b]-typen[a])[0];
+    if(t && !blockActive("type",t)){
+      const tage=Math.round(rnd(5,16));
+      addBlock({art:"type", wert:t, bis:S.clock+DAYMS*tage, grund:"Startverbot"});
+      mailAdd({kind:"behoerde", subj:`Startverbot für ${ACT[t].name}`,
+        kurz:`${typen[t]} Maschinen · ${tage} Tage`, stufe:2,
+        body:`<p>Nach einem Vorfall bei einer anderen Gesellschaft haben die Behörden ein weltweites Startverbot für die <b>${esc(ACT[t].name)}</b> verhängt. ${typen[t]} Ihrer Maschinen sind betroffen, voraussichtlich ${tage} Tage.</p>
+              <p class="dim">Eine Einheitsflotte spart Wartung und Ausbildung — und trifft Sie an einem Tag wie diesem doppelt.</p>`});
+      stopForEvent(2);
+    }
+  }
+}
+const REGION_NAME={EU:"Europa", NA:"Nordamerika", SA:"Südamerika", AF:"Afrika",
+  ME:"dem Nahen Osten", AS:"Asien", OC:"Ozeanien"};
+
+/* ============================================================== Postfach ==
+   Alles, was Aufmerksamkeit verlangt, landet hier: Berichte, Warnungen und
+   Entscheidungen. Ungelesenes wird am Reiter gezählt, offene Entscheidungen
+   halten die Uhr an. */
+const MAIL_KIND = {
+  bericht:  {n:"Bericht",      ic:"▤", col:"var(--dim)"},
+  betrieb:  {n:"Betrieb",      ic:"✈", col:"var(--blue)"},
+  stoerung: {n:"Störung",      ic:"⚠", col:"var(--red)"},
+  personal: {n:"Personal",     ic:"👥", col:"var(--amber)"},
+  markt:    {n:"Wettbewerb",   ic:"⇄", col:"var(--purple)"},
+  chance:   {n:"Gelegenheit",  ic:"★", col:"var(--green)"},
+  behoerde: {n:"Behörde",      ic:"§", col:"var(--red)"}
+};
+function mailAdd(m){
+  S.inbox=S.inbox||[];
+  const mail=Object.assign({
+    id:"M"+(S.mailSeq=(S.mailSeq||0)+1),
+    t:S.clock, kind:"bericht", read:false, entschieden:null
+  }, m);
+  S.inbox.unshift(mail);
+  if(S.inbox.length>120) S.inbox.length=120;
+  return mail;
+}
+function mailUnread(){ return (S.inbox||[]).filter(m=>!m.read).length; }
+function mailOpen(){ return (S.inbox||[]).filter(m=>m.optionen && m.entschieden==null); }
+function mailDate(m){
+  const d=new Date(m.t);
+  return `${DAYS[(d.getUTCDay()+6)%7]} ${String(d.getUTCDate()).padStart(2,"0")}.${String(d.getUTCMonth()+1).padStart(2,"0")}. ${String(d.getUTCHours()).padStart(2,"0")}:${String(d.getUTCMinutes()).padStart(2,"0")}`;
+}
+/** Öffnet eine Nachricht; bei Entscheidungen mit Auswahlknöpfen. */
+function mailShow(id){
+  const m=(S.inbox||[]).find(x=>x.id===id); if(!m) return;
+  m.read=true;
+  const K=MAIL_KIND[m.kind]||MAIL_KIND.bericht;
+  const offen=m.optionen && m.entschieden==null;
+  modal(m.subj,
+    `<div class="row" style="justify-content:space-between;margin-bottom:8px">
+       <span class="pill" style="border-color:${K.col};color:${K.col}">${K.ic} ${K.n}</span>
+       <span class="dim mono" style="font-size:10.5px">${mailDate(m)}</span></div>
+     <div>${m.body}</div>
+     ${m.frist&&offen?`<p class="dim" style="margin-top:8px">Entscheidung nötig bis ${new Date(m.frist).toLocaleDateString("de-CH")} — ohne Antwort wird die erste Möglichkeit gewählt.</p>`:""}
+     ${offen?`<div id="mailopt" style="margin-top:10px">${m.optionen.map((o,i)=>
+       `<div class="choice" data-i="${i}"><div><div class="t">${esc(o.l)}</div>
+         <div class="d">${esc(o.d||"")}</div></div>
+         ${o.kosten?`<div class="mono neg">−${chf(o.kosten)}</div>`:""}</div>`).join("")}</div>`:""}
+     ${m.entschieden!=null&&m.optionen?`<div class="pill ok" style="margin-top:9px;display:inline-block">
+       Entschieden: ${esc(m.optionen[m.entschieden].l)}</div>`:""}`,
+    offen?[]:[{t:"Schliessen",p:true,f:()=>{$("#veil").classList.remove("on"); render();}}]);
+  if(offen){
+    $("#mX").style.display="none";
+    $("#mailopt").onclick=e=>{
+      const c=e.target.closest(".choice"); if(!c) return;
+      mailDecide(m.id, +c.dataset.i);
+      $("#veil").classList.remove("on"); $("#mX").style.display=""; render();
+    };
+  } else render();
+}
+function mailDecide(id, idx){
+  const m=(S.inbox||[]).find(x=>x.id===id); if(!m||!m.optionen) return;
+  const o=m.optionen[idx]; if(!o) return;
+  m.entschieden=idx; m.read=true;
+  if(o.kosten) S.cash-=o.kosten;
+  try{ if(typeof o.f==="function") o.f(); else if(o.wirkung) applyEffect(o.wirkung); }catch(e){}
+  logg(`${m.subj}: ${o.l}`, o.ton||"");
+}
+/** Wirkungen als Daten, damit Entscheidungen einen Spielstand überleben. */
+function applyEffect(w){
+  if(!w) return;
+  if(w.cash) S.cash+=w.cash;
+  if(w.rep) S.rep=clamp(S.rep+w.rep,5,99);
+  if(w.crew) S.rel.crew=clamp(S.rel.crew+w.crew,0,100);
+  if(w.airports) S.rel.airports=clamp(S.rel.airports+w.airports,0,100);
+  if(w.partners) S.rel.partners=clamp(S.rel.partners+w.partners,0,100);
+  if(w.streikRisiko) S.strikeRisk=(S.strikeRisk||0)+w.streikRisiko;
+  if(w.block) addBlock(w.block);
+  if(w.cancelAc) cancelToday(w.cancelAc);
+}
+
 /* ============================================================ Hauptmenü */
 function mainMenu(){
   const cards=[
@@ -7287,7 +8063,9 @@ function mainMenu(){
      <p class="dim">Airline-Simulation in Echtzeit. Flotte beschaffen, Tagespläne bauen, gegen echte Wettbewerber bestehen.</p>
      <div id="mm">${cards.map(c=>`<div class="choice" data-k="${c.k}" ${c.k==="szen"&&!SCENARIOS.length?'style="opacity:.6"':''}>
        <div><div class="t">${c.t}${c.k==="szen"&&!SCENARIOS.length?" — noch leer":""}</div><div class="d">${c.d}</div></div>
-       <div class="mono amb">›</div></div>`).join("")}</div>`,
+       <div class="mono amb">›</div></div>`).join("")}</div>
+     <p class="dim" style="font-size:10.5px;text-align:right;margin-top:9px">
+       Fassung ${APP_VERSION} · ${SCENARIOS.length} Szenarien</p>`,
     []);
   $("#mX").style.display="none";
   $("#mm").onclick=e=>{
@@ -7330,8 +8108,11 @@ function legacyDialog(){
        const seats=A.fleet.reduce((a,[t,n])=>a+n*ACT[t].maxSeats,0);
        const cnt=A.fleet.reduce((a,[,n])=>a+n,0);
        return `<div class="choice" data-i="${i}">
-        <span style="flex:0 0 34px">${markSVG(Object.assign({},DEFAULT_LIVERY,A.liv,{code:A.code}),34)}</span>
-        <div style="flex:1"><div class="t">${esc(A.name)} <span class="dim">${A.code}</span></div>
+        <span style="flex:0 0 38px">${A.icao&&artFor(A.icao,"tail")
+          ? `<img src="${esc(artFor(A.icao,"tail"))}" alt="" style="width:38px;height:38px;object-fit:contain;display:block">`
+          : markSVG(Object.assign({},DEFAULT_LIVERY,A.liv,{code:A.code}),34)}</span>
+        <div style="flex:1"><div class="t">${esc(A.name)}
+          <span class="dim">${A.code}${A.icao?" · "+A.icao:""}</span></div>
           <div class="d">${esc(A.txt)}</div>
           <div class="d" style="margin-top:3px">${A.bases.join(" · ")} · ${cnt} Flugzeuge · ${A.fleet.map(([t,n])=>n+"× "+esc(ACT[t].name.split(" (")[0])).join(", ")}</div></div>
         <div class="mono" style="text-align:right">${A.cash} Mio<br><span class="dim">Ruf ${A.rep}</span></div></div>`;}).join("")}</div>`,
@@ -7341,7 +8122,10 @@ function legacyDialog(){
     const c=e.target.closest(".choice"); if(!c) return;
     const i=+c.dataset.i, A=LEGACY_AIRLINES[i];
     modal(A.name,
-      `<p>${esc(A.txt)}</p>
+      `${A.icao&&artFor(A.icao,"long")
+        ? `<div style="padding:10px 0 12px"><img src="${esc(artFor(A.icao,"long"))}" alt=""
+             style="height:34px;max-width:100%;object-fit:contain;display:block"></div>`:""}
+       <p>${esc(A.txt)}</p>
        <div class="card">
          <div class="kv"><span>Basen</span><span>${A.bases.map(b=>b+" — "+esc(AP[b].city)).join("<br>")}</span></div>
          <div class="kv"><span>Flotte</span><span>${A.fleet.map(([t,n])=>n+"× "+esc(ACT[t].name)).join("<br>")}</span></div>
@@ -7405,7 +8189,7 @@ function startDialog(){
           <li>Unter <b>Netz → Marktanalyse</b> sehen Sie, wie viele Passagiere pro Tag ein Städtepaar überhaupt hergibt.</li>
           <li>Oben rechts läuft die Uhr. Mit <b>❚❚</b> anhalten, mit <b>1×</b>, <b>5×</b> und <b>20×</b> beschleunigen — oder die Leertaste drücken.</li>
         </ol>
-        <p class="dim">Zwei Flüge pro Tag auf einer einzigen Strecke füllen selten. Wer die Maschine über den Tag auf mehrere Ziele verteilt, verdient meist mehr. Die Simulation hält bei wichtigen Ereignissen von selbst an.</p>`,
+        <p class="dim">Im Lagebild stehen die ersten vier Handgriffe. Die Simulation hält bei wichtigen Ereignissen von selbst an — und mit ▶▶ springen Sie gleich dorthin.</p>`,
         [{t:"Angehalten lassen",f:()=>$("#veil").classList.remove("on")},
          {t:"Uhr starten",p:true,f:()=>{$("#veil").classList.remove("on"); setSpeed(1);}}]),380);
     }}]);
@@ -7422,7 +8206,18 @@ scanMisc();
 scanAirlineArt();
 scanScenarios();
 if("serviceWorker" in navigator && location.protocol.startsWith("http")){
-  navigator.serviceWorker.register("sw.js").catch(()=>{});
+  navigator.serviceWorker.register("sw.js").then(reg=>{
+    /* Meldet sich, sobald eine neuere Fassung bereitliegt */
+    reg.addEventListener("updatefound",()=>{
+      const nw=reg.installing; if(!nw) return;
+      nw.addEventListener("statechange",()=>{
+        if(nw.state==="installed" && navigator.serviceWorker.controller){
+          toast("Neue Fassung verfügbar — Seite neu laden.");
+        }
+      });
+    });
+    reg.update().catch(()=>{});
+  }).catch(()=>{});
 }
 buildTabs();
 applyBrand();
