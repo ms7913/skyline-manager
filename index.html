@@ -86,8 +86,21 @@ input[type=color]{width:100%;height:32px;padding:2px;background:#0a1322;border:1
 #side{width:460px;flex:0 0 460px;border-left:1px solid var(--line2);background:var(--panel);display:flex;flex-direction:column}
 @media(max-width:1220px){#side{width:380px;flex-basis:380px}}
 @media(max-width:880px){
-  #app{flex-direction:column} #stage{height:var(--maph,34%);min-height:150px}
-  #side{width:100%;flex:1 1 auto;border-left:none;border-top:1px solid var(--line2)}
+  #stage{position:absolute;inset:0 0 var(--sideh,56%) 0;height:auto;min-height:140px}
+  #side{position:absolute;left:0;right:0;bottom:0;top:auto;height:var(--sideh,56%);width:auto;
+    border-radius:14px 14px 0 0;padding-bottom:0}
+  #sideToggle{display:none}
+  #tabs{order:2;position:sticky;bottom:0;z-index:5;border-bottom:none;
+    border-top:1px solid var(--line2);background:rgba(9,15,26,.94);
+    flex-wrap:nowrap;padding:2px 2px calc(2px + env(safe-area-inset-bottom))}
+  #tabs button{flex:1 1 0;min-width:0;border-radius:0;font-size:9.5px;letter-spacing:.04em;
+    padding:7px 2px;display:flex;flex-direction:column;align-items:center;gap:2px}
+  #tabs button .ic{font-size:16px;line-height:1}
+  #tabs button.on{background:transparent;color:var(--amber);border-bottom:none}
+  #tabs button.on .ic{transform:translateY(-1px)}
+  #side{display:flex;flex-direction:column}
+  #pane{order:1;flex:1}
+  .fleetgrid{grid-template-columns:1fr}
   #brand h1{font-size:16px}
   #top{height:auto;min-height:52px;flex-wrap:wrap;padding-top:env(safe-area-inset-top)}
   .hstat{min-width:0;flex:1 1 22%;padding:2px 6px;border-right:1px solid var(--line);border-top:1px solid var(--line)}
@@ -95,6 +108,7 @@ input[type=color]{width:100%;height:32px;padding:2px;background:#0a1322;border:1
   #brand{flex:1 1 100%;border-right:none;padding:6px 12px}
   #clockbox{flex:1 1 100%;justify-content:space-between;padding:4px 12px 6px}
   #ticker{display:none}
+  #sheetlist .choice{padding:11px 10px}
   #legend{font-size:9px;padding:6px 8px;max-width:44%}
   #maptools{gap:4px;left:8px;bottom:8px}
   #maptools button{padding:7px 9px;font-size:11px}
@@ -147,7 +161,7 @@ body.lightmap #mapinfo h4{color:#a8620d}
   border-radius:var(--r);padding:6px 9px;font-family:var(--mono);font-size:11px;display:none;z-index:5;
   white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,.6)}
 
-#tabs{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--line2);background:var(--bg2);
+#tabs{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--line2);background:rgba(9,15,26,.55);
   padding:2px 2px 0;gap:1px}
 #tabs button{border:none;border-radius:3px 3px 0 0;background:transparent;padding:8px 10px;font-family:var(--disp);
   font-size:13.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);flex:1 1 auto;
@@ -294,6 +308,7 @@ table.tbl th.r,table.tbl td.r{text-align:right}
     <div id="mapinfo"></div>
     <div id="ticker"><h5>Flugbetrieb</h5><div id="tkl"></div></div>
     <div id="mapsize"><button id="btnMapSize">Karte grösser</button></div>
+    <button id="sideToggle" title="Bedienfeld ein- und ausblenden">⤢</button>
     <div id="legend">
       <div><i style="background:var(--green)"></i>Strecke rentabel</div>
       <div><i style="background:var(--red)"></i>Strecke defizitär</div>
@@ -1729,42 +1744,36 @@ function planeSVG(typeId, liv, opts){
 /** Darstellung aus einem Grafikpaket: die PNG-Ebenen werden über
     SVG-Masken eingefärbt, damit sie in Listen genauso aussehen wie im
     Editor auf dem Canvas. */
-/** Darstellung aus einem Grafikpaket: Nutzt die Roh-Bilder flach als
-    Hintergrund und legt nur die Beschriftung darüber.
-    Verhindert doppelte Darstellungen durch fehlerhafte Auto-Masken. */
 function planeAssetSVG(typeId, L0, o){
   const A=PLANE_ASSETS[typeId]||{};
   const VW=A.w||1600, VH=A.h||520;
   const id="A"+Math.random().toString(36).slice(2,9);
-  
-  // Hole die URL des Basis-Bildes
-  let baseImgUrl = assetUrl(typeId, "base");
-  
-  // Fallback: Wenn base nicht da ist, versuche direkt das Roh-Bild zu laden,
-  // da die Auto-Maskierung von probeAsset() bei komplexen Bildern oft fehlschlägt.
-  if(!baseImgUrl && A.file) {
-    baseImgUrl = ASSET_DIR + A.file;
-  }
-  
+  const body=BODY_COLS[L0.body]||L0.c1;
+  const wear=clamp(o.wear||0,0,1);
   const r=(A.r||VH*0.11);
   const x0=(A.x0!=null?A.x0:VW*0.03), yc=(A.yc!=null?A.yc:VH*0.55);
   const scale=(A.unit!=null?A.unit:(VW*0.94)/1000);
-  const title=((typeof S!=="undefined"&&S&&S.name)?S.name:"Skyline").toUpperCase().slice(0,18);
-  const body=BODY_COLS[L0.body]||L0.c1;
   const dark=lum(body)>0.5;
-
+  const title=((typeof S!=="undefined"&&S&&S.name)?S.name:"Skyline").toUpperCase().slice(0,18);
+  const img=(k,extra)=>`<image href="${assetUrl(typeId,k)}" x="0" y="0" width="${VW}" height="${VH}" ${extra||""}/>`;
   return `<svg viewBox="0 0 ${VW} ${VH}" width="100%" preserveAspectRatio="xMidYMid meet"
-    role="img" aria-label="${esc(ACT[typeId].name)}">
-    <g>
-      <!-- Flaches Einbinden des Bildes ohne Maskierungs-Logik -->
-      ${baseImgUrl ? `<image href="${baseImgUrl}" x="0" y="0" width="${VW}" height="${VH}" preserveAspectRatio="xMidYMid meet" />` : ""}
-      
+    role="img" aria-label="${esc(ACT[typeId].name)} in der Hausbemalung">
+    <defs>
+      <mask id="${id}m" maskUnits="userSpaceOnUse" x="0" y="0" width="${VW}" height="${VH}">${img("mask")}</mask>
+      ${A.tail?`<mask id="${id}t" maskUnits="userSpaceOnUse" x="0" y="0" width="${VW}" height="${VH}">${img("tail")}</mask>`:""}
+      <filter id="${id}w"><feColorMatrix type="saturate" values="${(1-wear*0.5).toFixed(2)}"/></filter>
+    </defs>
+    <g ${wear>0.02?`filter="url(#${id}w)"`:""}>
+      ${img("base")}
+      <rect width="${VW}" height="${VH}" fill="${body}" mask="url(#${id}m)" style="mix-blend-mode:multiply"/>
+      ${A.tail?`<rect width="${VW}" height="${VH}" fill="${L0.c1}" mask="url(#${id}t)" style="mix-blend-mode:multiply"/>`:""}
       <g transform="translate(${x0},${yc}) scale(${scale.toFixed(4)})">
         ${(L0.layers||[]).map(l=>layerSVG(l,r/scale)).join("")}
         ${o.titles?`<text x="135" y="${(-r/scale*1.30).toFixed(1)}" font-family="Barlow Condensed,sans-serif"
           font-size="${(r/scale*0.95).toFixed(1)}" font-weight="700" letter-spacing="${(r/scale*0.10).toFixed(1)}"
           fill="${dark?L0.c1:"#eef3f8"}">${esc(title)}</text>`:""}
       </g>
+      ${A.shade?img("shade",'style="mix-blend-mode:multiply"'):""}
     </g></svg>`;
 }
 
@@ -1912,98 +1921,98 @@ function transferBonus(map){
    Australien und Ozeanien, Karibik und Mittelamerika, USA im Inland,
    Afrika, Anden und Südasien. Felder wie oben. */
 const AIRPORT_EXTRA = [
-["ADL","Adelaide","Australien",-34.95,138.53,8.6,3100,1.00,1.20,1.05,1.00,"Ozeanien"],
-["CNS","Cairns","Australien",-16.89,145.75,5.2,3200,0.95,1.15,1.55,0.80,"Ozeanien"],
-["OOL","Gold Coast","Australien",-28.16,153.51,6.6,2500,0.92,1.10,1.60,0.75,"Ozeanien"],
-["HBA","Hobart","Australien",-42.84,147.51,2.8,2251,0.95,1.10,1.30,0.85,"Ozeanien"],
-["DRW","Darwin","Australien",-12.41,130.88,2.0,3354,1.00,1.05,1.25,0.90,"Ozeanien"],
-["ASP","Alice Springs","Australien",-23.81,133.90,0.6,2438,1.00,0.95,1.40,0.80,"Ozeanien"],
-["TSV","Townsville","Australien",-19.25,146.77,1.7,2438,0.95,1.00,1.20,0.90,"Ozeanien"],
-["WLG","Wellington","Neuseeland",-41.33,174.81,5.9,2081,1.00,1.10,1.15,1.10,"Ozeanien"],
-["ZQN","Queenstown","Neuseeland",-45.02,168.74,2.4,1892,1.05,1.15,1.75,0.75,"Ozeanien"],
-["NAN","Nadi","Fidschi",-17.76,177.44,2.3,3273,0.95,0.75,1.80,0.65,"Ozeanien"],
-["PPT","Papeete","Französisch-Polynesien",-17.55,-149.61,1.5,3420,1.05,0.95,1.85,0.65,"Ozeanien"],
-["NOU","Nouméa","Neukaledonien",-22.01,166.21,0.5,3250,1.00,0.95,1.55,0.70,"Ozeanien"],
-["POM","Port Moresby","Papua-Neuguinea",-9.44,147.22,1.5,2750,0.95,0.60,0.90,0.95,"Asien"],
-["HIR","Honiara","Salomonen",-9.43,160.05,0.3,2200,0.90,0.50,1.20,0.70,"Ozeanien"],
-["PER","Perth","Australien",-31.94,115.97,12.5,3444,1.05,1.20,1.20,1.10,"Ozeanien"],
-["CUN","Cancún","Mexiko",21.04,-86.87,25.5,3500,0.95,0.85,1.95,0.70,"Nordamerika"],
-["MBJ","Montego Bay","Jamaika",18.50,-77.91,4.9,2662,0.95,0.70,1.90,0.65,"Nordamerika"],
-["KIN","Kingston","Jamaika",17.94,-76.79,1.7,2716,0.95,0.70,1.25,0.85,"Nordamerika"],
-["NAS","Nassau","Bahamas",25.04,-77.47,4.0,3358,1.05,0.95,1.90,0.75,"Nordamerika"],
-["SJU","San Juan","Puerto Rico",18.44,-66.00,9.5,3048,0.95,0.90,1.60,0.90,"Nordamerika"],
-["PUJ","Punta Cana","Dominikanische Republik",18.57,-68.36,8.6,3100,0.95,0.70,1.95,0.60,"Nordamerika"],
-["SDQ","Santo Domingo","Dominikanische Republik",18.43,-69.67,4.4,3355,0.90,0.70,1.30,0.85,"Nordamerika"],
-["HAV","Havanna","Kuba",22.99,-82.41,4.5,4000,0.85,0.55,1.60,0.75,"Nordamerika"],
-["CUR","Curaçao","Curaçao",12.19,-68.96,1.7,3410,0.95,0.90,1.75,0.75,"Südamerika"],
-["AUA","Aruba","Aruba",12.50,-70.02,2.6,2743,0.95,0.95,1.85,0.70,"Südamerika"],
-["BGI","Bridgetown","Barbados",13.07,-59.49,1.8,3363,1.00,0.95,1.80,0.75,"Südamerika"],
-["POS","Port of Spain","Trinidad",10.60,-61.34,2.5,3200,0.95,0.85,1.15,1.00,"Südamerika"],
-["SXM","Sint Maarten","Sint Maarten",18.04,-63.11,1.8,2300,1.00,0.95,1.90,0.70,"Nordamerika"],
-["PTY","Panama-Stadt","Panama",9.07,-79.38,16.6,3050,0.90,0.85,1.25,1.15,"Nordamerika"],
-["SJO","San José","Costa Rica",9.99,-84.20,5.4,3012,0.90,0.80,1.65,0.90,"Nordamerika"],
-["GUA","Guatemala-Stadt","Guatemala",14.58,-90.53,2.9,2987,0.85,0.65,1.20,0.90,"Nordamerika"],
-["SAL","San Salvador","El Salvador",13.44,-89.06,3.9,3200,0.85,0.60,1.10,0.90,"Nordamerika"],
-["LAS","Las Vegas","USA",36.08,-115.15,52.7,4423,0.95,1.05,1.95,0.95,"Nordamerika"],
-["PHX","Phoenix","USA",33.43,-112.01,44.4,3502,0.90,1.05,1.35,1.00,"Nordamerika"],
-["MSP","Minneapolis","USA",44.88,-93.22,34.0,3355,0.95,1.15,1.00,1.15,"Nordamerika"],
-["DTW","Detroit","USA",42.21,-83.35,29.3,3658,0.95,1.05,0.90,1.15,"Nordamerika"],
-["CLT","Charlotte","USA",35.21,-80.94,50.2,3048,0.90,1.10,0.95,1.15,"Nordamerika"],
-["PHL","Philadelphia","USA",39.87,-75.24,25.0,3200,1.00,1.10,1.00,1.10,"Nordamerika"],
-["SLC","Salt Lake City","USA",40.79,-111.98,26.9,3658,0.90,1.05,1.25,1.05,"Nordamerika"],
-["IAH","Houston","USA",29.98,-95.34,40.9,3658,0.95,1.10,0.95,1.20,"Nordamerika"],
-["MCO","Orlando","USA",28.43,-81.31,50.6,3659,0.90,1.00,1.90,0.90,"Nordamerika"],
-["TPA","Tampa","USA",27.98,-82.53,22.5,3353,0.90,1.00,1.55,0.95,"Nordamerika"],
-["SAN","San Diego","USA",32.73,-117.19,24.2,2865,1.00,1.15,1.45,1.05,"Nordamerika"],
-["PDX","Portland","USA",45.59,-122.60,19.8,3353,0.95,1.10,1.20,1.05,"Nordamerika"],
-["AUS","Austin","USA",30.19,-97.67,21.1,3752,0.90,1.15,1.20,1.15,"Nordamerika"],
-["ANC","Anchorage","USA",61.17,-149.99,5.0,3779,0.95,1.05,1.30,1.00,"Nordamerika"],
-["HNL","Honolulu","USA",21.32,-157.92,21.3,3753,1.00,1.05,1.85,0.90,"Nordamerika"],
-["ACC","Accra","Ghana",5.61,-0.17,2.8,3400,0.95,0.65,0.95,1.10,"Afrika"],
-["ABJ","Abidjan","Elfenbeinküste",5.26,-3.93,2.2,3000,0.95,0.60,0.85,1.10,"Afrika"],
-["DKR","Dakar","Senegal",14.67,-17.07,2.9,3500,0.95,0.60,1.10,1.05,"Afrika"],
-["LOS","Lagos","Nigeria",6.58,3.32,7.5,3900,1.00,0.60,0.75,1.20,"Afrika"],
-["DAR","Daressalam","Tansania",-6.87,39.20,3.0,3000,0.95,0.55,1.35,1.00,"Afrika"],
-["ZNZ","Sansibar","Tansania",-6.22,39.22,1.2,3000,0.95,0.50,1.90,0.65,"Afrika"],
-["JRO","Kilimandscharo","Tansania",-3.43,37.07,1.0,3600,0.95,0.50,1.85,0.65,"Afrika"],
-["EBB","Entebbe","Uganda",0.04,32.44,1.9,3658,0.95,0.55,1.35,1.00,"Afrika"],
-["KGL","Kigali","Ruanda",-1.97,30.14,1.1,3500,0.95,0.60,1.30,1.10,"Afrika"],
-["MRU","Mauritius","Mauritius",-20.43,57.68,4.0,3400,1.00,0.85,1.90,0.75,"Afrika"],
-["SEZ","Mahé","Seychellen",-4.67,55.52,0.4,2987,1.05,0.90,1.95,0.65,"Afrika"],
-["TNR","Antananarivo","Madagaskar",-18.80,47.48,0.9,3100,0.95,0.45,1.45,0.85,"Afrika"],
-["WDH","Windhoek","Namibia",-22.48,17.47,0.9,4500,0.95,0.75,1.60,0.90,"Afrika"],
-["LAD","Luanda","Angola",-8.86,13.23,2.8,3700,1.00,0.70,0.75,1.15,"Afrika"],
-["MPM","Maputo","Mosambik",-25.92,32.57,0.9,3660,0.95,0.55,1.25,0.95,"Afrika"],
-["TIP","Tunis","Tunesien",36.85,10.23,5.4,3200,0.90,0.70,1.55,0.95,"Afrika"],
-["ALG","Algier","Algerien",36.69,3.22,7.0,3500,0.90,0.70,1.05,1.00,"Afrika"],
-["UIO","Quito","Ecuador",-0.13,-78.36,5.5,4098,0.95,0.75,1.55,1.00,"Südamerika"],
-["GYE","Guayaquil","Ecuador",-2.16,-79.88,4.4,2790,0.90,0.70,1.15,1.05,"Südamerika"],
-["CUZ","Cusco","Peru",-13.54,-71.94,4.0,3400,0.95,0.65,1.95,0.70,"Südamerika"],
-["AQP","Arequipa","Peru",-16.34,-71.57,1.7,2980,0.90,0.65,1.35,0.85,"Südamerika"],
-["LPB","La Paz","Bolivien",-16.51,-68.19,2.6,4000,0.90,0.55,1.45,0.85,"Südamerika"],
-["VVI","Santa Cruz","Bolivien",-17.64,-63.14,2.5,3500,0.90,0.65,1.05,1.05,"Südamerika"],
-["ASU","Asunción","Paraguay",-25.24,-57.52,1.2,3353,0.90,0.70,0.95,1.00,"Südamerika"],
-["MVD","Montevideo","Uruguay",-34.84,-56.03,2.3,3200,0.95,0.95,1.25,1.05,"Südamerika"],
-["CCS","Caracas","Venezuela",10.60,-66.99,4.0,3500,0.90,0.60,0.95,0.95,"Südamerika"],
-["MDE","Medellín","Kolumbien",6.17,-75.42,7.9,3557,0.90,0.75,1.35,1.10,"Südamerika"],
-["CTG","Cartagena","Kolumbien",10.44,-75.51,5.5,2600,0.90,0.70,1.80,0.85,"Südamerika"],
-["CMB","Colombo","Sri Lanka",7.18,79.88,9.5,3350,0.90,0.60,1.60,0.95,"Asien"],
-["MLE","Malé","Malediven",4.19,73.53,4.0,3200,1.05,0.85,1.95,0.65,"Asien"],
-["KTM","Kathmandu","Nepal",27.70,85.36,7.2,3050,0.95,0.50,1.75,0.85,"Asien"],
-["DAC","Dhaka","Bangladesch",23.84,90.40,8.5,3200,0.90,0.50,0.80,1.05,"Asien"],
-["ISB","Islamabad","Pakistan",33.55,72.83,5.0,3660,0.90,0.55,0.90,1.05,"Asien"],
-["KHI","Karachi","Pakistan",24.91,67.16,5.5,3400,0.90,0.55,0.80,1.10,"Asien"],
-["RGN","Yangon","Myanmar",16.91,96.13,3.0,3400,0.90,0.50,1.25,0.90,"Asien"],
-["PNH","Phnom Penh","Kambodscha",11.55,104.84,4.5,3000,0.90,0.55,1.45,0.95,"Asien"],
-["REP","Siem Reap","Kambodscha",13.41,103.81,1.5,2550,0.90,0.50,1.95,0.65,"Asien"],
-["VTE","Vientiane","Laos",17.99,102.56,1.2,3000,0.90,0.50,1.40,0.85,"Asien"],
-["ULN","Ulaanbaatar","Mongolei",47.65,106.82,1.7,3600,0.95,0.65,1.30,0.95,"Asien"],
-["TAS","Taschkent","Usbekistan",41.26,69.28,4.0,4000,0.90,0.65,1.20,1.00,"Asien"],
-["ALA","Almaty","Kasachstan",43.35,77.04,7.6,4400,0.90,0.75,1.15,1.05,"Asien"],
-["TBS","Tiflis","Georgien",41.67,44.95,4.5,3000,0.90,0.75,1.55,1.00,"Europa"],
-["EVN","Jerewan","Armenien",40.15,44.40,3.5,3850,0.90,0.70,1.35,0.95,"Europa"],
-["GYD","Baku","Aserbaidschan",40.47,50.05,6.5,3200,0.95,0.85,1.15,1.10,"Asien"],
-["FRU","Bischkek","Kirgisistan",43.06,74.48,1.5,4200,0.85,0.55,1.25,0.90,"Asien"]
+["ADL","Adelaide","Australien",-34.95,138.53,8.6,3100,1.00,1.20,1.05,1.00,"OC"],
+["CNS","Cairns","Australien",-16.89,145.75,5.2,3200,0.95,1.15,1.55,0.80,"OC"],
+["OOL","Gold Coast","Australien",-28.16,153.51,6.6,2500,0.92,1.10,1.60,0.75,"OC"],
+["HBA","Hobart","Australien",-42.84,147.51,2.8,2251,0.95,1.10,1.30,0.85,"OC"],
+["DRW","Darwin","Australien",-12.41,130.88,2.0,3354,1.00,1.05,1.25,0.90,"OC"],
+["ASP","Alice Springs","Australien",-23.81,133.90,0.6,2438,1.00,0.95,1.40,0.80,"OC"],
+["TSV","Townsville","Australien",-19.25,146.77,1.7,2438,0.95,1.00,1.20,0.90,"OC"],
+["WLG","Wellington","Neuseeland",-41.33,174.81,5.9,2081,1.00,1.10,1.15,1.10,"OC"],
+["ZQN","Queenstown","Neuseeland",-45.02,168.74,2.4,1892,1.05,1.15,1.75,0.75,"OC"],
+["NAN","Nadi","Fidschi",-17.76,177.44,2.3,3273,0.95,0.75,1.80,0.65,"OC"],
+["PPT","Papeete","Französisch-Polynesien",-17.55,-149.61,1.5,3420,1.05,0.95,1.85,0.65,"OC"],
+["NOU","Nouméa","Neukaledonien",-22.01,166.21,0.5,3250,1.00,0.95,1.55,0.70,"OC"],
+["POM","Port Moresby","Papua-Neuguinea",-9.44,147.22,1.5,2750,0.95,0.60,0.90,0.95,"AS"],
+["HIR","Honiara","Salomonen",-9.43,160.05,0.3,2200,0.90,0.50,1.20,0.70,"OC"],
+["PER","Perth","Australien",-31.94,115.97,12.5,3444,1.05,1.20,1.20,1.10,"OC"],
+["CUN","Cancún","Mexiko",21.04,-86.87,25.5,3500,0.95,0.85,1.95,0.70,"NA"],
+["MBJ","Montego Bay","Jamaika",18.50,-77.91,4.9,2662,0.95,0.70,1.90,0.65,"NA"],
+["KIN","Kingston","Jamaika",17.94,-76.79,1.7,2716,0.95,0.70,1.25,0.85,"NA"],
+["NAS","Nassau","Bahamas",25.04,-77.47,4.0,3358,1.05,0.95,1.90,0.75,"NA"],
+["SJU","San Juan","Puerto Rico",18.44,-66.00,9.5,3048,0.95,0.90,1.60,0.90,"NA"],
+["PUJ","Punta Cana","Dominikanische Republik",18.57,-68.36,8.6,3100,0.95,0.70,1.95,0.60,"NA"],
+["SDQ","Santo Domingo","Dominikanische Republik",18.43,-69.67,4.4,3355,0.90,0.70,1.30,0.85,"NA"],
+["HAV","Havanna","Kuba",22.99,-82.41,4.5,4000,0.85,0.55,1.60,0.75,"NA"],
+["CUR","Curaçao","Curaçao",12.19,-68.96,1.7,3410,0.95,0.90,1.75,0.75,"SA"],
+["AUA","Aruba","Aruba",12.50,-70.02,2.6,2743,0.95,0.95,1.85,0.70,"SA"],
+["BGI","Bridgetown","Barbados",13.07,-59.49,1.8,3363,1.00,0.95,1.80,0.75,"SA"],
+["POS","Port of Spain","Trinidad",10.60,-61.34,2.5,3200,0.95,0.85,1.15,1.00,"SA"],
+["SXM","Sint Maarten","Sint Maarten",18.04,-63.11,1.8,2300,1.00,0.95,1.90,0.70,"NA"],
+["PTY","Panama-Stadt","Panama",9.07,-79.38,16.6,3050,0.90,0.85,1.25,1.15,"NA"],
+["SJO","San José","Costa Rica",9.99,-84.20,5.4,3012,0.90,0.80,1.65,0.90,"NA"],
+["GUA","Guatemala-Stadt","Guatemala",14.58,-90.53,2.9,2987,0.85,0.65,1.20,0.90,"NA"],
+["SAL","San Salvador","El Salvador",13.44,-89.06,3.9,3200,0.85,0.60,1.10,0.90,"NA"],
+["LAS","Las Vegas","USA",36.08,-115.15,52.7,4423,0.95,1.05,1.95,0.95,"NA"],
+["PHX","Phoenix","USA",33.43,-112.01,44.4,3502,0.90,1.05,1.35,1.00,"NA"],
+["MSP","Minneapolis","USA",44.88,-93.22,34.0,3355,0.95,1.15,1.00,1.15,"NA"],
+["DTW","Detroit","USA",42.21,-83.35,29.3,3658,0.95,1.05,0.90,1.15,"NA"],
+["CLT","Charlotte","USA",35.21,-80.94,50.2,3048,0.90,1.10,0.95,1.15,"NA"],
+["PHL","Philadelphia","USA",39.87,-75.24,25.0,3200,1.00,1.10,1.00,1.10,"NA"],
+["SLC","Salt Lake City","USA",40.79,-111.98,26.9,3658,0.90,1.05,1.25,1.05,"NA"],
+["IAH","Houston","USA",29.98,-95.34,40.9,3658,0.95,1.10,0.95,1.20,"NA"],
+["MCO","Orlando","USA",28.43,-81.31,50.6,3659,0.90,1.00,1.90,0.90,"NA"],
+["TPA","Tampa","USA",27.98,-82.53,22.5,3353,0.90,1.00,1.55,0.95,"NA"],
+["SAN","San Diego","USA",32.73,-117.19,24.2,2865,1.00,1.15,1.45,1.05,"NA"],
+["PDX","Portland","USA",45.59,-122.60,19.8,3353,0.95,1.10,1.20,1.05,"NA"],
+["AUS","Austin","USA",30.19,-97.67,21.1,3752,0.90,1.15,1.20,1.15,"NA"],
+["ANC","Anchorage","USA",61.17,-149.99,5.0,3779,0.95,1.05,1.30,1.00,"NA"],
+["HNL","Honolulu","USA",21.32,-157.92,21.3,3753,1.00,1.05,1.85,0.90,"NA"],
+["ACC","Accra","Ghana",5.61,-0.17,2.8,3400,0.95,0.65,0.95,1.10,"AF"],
+["ABJ","Abidjan","Elfenbeinküste",5.26,-3.93,2.2,3000,0.95,0.60,0.85,1.10,"AF"],
+["DKR","Dakar","Senegal",14.67,-17.07,2.9,3500,0.95,0.60,1.10,1.05,"AF"],
+["LOS","Lagos","Nigeria",6.58,3.32,7.5,3900,1.00,0.60,0.75,1.20,"AF"],
+["DAR","Daressalam","Tansania",-6.87,39.20,3.0,3000,0.95,0.55,1.35,1.00,"AF"],
+["ZNZ","Sansibar","Tansania",-6.22,39.22,1.2,3000,0.95,0.50,1.90,0.65,"AF"],
+["JRO","Kilimandscharo","Tansania",-3.43,37.07,1.0,3600,0.95,0.50,1.85,0.65,"AF"],
+["EBB","Entebbe","Uganda",0.04,32.44,1.9,3658,0.95,0.55,1.35,1.00,"AF"],
+["KGL","Kigali","Ruanda",-1.97,30.14,1.1,3500,0.95,0.60,1.30,1.10,"AF"],
+["MRU","Mauritius","Mauritius",-20.43,57.68,4.0,3400,1.00,0.85,1.90,0.75,"AF"],
+["SEZ","Mahé","Seychellen",-4.67,55.52,0.4,2987,1.05,0.90,1.95,0.65,"AF"],
+["TNR","Antananarivo","Madagaskar",-18.80,47.48,0.9,3100,0.95,0.45,1.45,0.85,"AF"],
+["WDH","Windhoek","Namibia",-22.48,17.47,0.9,4500,0.95,0.75,1.60,0.90,"AF"],
+["LAD","Luanda","Angola",-8.86,13.23,2.8,3700,1.00,0.70,0.75,1.15,"AF"],
+["MPM","Maputo","Mosambik",-25.92,32.57,0.9,3660,0.95,0.55,1.25,0.95,"AF"],
+["TIP","Tunis","Tunesien",36.85,10.23,5.4,3200,0.90,0.70,1.55,0.95,"AF"],
+["ALG","Algier","Algerien",36.69,3.22,7.0,3500,0.90,0.70,1.05,1.00,"AF"],
+["UIO","Quito","Ecuador",-0.13,-78.36,5.5,4098,0.95,0.75,1.55,1.00,"SA"],
+["GYE","Guayaquil","Ecuador",-2.16,-79.88,4.4,2790,0.90,0.70,1.15,1.05,"SA"],
+["CUZ","Cusco","Peru",-13.54,-71.94,4.0,3400,0.95,0.65,1.95,0.70,"SA"],
+["AQP","Arequipa","Peru",-16.34,-71.57,1.7,2980,0.90,0.65,1.35,0.85,"SA"],
+["LPB","La Paz","Bolivien",-16.51,-68.19,2.6,4000,0.90,0.55,1.45,0.85,"SA"],
+["VVI","Santa Cruz","Bolivien",-17.64,-63.14,2.5,3500,0.90,0.65,1.05,1.05,"SA"],
+["ASU","Asunción","Paraguay",-25.24,-57.52,1.2,3353,0.90,0.70,0.95,1.00,"SA"],
+["MVD","Montevideo","Uruguay",-34.84,-56.03,2.3,3200,0.95,0.95,1.25,1.05,"SA"],
+["CCS","Caracas","Venezuela",10.60,-66.99,4.0,3500,0.90,0.60,0.95,0.95,"SA"],
+["MDE","Medellín","Kolumbien",6.17,-75.42,7.9,3557,0.90,0.75,1.35,1.10,"SA"],
+["CTG","Cartagena","Kolumbien",10.44,-75.51,5.5,2600,0.90,0.70,1.80,0.85,"SA"],
+["CMB","Colombo","Sri Lanka",7.18,79.88,9.5,3350,0.90,0.60,1.60,0.95,"AS"],
+["MLE","Malé","Malediven",4.19,73.53,4.0,3200,1.05,0.85,1.95,0.65,"AS"],
+["KTM","Kathmandu","Nepal",27.70,85.36,7.2,3050,0.95,0.50,1.75,0.85,"AS"],
+["DAC","Dhaka","Bangladesch",23.84,90.40,8.5,3200,0.90,0.50,0.80,1.05,"AS"],
+["ISB","Islamabad","Pakistan",33.55,72.83,5.0,3660,0.90,0.55,0.90,1.05,"AS"],
+["KHI","Karachi","Pakistan",24.91,67.16,5.5,3400,0.90,0.55,0.80,1.10,"AS"],
+["RGN","Yangon","Myanmar",16.91,96.13,3.0,3400,0.90,0.50,1.25,0.90,"AS"],
+["PNH","Phnom Penh","Kambodscha",11.55,104.84,4.5,3000,0.90,0.55,1.45,0.95,"AS"],
+["REP","Siem Reap","Kambodscha",13.41,103.81,1.5,2550,0.90,0.50,1.95,0.65,"AS"],
+["VTE","Vientiane","Laos",17.99,102.56,1.2,3000,0.90,0.50,1.40,0.85,"AS"],
+["ULN","Ulaanbaatar","Mongolei",47.65,106.82,1.7,3600,0.95,0.65,1.30,0.95,"AS"],
+["TAS","Taschkent","Usbekistan",41.26,69.28,4.0,4000,0.90,0.65,1.20,1.00,"AS"],
+["ALA","Almaty","Kasachstan",43.35,77.04,7.6,4400,0.90,0.75,1.15,1.05,"AS"],
+["TBS","Tiflis","Georgien",41.67,44.95,4.5,3000,0.90,0.75,1.55,1.00,"EU"],
+["EVN","Jerewan","Armenien",40.15,44.40,3.5,3850,0.90,0.70,1.35,0.95,"EU"],
+["GYD","Baku","Aserbaidschan",40.47,50.05,6.5,3200,0.95,0.85,1.15,1.10,"AS"],
+["FRU","Bischkek","Kirgisistan",43.06,74.48,1.5,4200,0.85,0.55,1.25,0.90,"AS"]
 ];
 
 /* ========================================================== Datenaufbau */
@@ -2032,7 +2041,7 @@ function newGame(cfg){
     debt:0, rep:58, bases:[home.iata], fleet:[], routes:[], orders:[],
     pilots:{}, pilotsTrain:[], cabin:0, cabinTrain:[],
     fuel:BAL.fuelBase, economy:1.0, history:[], log:[], tail:1,
-    flightStart:cfg.flightStart||100, campaigns:[],
+    flightStart:cfg.flightStart||100, campaigns:[], flightNums:{},
     service:{eco:1,prem:1,biz:1,first:1}, weather:[], reviews:[], punctuality:0.86,
     charters:[], charterJobs:[], achievements:{}, pending:null,
     hedges:[], holdings:{}, takeovers:[], loyalty:false, seatFee:false, mapStyle:"nacht",
@@ -2161,29 +2170,63 @@ function ensurePlan(ac){
     if(!Array.isArray(w.dests)) w.dests=[];
     if(!Array.isArray(w.nums)) w.nums=[];
     if(w.start==null) w.start=390;
-    while(w.nums.length<w.dests.length) w.nums.push(nextFlightNumber(ac,d,w.nums.length));
-    w.nums.length=w.dests.length;
+    w.nums.length=w.dests.length;   // nur noch für eigene Überschreibungen
   }
   return p;
 }
 const dayPlan = (ac,d)=> ensurePlan(ac).week[d];
-/** Alle bereits vergebenen Flugnummern. */
-function usedFlightNumbers(){
-  const set=new Set();
-  S.fleet.forEach(a=>{ const p=a.plan; if(!p||!Array.isArray(p.week)) return;
-    p.week.forEach(w=>(w.nums||[]).forEach(v=>{ if(v) set.add(v); })); });
-  return set;
+/* Flugnummern gehören zur Strecke, nicht zum Wochentag: LX 318 fliegt jeden
+   Tag Zürich–Paris. Vergeben wird einmal je Richtung; der Rückflug bekommt
+   die nächsthöhere Nummer. Die Zuordnung bleibt im Spielstand erhalten. */
+let PAIR_OPS={sig:null, map:null};
+/** Reihenfolge der Umläufe auf einer Strecke — damit die zweite Tagesfrequenz
+    eine eigene Nummer bekommt, so wie LX 316, 318 und 320 nach London. */
+function pairOperators(){
+  const sig=S.fleet.map(a=>(a.plan&&a.plan.week?a.plan.week.map(w=>(w.dests||[]).join(",")).join("|"):"")).join("#");
+  if(PAIR_OPS.sig===sig) return PAIR_OPS.map;
+  const map={};
+  S.fleet.forEach(ac=>{
+    const pl=ac.plan; if(!pl||!Array.isArray(pl.week)) return;
+    const pos=weekPositions(ac);
+    const seen=new Set();
+    for(let d=0;d<7;d++){
+      let cur=pos[d]; const local={};
+      (pl.week[d].dests||[]).forEach(dest=>{
+        const k=cur+">"+dest;
+        local[k]=(local[k]||0)+1;
+        const tag=ac.id+"#"+(local[k]-1);
+        if(!seen.has(k+"|"+tag)){ seen.add(k+"|"+tag); (map[k]=map[k]||[]).push(tag); }
+        cur=dest;
+      });
+    }
+  });
+  PAIR_OPS={sig, map};
+  return map;
 }
-/** Hinflug bekommt die nächste freie gerade Nummer, der Rückflug eine höher. */
-function nextFlightNumber(ac, day, idx){
-  const used=usedFlightNumbers();
-  const w=ac.plan.week[day];
-  const to=w.dests[idx];
-  const prevNum = idx>0 ? w.nums[idx-1] : null;
-  if(to===ac.base && prevNum && !used.has(prevNum+1)) return prevNum+1;
+function flightNumFor(from, to, tag){
+  S.flightNums=S.flightNums||{};
+  const ops=pairOperators()[from+">"+to]||[];
+  const slot=Math.max(0, ops.indexOf(tag));
+  const key=from+">"+to+(slot?"#"+slot:""), rev=to+">"+from+(slot?"#"+slot:"");
+  if(S.flightNums[key]) return S.flightNums[key];
+  const used=new Set(Object.values(S.flightNums));
+  const back=S.flightNums[rev];
+  if(back && !used.has(back+1) && back%2===0){
+    S.flightNums[key]=back+1; return back+1;
+  }
   let cand=Math.max(S.flightStart||100,100);
+  if(cand%2) cand++;
   while(used.has(cand)||used.has(cand+1)) cand+=2;
+  S.flightNums[key]=cand;
   return cand;
+}
+/** Nummern, die zu keiner geplanten Strecke mehr gehören, wieder freigeben. */
+function pruneFlightNumbers(){
+  if(!S.flightNums) return;
+  const live=new Set();
+  const ops=pairOperators();
+  Object.keys(ops).forEach(k=>ops[k].forEach((t,i)=>live.add(i?k+"#"+i:k)));
+  Object.keys(S.flightNums).forEach(k=>{ if(!live.has(k)) delete S.flightNums[k]; });
 }
 /** Wo steht die Maschine zu Beginn jedes Wochentags? */
 function weekPositions(ac){
@@ -2210,12 +2253,17 @@ function scheduleDay(ac, d, fromCode){
   const legs=[], warn=[];
   let cur=AP[fromCode||ac.base], time=w.start, blockSum=0;
   if(!cur) return {legs, warn:["Standort unbekannt"], duty:0, blockSum:0, endsAt:fromCode};
+  const local={};
   w.dests.forEach((code,i)=>{
     const to=AP[code];
     if(!to){ warn.push(`Ziel ${code} unbekannt`); return; }
+    const pk=cur.iata+">"+to.iata;
+    local[pk]=(local[pk]||0)+1;
+    const tag=ac.id+"#"+(local[pk]-1);
     const dist=distKm(cur,to), bm=blockMinutes(t,dist);
     const dep=time, arr=dep+bm;
-    const leg={i, day:d, from:cur.iata, to:to.iata, dep, arr, block:bm, dist, issues:[], no:w.nums[i]};
+    const leg={i, day:d, from:cur.iata, to:to.iata, dep, arr, block:bm, dist, issues:[],
+      no: w.nums[i] || flightNumFor(cur.iata, to.iata, tag)};
     if(dist>t.range*0.97) leg.issues.push("Reichweite");
     if(cur.runway<t.runway) leg.issues.push(`Piste ${cur.iata}`);
     if(to.runway<t.runway) leg.issues.push(`Piste ${to.iata}`);
@@ -2784,11 +2832,13 @@ function rivalsOn(r){
   keep.forEach(c=>{ if(c.ex) fixedSum+=c.ex.dailyFreq*7; });
   const rest=Math.max(0, target-fixedSum);
   const openW=keep.filter(c=>!c.ex).reduce((a,c)=>a+c.w,0)||1;
+  const RB=((S&&S.rules)||{}).rivalBoost;
   r.rivals=keep.map(c=>({
     id:c.x.id,
     flights: c.ex ? c.ex.dailyFreq*7 : Math.max(1.5, rest*c.w/openW),
     fare: c.ex ? c.ex.fareMod : c.x.fareMod
   }));
+  if(RB && RB.ids) r.rivals.forEach(v=>{ if(RB.ids.includes(v.id)) v.flights*=RB.faktor; });
   r.comp=Math.max(1, r.rivals.reduce((a,v)=>a+v.flights,0));
   return r.rivals;
 }
@@ -3100,10 +3150,7 @@ function rivalStyle(x){
     tail:tails[(h>>5)%tails.length], glyph:GLYPH_KEYS[(h>>7)%GLYPH_KEYS.length]};
 }
 /** Kleines Leitwerk als Bildmarke — einheitliche Form für alle. */
-function rivalMark(x, size){
-  return `<img src="graphics/Tails/${x.id}.png" width="${size}" height="${size}" style="object-fit:contain; border-radius:4px; vertical-align:middle;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';"><span style="display:none; vertical-align:middle;">${rivalMark(x, size)}</span>`;
-}
-function rivalMark(x, size){
+function finSVG(x, size){
   const st=rivalStyle(x);
   const W=64, H=64;
   const fin=`M6,58 L34,10 L52,10 L58,58 Z`;
@@ -3316,7 +3363,7 @@ function simRoute(r, legList, monthIdx, ctx){
   /* Beiladefracht: Auslastung des Frachtraums nach Wirtschaftskraft der Enden */
   const cargoLF = clamp(0.42+0.28*((A.biz+B.biz)/2-1)+0.10*(d>4000?1:0), 0.20, 0.92);
   const frachtUp = (hasUpgrade(r.from,"fracht")?1:0)+(hasUpgrade(r.to,"fracht")?1:0);
-  const cargoRev = cargoT*cargoLF*d*CARGO_YIELD*(1+0.12*frachtUp);
+  const cargoRev = cargoT*cargoLF*d*CARGO_YIELD*(1+0.12*frachtUp)*(((S&&S.rules)||{}).cargoBoost||1);
   rev += cargoRev;
   out.cargoRev = cargoRev; out.cargoT = cargoT*cargoLF;
   const anc = pax*ancillaryPerPax();
@@ -3381,6 +3428,7 @@ function recomputeWeek(){
   const cabinF = cabinF0*(S.thinMonth||1);
   const ctx={pilot:pf, cabinF, slot:slotFactors(), charter:{}};
   S.crewFactor = Math.min(cabinF, ...Object.values(pf).concat([1]));
+  pruneFlightNumbers();
   S.routes.forEach(r=>{ r.last = simRoute(r, map[r.key], S.month, ctx); });
   applyHubTransfers();
 }
@@ -3967,6 +4015,16 @@ function bindMapHover(){
     el.addEventListener("mouseleave",()=>{$("#tip").style.display="none"; highlight(null);});
   });
 }
+/** Lässt eine einzelne Strecke auf der Karte aufleuchten. */
+function glowRoute(key, on){
+  const el=document.querySelector('#map .rte[data-r="'+key+'"]');
+  if(el) el.classList.toggle("pulsing", !!on);
+  const r=S&&S.routes.find(x=>x.key===key);
+  if(r) [r.from,r.to].forEach(i=>{
+    const a=document.querySelector('#map .apt[data-i="'+i+'"]');
+    if(a) a.classList.toggle("pulse", !!on);
+  });
+}
 /** Hebt das Netz eines Flughafens hervor und blendet den Rest ab. */
 function highlight(iata){
   hoverApt=iata;
@@ -4030,6 +4088,11 @@ function applyCam(){ const c=document.getElementById("cam");
     document.documentElement.style.setProperty("--maph", MAPH_STEPS[mapStep]);
     bms.textContent = mapStep===2 ? "Karte kleiner" : "Karte grösser";
   });
+  const stg=$("#sideToggle");
+  if(stg) stg.addEventListener("click",()=>{
+    const sd=$("#side"); sd.classList.toggle("hid");
+    stg.textContent = sd.classList.contains("hid") ? "⤡" : "⤢";
+  });
   $("#btnBord").addEventListener("click",()=>{bordOn=!bordOn;
     $("#btnBord").textContent=bordOn?"Grenzen aus":"Grenzen ein"; renderMap();});
   function zoomAt(f,mx,my){ const nk=clamp(view.k*f,0.8,16), rf=nk/view.k;
@@ -4042,9 +4105,9 @@ function focusAirport(iata){
 }
 
 /* ============================================================ Oberfläche */
-let tab="ops";
-$$("#tabs button").forEach(b=>b.addEventListener("click",()=>{
-  tab=b.dataset.t; $$("#tabs button").forEach(x=>x.classList.toggle("on",x===b)); renderPane();}));
+var tab="ops";
+let tabResize=null;
+window.addEventListener("resize",()=>{ clearTimeout(tabResize); tabResize=setTimeout(buildTabs,150); });
 $$("#speedctl button").forEach(b=>b.addEventListener("click",()=>setSpeed(+b.dataset.sp)));
 document.addEventListener("keydown",e=>{
   if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA") return;
@@ -4087,8 +4150,9 @@ function renderHeader(){
   $("#hRoutes").textContent=S.routes.length;
   renderTicker();
   const acc=S.acc||{};
-  $("#hPax").textContent = acc.pax ? fmt(Math.round(acc.pax)) : (S.lastMonth?fmt(Math.round(S.lastMonth.pax)):"–");
-  $("#hRep").textContent=fmt(S.rep,0);
+  if(acc.pax||S.lastMonth) animateNum($("#hPax"), acc.pax||S.lastMonth.pax, v=>fmt(Math.round(v)));
+  else $("#hPax").textContent="–";
+  animateNum($("#hRep"), S.rep, v=>fmt(v,0));
   const d=clockDate();
   $("#datebox").innerHTML=`${String(d.getUTCHours()).padStart(2,"0")}:${String(d.getUTCMinutes()).padStart(2,"0")} UTC
     <small>${DAYS[weekdayIdx()]} ${String(d.getUTCDate()).padStart(2,"0")}.${String(d.getUTCMonth()+1).padStart(2,"0")}.${d.getUTCFullYear()}</small>`;
@@ -4105,7 +4169,7 @@ function renderPane(){
 function paneOps(p){
   const L=S.lastMonth, A=S.acc||emptyAcc();
   const dNo=clockDate().getUTCDate();
-  let h=`<h2 class="sec">Lagebild ${monthLabel()}</h2>
+  let h=`<h2 class="sec">Lagebild ${monthLabel()}</h2>${scenarioPanel()}
   <div class="card"><div class="row" style="justify-content:space-between">
     <div><b>Laufender Monat</b> <span class="dim">Tag ${dNo}</span></div>
     <span class="pill ${S.speed?'ok':'warn'}">${S.speed?S.speed+"× läuft":"angehalten"}</span></div>
@@ -4123,12 +4187,12 @@ function paneOps(p){
     h+=`<h3 class="sub">Vormonat</h3><div class="grid3">
       <div class="tile"><b>${chf(L.rev)}</b><span>Umsatz</span></div>
       <div class="tile"><b class="${cls(L.profit)}">${sgn(L.profit)}</b><span>Ergebnis</span></div>
-      <div class="tile"><b>${fmt(L.lf*100,1)}%</b><span>Sitzladefaktor</span></div>
+      <div class="tile"><div class="row" style="justify-content:center">${donut(L.lf,52)}</div><span>Sitzladefaktor</span></div>
       <div class="tile"><b>${fmt(Math.round(L.pax/30))}</b><span>Pax pro Tag</span></div>
       <div class="tile"><b>${fmt(L.flights/30,1)}</b><span>Flüge pro Tag</span></div>
       <div class="tile"><b>${fmt(L.block,0)}</b><span>Blockstunden</span></div>
-      <div class="tile"><b>${fmt((S.punctuality||0.9)*100,0)}%</b><span>Pünktlichkeit</span></div>
-      <div class="tile"><b>${avgStars()?fmt(avgStars(),1):"–"}</b><span>Ø Bewertung</span></div>
+      <div class="tile"><div class="row" style="justify-content:center">${donut(S.punctuality||0.9,52,null,"#4aa8e0")}</div><span>Pünktlichkeit</span></div>
+      <div class="tile"><div class="row" style="justify-content:center">${donut((avgStars()||0)/5,52,avgStars()?fmt(avgStars(),1):"–","#e0c33a")}</div><span>Ø Bewertung</span></div>
       <div class="tile"><b>${chf(L.charter||0)}</b><span>Charter</span></div></div>`;
     if(L.cancel>0.005) h+=`<div class="card" style="border-color:#63302c"><b class="neg">Personalengpass</b><br>
       <span class="dim">${fmt(L.cancel*100,0)}% der geplanten Flüge fielen mangels Crew aus. Unter «Personal» prüfen, welche Musterberechtigung fehlt.</span></div>`;
@@ -4190,6 +4254,11 @@ function upgradeDialog(iata){
     $("#veil").classList.remove("on"); buyUpgrade(iata,k);};
 }
 function baseDialog(){
+  if(S.rules&&S.rules.lockBases){
+    modal("Weitere Station nicht möglich",
+      `<p>In diesem Szenario ist die Gesellschaft auf ${S.bases[0]} festgelegt. Die Aufgabe besteht gerade darin, aus dieser einen Station etwas zu machen.</p>`);
+    return;
+  }
   let sel=null;
   const rows=APL.filter(a=>!S.bases.includes(a.iata)).sort((a,b)=>b.pax-a.pax).map(a=>{
     const c=BAL.baseSetup*1e6*(1+a.pax/90);
@@ -4239,20 +4308,28 @@ function paneNet(p){
       <div class="hdr"><b>${r.from}</b><em>↔</em><b>${r.to}</b>
         <span style="margin-left:auto;font-size:12px" class="${L&&L.ok?cls(L.profit):''}">
         ${L&&L.ok?sgn(L.profit*BAL.weeksPerMonth)+" /Mt":"<span class='dim'>geplant</span>"}</span></div>
-      <div class="meta"><span>${fmt(d)} km</span>
-        <span>${fmt(planned,0)} Flüge/Wo</span>
-        <span>Markt ${fmt(m.daily,0)} Pax/Tag</span>
-        <span>SLF ${L&&L.ok?fmt(L.lf*100,0)+"%":"–"}</span>
-        <span>Tarif ${fmt(r.fare*100,0)}</span></div></div>`;
+      <div class="row" style="gap:10px;align-items:center">
+        ${L&&L.ok?`<span title="Sitzladefaktor">${donut(L.lf,40)}</span>`:""}
+        <div style="flex:1"><div class="meta"><span>${fmt(d)} km</span>
+          <span>${fmt(planned,0)} Flüge/Wo</span>
+          <span>Markt ${fmt(m.daily,0)} Pax/Tag</span>
+          <span>Tarif ${fmt(r.fare*100,0)}</span></div>
+        ${L&&L.ok&&L.split?stackBar([{n:S.name,v:L.split.share,c:"#4aa8e0"}]
+            .concat(L.split.rivals.map((v,i)=>({n:v.name,v:v.share,c:RIVAL_COLS[i%RIVAL_COLS.length]})))
+            .concat([{n:"übrige",v:Math.max(0,1-L.split.share-L.split.rivals.reduce((a,x)=>a+x.share,0)),c:"#4a5c70"}]),7):""}
+        </div></div></div>`;
   });
   p.innerHTML=h;
   $("#analyse").onclick=analyseDialog;
   $("#mktAll").onclick=()=>campaignDialog(null);
   $("#rivalBtn").onclick=rivalDialog;
   $("#fhAll").onclick=()=>flightHistoryDialog(null);
-  $("#goFleet").onclick=()=>{tab="fleet";
-    $$("#tabs button").forEach(x=>x.classList.toggle("on",x.dataset.t==="fleet")); renderPane();};
-  p.querySelectorAll(".strip").forEach(s=>s.onclick=()=>routeDetail(s.dataset.r));
+  $("#goFleet").onclick=()=>setTab("fleet");
+  p.querySelectorAll(".strip").forEach(el=>{
+    el.onclick=()=>routeDetail(el.dataset.r);
+    el.addEventListener("mouseenter",()=>{ el.classList.add("hot"); glowRoute(el.dataset.r,true); });
+    el.addEventListener("mouseleave",()=>{ el.classList.remove("hot"); glowRoute(el.dataset.r,false); });
+  });
 }
 
 /** Tabelle der zuletzt tatsächlich geflogenen Flüge. */
@@ -4295,6 +4372,13 @@ function routeDetail(key){
     <div class="kv"><span>Strecke</span><span>${esc(A.city)} — ${esc(B.city)}</span></div>
     <div class="kv"><span>Distanz</span><span>${fmt(d)} km</span></div>
     <div class="kv"><span>Gesamtmarkt</span><span>${fmt(m.daily,0)} Pax pro Tag (${fmt(m.weekly,0)}/Wo)</span></div>
+    ${L&&L.ok&&L.split?(()=>{
+      const parts=[{n:S.name, v:L.split.share, c:"#4aa8e0"}]
+        .concat(L.split.rivals.map((v,i)=>({n:v.name, v:v.share, c:RIVAL_COLS[i%RIVAL_COLS.length]})));
+      const rest=1-parts.reduce((a,x)=>a+x.v,0);
+      if(rest>0.01) parts.push({n:"übrige", v:rest, c:"#4a5c70"});
+      return `<label class="f">Marktanteile</label>${stackBar(parts,12)}${stackLegend(parts)}`;
+    })():""}
     <div class="kv"><span>Wettbewerb gesamt</span><span>${fmt(r.comp/7,1)} Flüge pro Tag</span></div>
     <div class="kv"><span>Wettbewerber auf der Strecke</span><span>${
       rivalsOn(r).length ? rivalsOn(r).map(v=>{const x=rivalById(v.id);
@@ -4557,7 +4641,7 @@ function weekTimelineHTML(ac, active){
   }).join("")}</div>`;
 }
 function paneFleet(p){
-  let h=`<h2 class="sec">Flotte und Tagespläne</h2>`;
+  let h=`<h2 class="sec">Flotte und Wochenpläne</h2><div class="fleetgrid">`;
   if(S.orders.length){
     h+=`<h3 class="sub">Auftragsbuch</h3>`;
     S.orders.forEach(o=>h+=`<div class="card"><div class="planebox">${planeSVG(o.type,S.livery,{gear:false})}</div>
@@ -4574,6 +4658,10 @@ function paneFleet(p){
   S.fleet.forEach(ac=>{
     const t=ACT[ac.type], s=seatsOf(ac), sch=scheduleOf(ac), days=planDays(ac);
     const wb=acWeeklyBlock(ac);
+    const inAir=(S.daySched||[]).some(f=>f.ac===ac.id && f.started && !f.done);
+    const dotCls = ac.status==="wartung" ? "mnt" : !sch.flights ? "nop" : inAir ? "air" : "idle";
+    const dotTxt = ac.status==="wartung" ? "im Grosscheck" : !sch.flights ? "ohne Flugplan"
+      : inAir ? "in der Luft" : "am Boden";
     const st = ac.status==="wartung" ? `<span class="pill bad">Grosscheck</span>`
       : !sch.flights ? `<span class="pill warn">kein Flugplan</span>`
       : sch.warn.length ? `<span class="pill bad">${sch.warn.length} Hinweis${sch.warn.length>1?"e":""}</span>`
@@ -4581,7 +4669,9 @@ function paneFleet(p){
     h+=`<div class="card">
       <div class="planebox">${planeSVG(ac.type,S.livery,{wear:acWear(ac)})}</div>
       <div class="row" style="justify-content:space-between">
-        <div><b class="mono">${ac.reg}</b> <span class="dim">${esc(t.name)}</span></div>${st}</div>
+        <div><span class="stdot ${dotCls}" title="${dotTxt}"></span><b class="mono">${ac.reg}</b>
+          <span class="dim">${esc(t.name)}</span><br>
+          <span class="dim" style="font-size:10.5px;margin-left:15px">${dotTxt}</span></div>${st}</div>
       <div class="kv"><span>Basis · Alter</span><span>${ac.base} · ${fmt(ac.age/12,1)} J</span></div>
       <div class="kv"><span>Fracht · Ausstattung</span><span>${fmt(cargoCap(ac),1)} t${ac.wifi?" · WLAN":""}${ac.combi?" · Combi "+ac.combi:""}</span></div>
       <div class="kv"><span>Bordservice · Zustand</span><span>${svcOfAc(ac).n} · ${acWear(ac)>0.75?"stark abgenutzt":acWear(ac)>0.4?"gebraucht":"gepflegt"}</span></div>
@@ -4609,6 +4699,7 @@ function paneFleet(p){
         ${ac.lease?`<button class="sm" data-ret="${ac.id}">Zurückgeben</button>`:`<button class="sm" data-sell="${ac.id}">Verkaufen</button>`}
       </div></div>`;
   });
+  h+=`</div>`;
   p.innerHTML=h;
   p.querySelectorAll("[data-plan]").forEach(b=>b.onclick=()=>planDialog(b.dataset.plan));
   p.querySelectorAll("[data-trim]").forEach(b=>b.onclick=()=>trimPlan(b.dataset.trim));
@@ -4806,6 +4897,9 @@ function cabinDialog(id){
       <div class="kv"><span>Gesamtsitze</span><span><b>${s2.total}</b> von max. ${t.maxSeats} Economy</span></div>
       <div class="kv"><span>Komfortwert</span><span>${fmt(comfort()*100,0)}${ac.wifi?" · WLAN":""}</span></div>
       <div class="kv"><span>Frachtkapazität</span><span>${fmt(cargoCap({type:ac.type, combi}),1)} t</span></div>
+      ${(S.rules&&S.rules.maxEcoShare)?`<div class="kv"><span>Economy-Anteil</span>
+        <span class="${preview().eco/Math.max(preview().total,1)>S.rules.maxEcoShare?'neg':'pos'}">${
+          fmt(preview().eco/Math.max(preview().total,1)*100,0)}% von höchstens ${fmt(S.rules.maxEcoShare*100,0)}%</span></div>`:""}
       <div style="margin:6px 0">${seatMapSVG(s2)}</div>
       <div class="row" style="font-size:10.5px;gap:12px">
         <span><span style="color:${CLASS_COL.eco}">■</span> Economy ${s2.eco}</span>
@@ -4853,6 +4947,11 @@ function cabinDialog(id){
     [{t:"Abbrechen",f:()=>$("#veil").classList.remove("on")},
      {t:"Umbauen",p:true,f:()=>{
         const before=JSON.stringify(cabinOf(ac));
+        const lim=(S.rules&&S.rules.maxEcoShare);
+        if(lim){ const pv=preview();
+          if(pv.total && pv.eco/pv.total > lim+0.001){
+            toast(`In diesem Szenario dürfen höchstens ${fmt(lim*100,0)}% der Sitze Economy sein.`);
+            return; } }
         if(combi!==(ac.combi||0)){ ac.combi=combi; }
         if(JSON.stringify(cab)!==before){
           const c=t.price*1e6*0.012;
@@ -5105,7 +5204,227 @@ function paneFin(p){
       [{t:"Abbrechen",f:()=>$("#veil").classList.remove("on")},
        {t:"Aufnehmen",p:true,f:()=>{const a=(+$("#amt").value||0)*1e6;
           if(a<=0||a>max){toast("Betrag ausserhalb des Rahmens.");return;}
-          S.cash+=a; S.debt+=a; logg(`Kredit über ${chf(a)} CHF aufgenommen.`,"warn");
+          S.cash+=a; S.debt+=a; S.debtPeak=Math.max(S.debtPeak||0, S.debt);
+          logg(`Kredit über ${chf(a)} CHF aufgenommen.`,"warn");
+          $("#veil").classList.remove("on"); render();}}]);};
+  const rb=$("#repay"); if(rb) rb.onclick=()=>{
+    modal("Kredit tilgen",
+      `<p class="dim">Offen: <b class="mono">${chf(S.debt)}</b> · Liquidität: <b class="mono">${chf(S.cash)}</b></p>
+       <label class="f">Betrag in Mio CHF</label><input type="number" id="amt" value="5" min="1">`,
+      [{t:"Abbrechen",f:()=>$("#veil").classList.remove("on")},
+       {t:"Tilgen",p:true,f:()=>{const a=(+$("#amt").value||0)*1e6;
+          if(a<=0||a>S.debt||a>S.cash){toast("Betrag nicht möglich.");return;}
+          S.cash-=a; S.debt-=a; logg(`${chf(a)} CHF getilgt.`,"good");
+          $("#veil").classList.remove("on"); render();}}]);};
+}
+function portfolioValue(){
+  let v=0; Object.keys(S.holdings||{}).forEach(id=>{ const x=rivalById(id);
+    if(x) v+=rivalValue(x)*holdings(id); });
+  return v;
+}
+function creditLimit(){
+  const earn=S.history.slice(-6).reduce((s,h)=>s+Math.max(0,h.profit),0);
+  return Math.max(30e6, fleetValue()*0.62+earn*4);
+}
+/* ================================================ Kleine Infografiken ====
+   Zahlen sind schneller zu erfassen, wenn sie eine Form haben. */
+function donut(pct, size, label, col){
+  const r=size/2-3.5, c=2*Math.PI*r, v=clamp(pct,0,1);
+  const color=col||(v>0.88?"#e0c33a":v>0.62?"#5fcf95":v>0.45?"#e0a13a":"#e2695f");
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="donut">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="rgba(140,170,200,.18)" stroke-width="4"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="4"
+      stroke-linecap="round" stroke-dasharray="${(c*v).toFixed(1)} ${c.toFixed(1)}"
+      transform="rotate(-90 ${size/2} ${size/2})"/>
+    <text x="${size/2}" y="${(size/2+size*0.11).toFixed(1)}" text-anchor="middle"
+      font-family="IBM Plex Mono,monospace" font-size="${(size*0.30).toFixed(1)}"
+      fill="currentColor">${label!=null?label:fmt(v*100,0)}</text></svg>`;
+}
+/** Gestapelter Balken für Marktanteile. */
+function stackBar(parts, h){
+  const tot=parts.reduce((a,x)=>a+x.v,0)||1;
+  return `<div class="stack" style="height:${h||10}px">${parts.map(x=>
+    `<i style="width:${(x.v/tot*100).toFixed(2)}%;background:${x.c}" title="${esc(x.n||"")}"></i>`).join("")}</div>`;
+}
+function stackLegend(parts){
+  const tot=parts.reduce((a,x)=>a+x.v,0)||1;
+  return `<div class="slg">${parts.map(x=>
+    `<span><i style="background:${x.c}"></i>${esc(x.n||"")} ${fmt(x.v/tot*100,1)}%</span>`).join("")}</div>`;
+}
+const RIVAL_COLS=["#e2695f","#e0a13a","#9b8cf0","#2aa8c4","#c98fd0"];
+
+function sparkline(){
+  const h=S.history.slice(-24); if(h.length<2) return "";
+  const W=360, H=76, pad=6;
+  const vals=h.map(x=>x.profit);
+  const mn=Math.min(0,...vals), mx=Math.max(0,...vals), rg=(mx-mn)||1;
+  const X=i=>pad+i*(W-2*pad)/(h.length-1);
+  const Y=v=>H-pad-((v-mn)/rg)*(H-2*pad);
+  const pts=vals.map((v,i)=>X(i).toFixed(1)+","+Y(v).toFixed(1));
+  const line="M"+pts.join("L");
+  const area=line+"L"+X(h.length-1).toFixed(1)+","+Y(mn).toFixed(1)+"L"+X(0).toFixed(1)+","+Y(mn).toFixed(1)+"Z";
+  const last=vals[vals.length-1];
+  const col=last>=0?"#5fcf95":"#e2695f";
+  const id="sp"+Math.random().toString(36).slice(2,7);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" style="display:block">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${col}" stop-opacity=".38"/>
+      <stop offset="100%" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+    <line x1="${pad}" y1="${Y(0).toFixed(1)}" x2="${W-pad}" y2="${Y(0).toFixed(1)}"
+      stroke="rgba(140,170,200,.28)" stroke-width="1" stroke-dasharray="3 3"/>
+    <path d="${area}" fill="url(#${id})"/>
+    <path d="${line}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${X(h.length-1).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="3.4" fill="${col}"/>
+  </svg>
+  <div class="row" style="justify-content:space-between;font-size:10px;color:var(--dim);margin-top:3px">
+    <span>${String(h[0].m+1).padStart(2,"0")}/${h[0].y}</span>
+    <span class="${cls(last)}">${sgn(last)}</span>
+    <span>${String(h[h.length-1].m+1).padStart(2,"0")}/${h[h.length-1].y}</span></div>`;
+}
+function paneFin(p){
+  S.finTab=S.finTab||"gv";
+  const L=S.lastMonth;
+  let h=`<h2 class="sec">Finanzen</h2>
+  <div class="segbar" id="finseg">
+    <button class="${S.finTab==="gv"?"on":""}" data-fs="gv">Erfolgsrechnung</button>
+    <button class="${S.finTab==="hedge"?"on":""}" data-fs="hedge">Hedging</button>
+    <button class="${S.finTab==="stock"?"on":""}" data-fs="stock">Beteiligungen</button>
+  </div>
+  <div class="grid2">
+    <div class="tile"><b class="${cls(S.cash)}">${chf(S.cash)}</b><span>Liquidität</span></div>
+    <div class="tile"><b>${chf(fleetValue())}</b><span>Flottenbuchwert</span></div>
+    <div class="tile"><b>${chf(S.debt)}</b><span>Fremdkapital</span></div>
+    <div class="tile"><b>${chf(S.cash+fleetValue()+portfolioValue()-S.debt)}</b><span>Eigenkapital</span></div></div>`;
+
+  if(S.finTab==="gv"){
+    if(L){
+      const items=[["Umsatz (inkl. Charter)",L.rev,1],["davon Charter",L.charter||0,2],
+        ["Treibstoff",-L.fuel],["Technik und Wartung",-L.maint],["Personal",-L.crew],
+        ["Flughafengebühren",-L.fees],["Bordservice",-(L.svcTotal||0)],["Leasingraten",-L.lease],
+        ["Abschreibungen",-L.dep],["Stationen",-L.station],["Verwaltung",-L.overhead],
+        ["Marketing",-(L.marketing||0)],["Vielfliegerprogramm",-(L.loyalty||0)],
+        ["Zinsaufwand",-L.interest],["Hedging-Ergebnis",(L.hedge||0)],
+        ["Beteiligungserträge",(L.dividend||0)]];
+      h+=`<h3 class="sub">Erfolgsrechnung ${MONTHS[(S.month+11)%12]}</h3><table class="tbl">`;
+      items.forEach(([nm,v,head])=>h+=`<tr><td ${head===1?'style="color:var(--amber)"':head===2?'style="padding-left:16px;color:var(--dim)"':""}>${nm}</td>
+        <td class="r ${v<0?'':'pos'}">${v<0?"−"+chf(-v):chf(v)}</td></tr>`);
+      h+=`<tr><td style="font-weight:600;border-top:1px solid var(--line2)">Monatsergebnis</td>
+        <td class="r ${cls(L.profit)}" style="border-top:1px solid var(--line2);font-weight:600">${sgn(L.profit)}</td></tr></table>
+        <div class="kv" style="margin-top:8px"><span>Umsatzrendite</span><span class="${cls(L.profit)}">${L.rev?fmt(L.profit/L.rev*100,1):"–"}%</span></div>
+        <div class="kv"><span>Stückkosten je ASK</span><span>${L.ask?fmt(L.costs/L.ask*100,2):"–"} Rp.</span></div>
+        <div class="kv"><span>Erlös je RPK</span><span>${L.rpk?fmt(L.rev/L.rpk*100,2):"–"} Rp.</span></div>
+        <div class="kv"><span>Ergebnis je Flug</span><span class="${cls(L.profit)}">${L.flights?sgn(L.profit/L.flights):"–"}</span></div>`;
+    }
+    h+=`<h3 class="sub">Zusatzerlöse</h3><div class="card">
+      <div class="row" style="justify-content:space-between"><div><b>Sitzplatzreservierung</b><br>
+        <span class="dim" style="font-size:10.5px">8 CHF je Passagier, kostet etwas Ruf</span></div>
+        <button class="sm ${S.seatFee?'primary':''}" id="seatfee">${S.seatFee?"aktiv":"einführen"}</button></div>
+      <div class="row" style="justify-content:space-between;margin-top:8px"><div><b>Gepäckgebühr</b><br>
+        <span class="dim" style="font-size:10.5px">3.5% mehr Umsatz, spürbarer Rufverlust</span></div>
+        <button class="sm ${S.bagFee?'primary':''}" id="bagfee">${S.bagFee?"aktiv":"einführen"}</button></div></div>
+    <h3 class="sub">Finanzierung</h3><div class="card">
+      <div class="kv"><span>Kreditrahmen</span><span>${chf(creditLimit())}</span></div>
+      <div class="kv"><span>Jahreszins</span><span>${fmt(BAL.loanRate*100,1)}%</span></div>
+      <div class="row" style="margin-top:8px"><button id="borrow">Kredit aufnehmen</button>
+        <button id="repay">Tilgen</button></div></div>`;
+    if(S.history.length>1){
+      h+=`<h3 class="sub">Ergebnisverlauf</h3><div class="card">${sparkline()}</div>
+      <table class="tbl" style="margin-top:9px"><tr><th>Monat</th><th class="r">Umsatz</th>
+        <th class="r">Ergebnis</th><th class="r">SLF</th><th class="r">Liquidität</th></tr>
+      ${S.history.slice(-14).reverse().map(x=>`<tr><td>${String(x.m+1).padStart(2,"0")}/${x.y}</td>
+        <td class="r">${chf(x.rev)}</td><td class="r ${cls(x.profit)}">${sgn(x.profit)}</td>
+        <td class="r">${fmt(x.lf*100,0)}%</td><td class="r">${chf(x.cash)}</td></tr>`).join("")}</table>`;
+    }
+  }
+
+  if(S.finTab==="hedge"){
+    const t=hedgedTons(), avg=hedgeAvgPrice();
+    let monthKg=0; S.routes.forEach(r=>{ if(r.last&&r.last.ok) monthKg+=r.last.fuelKg*BAL.weeksPerMonth; });
+    h+=`<p class="dim">Terminkontrakte sichern eine Menge Kerosin zum heutigen Preis. Steigt der Marktpreis, gewinnen Sie die Differenz; fällt er, zahlen Sie drauf. Verrechnet wird am Monatsende gegen den tatsächlichen Verbrauch.</p>
+    <div class="grid3">
+      <div class="tile"><b>${fmt(S.fuel,2)}</b><span>Marktpreis CHF/kg</span></div>
+      <div class="tile"><b>${t?fmt(avg,2):"–"}</b><span>Ø gesichert</span></div>
+      <div class="tile"><b>${fmt(monthKg/1000,0)}</b><span>Verbrauch t/Monat</span></div></div>
+    <div class="card"><div class="kv"><span>Gesicherte Menge</span><span>${fmt(t,0)} t</span></div>
+      <div class="kv"><span>Deckung des Verbrauchs</span><span>${monthKg?fmt(t*1000/monthKg*100,0)+"% eines Monats":"–"}</span></div>
+      ${t?`<div class="kv"><span>Aktueller Buchgewinn</span><span class="${cls((S.fuel-avg))}">${sgn(t*1000*(S.fuel-avg))}</span></div>`:""}
+      <div class="kv"><span>Ergebnis letzter Monat</span><span class="${cls(L?L.hedge||0:0)}">${L?sgn(L.hedge||0):"–"}</span></div></div>`;
+    (S.hedges||[]).forEach(x=>h+=`<div class="card" style="padding:8px 10px">
+      <div class="row" style="justify-content:space-between">
+        <div><b class="mono">${fmt(x.left,0)} t</b> <span class="dim">von ${fmt(x.tons,0)} t</span></div>
+        <span class="pill ${S.fuel>x.price?'ok':'bad'}">${fmt(x.price,2)} CHF/kg · noch ${x.months} Mt</span></div></div>`);
+    h+=`<h3 class="sub">Neuen Kontrakt abschliessen</h3><div class="card">
+      <label class="f">Menge in Tonnen</label><input type="number" id="hqty" value="${Math.max(500,Math.round(monthKg/1000*3/100)*100)}" min="100" step="100">
+      <label class="f">Laufzeit</label>
+      <select id="hmon"><option value="3">3 Monate</option><option value="6" selected>6 Monate</option>
+        <option value="12">12 Monate</option></select>
+      <div class="kv" style="margin-top:8px"><span>Festpreis</span><span>${fmt(S.fuel,2)} CHF/kg</span></div>
+      <div class="kv"><span>Sicherheitsleistung</span><span id="hsum">–</span></div>
+      <button class="primary" id="hbuy" style="width:100%;margin-top:8px">Kontrakt kaufen</button></div>`;
+  }
+
+  if(S.finTab==="stock"){
+    h+=`<p class="dim">Die Wettbewerber sind bewertete Unternehmen. Pakete lassen sich in Fünf-Prozent-Schritten kaufen; ab 51% übernehmen Sie die Gesellschaft samt ihren Drehkreuzen. Mit wachsendem Anteil steigt der geforderte Aufschlag.</p>
+    <div class="grid3">
+      <div class="tile"><b>${chf(portfolioValue())}</b><span>Depotwert</span></div>
+      <div class="tile"><b>${Object.keys(S.holdings||{}).length}</b><span>Beteiligungen</span></div>
+      <div class="tile"><b>${(S.takeovers||[]).length}</b><span>Übernahmen</span></div></div>`;
+    if((S.takeovers||[]).length) h+=`<div class="card"><b>Übernommen</b><br>
+      <span class="dim">${S.takeovers.map(t=>esc(t.name)+" ("+String(t.m+1).padStart(2,"0")+"/"+t.y+")").join(" · ")}</span></div>`;
+    const list=(S.rivals||[]).map(x=>({x, v:rivalValue(x), h:holdings(x.id),
+      routes:(S.routes||[]).filter(r=>(r.rivals||[]).some(q=>q.id===x.id&&q.flights>0)).length}))
+      .sort((a,b)=>(b.h-a.h)||(b.routes-a.routes)||(b.v-a.v)).slice(0,26);
+    list.forEach(({x,v,h:hp,routes})=>{
+      h+=`<div class="card"><div class="row" style="justify-content:space-between">
+        <div class="row" style="gap:8px"><span style="flex:0 0 30px">${rivalMark(x,30)}</span>
+        <div><b>${esc(x.name)}</b><br><span class="dim" style="font-size:10.5px">${MODEL_NAME[x.model]} · ${x.hubs.slice(0,4).join(" ")}</span></div></div>
+        <div class="mono" style="text-align:right">${chf(v)}<br><span class="dim">Bewertung</span></div></div>
+        <div class="kv"><span>Ihr Anteil</span><span class="${hp>0?'amb':''}">${fmt(hp*100,0)}%</span></div>
+        ${hp>0?`<div class="bar"><i style="width:${clamp(hp*100,0,100)}%"></i></div>`:""}
+        <div class="kv"><span>Konkurriert auf</span><span>${routes} Ihrer Strecken</span></div>
+        <div class="kv"><span>Nächstes 5%-Paket</span><span>${chf(v*0.05*(1+0.30*hp+(hp+0.05>0.5?0.25:0)))}</span></div>
+        <div class="row" style="margin-top:7px">
+          <button class="sm" data-buy5="${x.id}">5% kaufen</button>
+          <button class="sm" data-buy20="${x.id}">20% kaufen</button>
+          ${hp>0?`<button class="sm" data-sell="${x.id}">10% verkaufen</button>`:""}
+          ${hp>=0.35&&hp<0.5?`<button class="sm primary" data-take="${x.id}">Auf 51% aufstocken</button>`:""}
+        </div></div>`;
+    });
+  }
+
+  p.innerHTML=h;
+  p.querySelectorAll("[data-fs]").forEach(b=>b.onclick=()=>{S.finTab=b.dataset.fs; renderPane();});
+  const sf=$("#seatfee"); if(sf) sf.onclick=()=>{ S.seatFee=!S.seatFee;
+    if(S.seatFee) S.rep=clamp(S.rep-1.5,5,99);
+    logg(S.seatFee?"Sitzplatzreservierung eingeführt.":"Sitzplatzreservierung abgeschafft.","");
+    render(); };
+  const bf=$("#bagfee"); if(bf) bf.onclick=()=>{ S.bagFee=!S.bagFee;
+    if(S.bagFee) S.rep=clamp(S.rep-3,5,99); else S.rep=clamp(S.rep+1.5,5,99);
+    logg(S.bagFee?"Gepäckgebühr eingeführt.":"Freigepäck wieder eingeführt.","");
+    render(); };
+  const hb=$("#hbuy");
+  if(hb){
+    const upd=()=>{ const q=Math.max(100,+$("#hqty").value||100);
+      $("#hsum").textContent=chf(q*1000*S.fuel*0.06); };
+    $("#hqty").oninput=upd; upd();
+    hb.onclick=()=>buyHedge(Math.max(100,+$("#hqty").value||100), +$("#hmon").value);
+  }
+  p.querySelectorAll("[data-buy5]").forEach(b=>b.onclick=()=>buyShares(b.dataset.buy5,0.05));
+  p.querySelectorAll("[data-buy20]").forEach(b=>b.onclick=()=>buyShares(b.dataset.buy20,0.20));
+  p.querySelectorAll("[data-sell]").forEach(b=>b.onclick=()=>sellShares(b.dataset.sell,0.10));
+  p.querySelectorAll("[data-take]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.take, need=0.51-holdings(id);
+    buyShares(id, Math.ceil(need*20)/20);
+  });
+  const bb=$("#borrow"); if(bb) bb.onclick=()=>{const max=creditLimit()-S.debt;
+    modal("Kredit aufnehmen",
+      `<p class="dim">Verfügbar: <b class="mono">${chf(Math.max(0,max))}</b></p>
+       <label class="f">Betrag in Mio CHF</label><input type="number" id="amt" value="10" min="1">`,
+      [{t:"Abbrechen",f:()=>$("#veil").classList.remove("on")},
+       {t:"Aufnehmen",p:true,f:()=>{const a=(+$("#amt").value||0)*1e6;
+          if(a<=0||a>max){toast("Betrag ausserhalb des Rahmens.");return;}
+          S.cash+=a; S.debt+=a; S.debtPeak=Math.max(S.debtPeak||0, S.debt);
+          logg(`Kredit über ${chf(a)} CHF aufgenommen.`,"warn");
           $("#veil").classList.remove("on"); render();}}]);};
   const rb=$("#repay"); if(rb) rb.onclick=()=>{
     modal("Kredit tilgen",
@@ -6185,6 +6504,7 @@ function adoptSave(d){
   if(!S.takeovers) S.takeovers=[];
   if(!S.finTab) S.finTab="gv";
   if(!S.mapStyle) S.mapStyle="nacht";
+  if(!S.flightNums) S.flightNums={};
   S.fleet.forEach(ac=>{ if(!ac.plan) ac.plan={start:390,dests:[],days:[1,1,1,1,1,1,1],nums:[]};
     if(!ac.plan) ac.plan={};
     if(!ac.cab) ac.cab=CABIN_PRESETS[ACT[ac.type].cat==="Grossraum"?"standard":"europa"].f(ACT[ac.type]);
@@ -6315,6 +6635,72 @@ const LEGACY_AIRLINES = [
   txt:"Billigflieger mit Einheitsflotte und Ferienzielen. Marge über Menge, Ruf ist zweitrangig."}
 ];
 
+
+
+/** Räumt ein frisch erzeugtes Netz auf: Flüge, die sich nicht tragen, werden
+    gestrichen — dieselbe Massnahme, die dem Spieler auch zur Verfügung steht.
+    So beginnt eine Partie nicht mit einem sinnlos aufgeblähten Flugplan. */
+function seedTrim(passes){
+  for(let p=0;p<(passes||2);p++){
+    recomputeWeek();
+    S.fleet.forEach(ac=>{
+      const pl=ensurePlan(ac);
+      if(!scheduleOf(ac).flights) return;
+      let bestKey=null, bestVal=-Infinity;
+      for(let d=0;d<7;d++){
+        scheduleOf(ac).week[d].legs.forEach(l=>{
+          const st=LEGSTATS[legKey(ac.id,d,l.i)];
+          if(st && st.profit>bestVal){ bestVal=st.profit; bestKey=d+"#"+l.i; }
+        });
+      }
+      for(let d=0;d<7;d++){
+        const legs=scheduleOf(ac).week[d].legs;
+        const drop=new Set();
+        legs.forEach(l=>{
+          const st=LEGSTATS[legKey(ac.id,d,l.i)];
+          if(st && st.profit<0 && (d+"#"+l.i)!==bestKey) drop.add(l.i);
+        });
+        if(!drop.size) continue;
+        const w=pl.week[d], dests=[], nums=[];
+        w.dests.forEach((x,i)=>{ if(!drop.has(i)){ dests.push(x); nums.push(w.nums[i]); } });
+        /* Ein Umlauf muss an der Basis enden, sonst strandet die Maschine */
+        while(dests.length && dests[dests.length-1]!==ac.base) dests.pop();
+        w.dests=dests; w.nums=nums.slice(0,dests.length);
+      }
+      ensurePlan(ac);
+    });
+  }
+  recomputeWeek();
+}
+
+/** Verteilt eine Langstrecke auf zwei Tage: Hinflug, Übernachtung, Rückflug.
+    Wird gebraucht, weil ein Umlauf über 6000 km nicht an einem Tag zu schaffen ist. */
+function seedLongHaul(ac, dests){
+  const t=ACT[ac.type];
+  const far=(dests||[]).filter(dd=>AP[dd] && !acCanFly(ac, AP[ac.base], AP[dd]))
+    .sort((x,y)=>distKm(AP[ac.base],AP[y])-distKm(AP[ac.base],AP[x]));
+  if(!far.length) return false;
+  for(const target of far.slice(0,4)){
+    ensurePlan(ac);
+    for(let d=0;d<7;d++) ac.plan.week[d]=emptyDay();
+    [[0,1],[2,3],[4,5]].forEach(([out,back])=>{
+      ac.plan.week[out]={start:10*60+30, dests:[target], nums:[]};
+      ac.plan.week[back]={start:21*60, dests:[ac.base], nums:[]};
+    });
+    ensurePlan(ac);
+    let g=0;
+    while(g++<6 && scheduleOf(ac).week.some(x=>x.legs.some(l=>l.issues.length))){
+      for(let d=0;d<7;d++) if(ac.plan.week[d].dests.length)
+        ac.plan.week[d].start=(ac.plan.week[d].start+75)%1440;
+    }
+    const sch=scheduleOf(ac);
+    if(sch.flights && !sch.week.some(x=>x.legs.some(l=>l.issues.length))) return true;
+  }
+  for(let d=0;d<7;d++) ac.plan.week[d]=emptyDay();
+  ensurePlan(ac);
+  return false;
+}
+
 /** Baut eine bestehende Gesellschaft auf: Flotte, Personal, Tagespläne. */
 function startExisting(idx){
   const A=LEGACY_AIRLINES[idx]; if(!A) return;
@@ -6378,29 +6764,12 @@ function startExisting(idx){
     }
   });
   /* Langstrecken über Nacht auf zwei Tage verteilen, statt sie zu streichen */
-  S.fleet.forEach(ac=>{
-    const t=ACT[ac.type];
-    if(t.cat!=="Grossraum") return;
-    const sch=scheduleOf(ac);
-    if(sch.flights) return;
-    const far=(A.dests||[]).filter(dd=>AP[dd] && !acCanFly(ac, AP[ac.base], AP[dd]))
-      .sort((x,y)=>distKm(AP[ac.base],AP[y])-distKm(AP[ac.base],AP[x]));
-    if(!far.length) return;
-    const target=far[0];
-    ensurePlan(ac);
-    for(let d=0;d<7;d++) ac.plan.week[d]=emptyDay();
-    /* Hinflug Mo/Mi/Fr, Rückflug am jeweils nächsten Tag */
-    [[0,1],[2,3],[4,5]].forEach(([out,back])=>{
-      ac.plan.week[out]={start:10*60+30, dests:[target], nums:[]};
-      ac.plan.week[back]={start:21*60, dests:[ac.base], nums:[]};
-    });
-    ensurePlan(ac);
-    let g=0;
-    while(g++<4 && scheduleOf(ac).week.some(x=>x.legs.some(l=>l.issues.length))){
-      /* Abflugzeiten verschieben, falls eine Sperrzeit im Weg liegt */
-      for(let d=0;d<7;d++) if(ac.plan.week[d].dests.length) ac.plan.week[d].start=(ac.plan.week[d].start+90)%1440;
-    }
-  });
+  S.fleet.forEach(ac=>{ if(!scheduleOf(ac).flights) seedLongHaul(ac, A.dests); });
+  const need0=pilotNeed(); S.pilots={};
+  for(const k in need0) S.pilots[k]=Math.ceil(need0[k]*1.08);
+  S.cabin=Math.ceil(cabinNeed()*1.08);
+  seedTrim(2);
+  S.fleet.forEach(ac=>{ if(!scheduleOf(ac).flights) seedLongHaul(ac, A.dests); });
 
   /* Personal nach Bedarf, mit etwas Reserve */
   const need=pilotNeed(); S.pilots={};
@@ -6412,6 +6781,99 @@ function startExisting(idx){
 }
 
 
+
+
+/* Europäische Hauptstädte, für die Zielvorgabe im Berner Szenario. */
+const CAPITALS_EU = ["LHR","CDG","BER","FCO","MAD","LIS","AMS","BRU","VIE","BER","PRG","WAW",
+  "BUD","CPH","OSL","ARN","HEL","DUB","ATH","LUX","ZRH","BRN","RIX","TLL","VNO","SOF","OTP",
+  "BEG","ZAG","LJU","BTS","SKP","TIA","KEF","VLC","MLA","TGD","SJJ","KIV"];
+
+/* ==================================================== Szenariobedingungen
+   Jede Vorgabe ist eine Messgrösse mit Zielwert. Erfüllt sind sie, wenn alle
+   zutreffen; «max» bedeutet, dass der Wert darunter liegen muss. */
+function scMetric(c){
+  const L=S.lastMonth, H=S.history;
+  switch(c.art){
+    case "kasse": return S.cash;
+    case "schulden": return S.debt;
+    case "gewinn": return L?L.profit:0;
+    case "eigenkapital": return S.cash+fleetValue()+portfolioValue()-S.debt;
+    case "ruf": return S.rep;
+    case "gewinnFolge": { let n=0; for(let i=H.length-1;i>=0;i--){ if(H[i].profit>0) n++; else break; } return n; }
+    case "rufFolge": { let n=0; for(let i=H.length-1;i>=0;i--){ if(H[i].rep>=(c.mindest||85)) n++; else break; } return n; }
+    case "anteilStrecke": { const r=findRoute(c.von,c.nach);
+      return r&&r.last&&r.last.ok ? r.last.share*100 : 0; }
+    case "anteilHeim": { const land=AP[S.bases[0]]?AP[S.bases[0]].country:null;
+      const rs=S.routes.filter(r=>r.last&&r.last.ok && AP[r.from].country===land && AP[r.to].country===land);
+      return rs.length? rs.reduce((a,r)=>a+r.last.share,0)/rs.length*100 : 0; }
+    case "zieleRegion": { const set=new Set();
+      S.routes.forEach(r=>[r.from,r.to].forEach(i=>{ if(AP[i]&&AP[i].region===c.region) set.add(i); }));
+      S.bases.forEach(b=>{ if(AP[b]&&AP[b].region===c.region) set.delete(b); });
+      return set.size; }
+    case "zieleLand": { const set=new Set();
+      S.routes.forEach(r=>[r.from,r.to].forEach(i=>{ if(AP[i]&&AP[i].country===c.land) set.add(i); }));
+      return set.size; }
+    case "hauptstaedte": { const set=new Set();
+      S.routes.forEach(r=>[r.from,r.to].forEach(i=>{ if(CAPITALS_EU.includes(i)&&!S.bases.includes(i)) set.add(i); }));
+      return set.size; }
+    case "uebernahmen": { const t=S.takeovers||[];
+      if(!c.modell) return t.length;
+      return t.filter(x=>{ const d=COMPETITOR_DATABASE.find(y=>y.id===x.id); return d&&d.model===c.modell; }).length; }
+    case "uebernahmeVon": return (S.takeovers||[]).some(x=>(c.ids||[]).includes(x.id))?1:0;
+    case "charterZahl": return S.charterDone||0;
+    case "umsteiger": { const t=(S.transferInfo||[]).filter(x=>!c.hub||x.hub===c.hub);
+      return t.reduce((a,x)=>a+x.pax,0)/7*30.4; }
+    case "transferAnteil": { let tr=0, tot=0;
+      S.routes.forEach(r=>{ if(!r.last||!r.last.ok) return;
+        tot+=r.last.rev; tr+=(r.last.transferPax||0)*(r.last.pax?r.last.rev/r.last.pax:0); });
+      return tot? clamp(tr/tot*100,0,100) : 0; }
+    case "drehkreuze": { const set=new Set(S.bases.map(b=>AP[b]?AP[b].region:null).filter(Boolean));
+      return set.size; }
+    case "servicePremium": { if(!S.fleet.length) return 0;
+      return S.fleet.filter(a=>(a.svc||"standard")==="premium").length/S.fleet.length*100; }
+    case "flottenalter": { if(!S.fleet.length) return 0;
+      return S.fleet.reduce((a,x)=>a+x.age,0)/S.fleet.length/12; }
+    case "grossraum": return S.fleet.filter(a=>ACT[a.type].cat==="Grossraum").length;
+    case "grossraumProfitabel": { const gute=new Set();
+      S.routes.forEach(r=>{ if(r.last&&r.last.ok&&r.last.profit>0)
+        (weeklyLegs()[r.key]||[]).forEach(e=>{ if(ACT[e.ac.type].cat==="Grossraum") gute.add(e.ac.id); }); });
+      return gute.size; }
+    case "lounge": return S.bases.some(b=>hasUpgrade(b,"lounge"))?1:0;
+    case "frachtWoche": { let t=0; S.routes.forEach(r=>{ if(r.last&&r.last.ok) t+=r.last.cargoT||0; }); return t; }
+    case "frachtterminal": return S.bases.some(b=>hasUpgrade(b,"fracht"))?1:0;
+    case "keineKredite": return (S.debtPeak||0)<=(S.debtStart||0)?1:0;
+    case "strecken": return S.routes.length;
+    case "afrikaFuehrer": { let mich=0; const fremd={};
+      S.routes.forEach(r=>{ const af=(AP[r.from].region==="AF")||(AP[r.to].region==="AF");
+        if(!af||!r.last||!r.last.ok) return;
+        mich+=r.last.flights;
+        (r.rivals||[]).forEach(v=>{ fremd[v.id]=(fremd[v.id]||0)+v.flights; }); });
+      const best=Math.max(0,...Object.values(fremd));
+      return mich>best && mich>0 ? 1 : 0; }
+    default: return 0;
+  }
+}
+function scDone(c){
+  const v=scMetric(c);
+  return c.max ? v<=c.wert : v>=c.wert;
+}
+function scLabel(c){
+  const v=scMetric(c);
+  const f=(x)=>{
+    switch(c.art){
+      case "kasse": case "schulden": case "gewinn": case "eigenkapital": return chf(x);
+      case "anteilStrecke": case "anteilHeim": case "servicePremium": case "transferAnteil": return fmt(x,1)+"%";
+      case "flottenalter": return fmt(x,1)+" J";
+      case "frachtWoche": return fmt(x,0)+" t";
+      case "umsteiger": return fmt(x,0);
+      case "lounge": case "frachtterminal": case "keineKredite": case "afrikaFuehrer":
+      case "uebernahmeVon": return x?"ja":"nein";
+      default: return fmt(x,0);
+    }
+  };
+  return {v, txt:f(v), ziel:f(c.wert), ok:scDone(c),
+    anteil: c.max ? clamp(c.wert/Math.max(v,0.0001),0,1) : clamp(v/(c.wert||1),0,1)};
+}
 
 /* ============================================================ Szenarien ==
    Vorgegebene Ausgangslagen mit Siegbedingung. Das Gerüst steht; die
@@ -6433,7 +6895,136 @@ function startExisting(idx){
 
    Bilder liegen unter Graphics/Scenarios/<id>.jpg. */
 const SCENARIO_DIR = ["Graphics/Scenarios","graphics/Scenarios","graphics/scenarios"];
-const SCENARIOS = [];
+const SCENARIOS = [
+ {id:"operation-outback", name:"Operation Outback",
+  text:"Qantas und Virgin beherrschen den roten Kontinent. Die Küstenmetropolen sind hochprofitabel, aber hart umkämpft; das weite Inland und Asien bieten Nischen. Brechen Sie das Monopol auf und werden Sie Australiens neuer Nationalcarrier.",
+  hinweis:"Der Spagat ist die Aufgabe: billige Inlandsflüge gegen Jetstar, gleichzeitig lukrative Langstrecken nach Asien. Die Konkurrenz reagiert hier so scharf wie nirgends.",
+  airline:{name:"Southern Cross", code:"SX", liv:{c1:"#0b2b5c",c2:"#e0c33a",body:"weiss",tail:"diagonale",stripe:"schwung",glyph:"stern"}},
+  bases:["MEL"], cash:95, rep:52, difficulty:"schwer",
+  fleet:[["b38m",6],["a21n",2],["b789",1]],
+  dests:["SYD","BNE","PER","ADL","OOL","CNS","HBA","DRW","TSV","AKL","SIN","DPS","HKG","KUL","BKK"],
+  regeln:{rivalBoost:{ids:["QFA","JST","VOZ"], faktor:1.35}, aggro:1.6},
+  ziele:[{art:"anteilStrecke", von:"SYD", nach:"MEL", wert:40, text:"Marktanteil Sydney–Melbourne über 40%"},
+         {art:"zieleRegion", region:"AS", wert:5, text:"Fünf asiatische Ziele bedienen"},
+         {art:"uebernahmen", modell:"lcc", wert:1, text:"Einen Billigflieger übernehmen"}],
+  verloren:{art:"kasse", wert:-20e6, text:"Zahlungsunfähigkeit"}},
+
+ {id:"karibik-korsar", name:"Karibik-Korsar",
+  text:"Ein Paradies für Touristen, ein Albtraum für Logistiker. Extreme Saisonschwankungen, kurze Inselsprünge und massive Konkurrenz aus den USA. Werden Sie zur Brücke zwischen Nord- und Südamerika und den Antillen.",
+  hinweis:"Im Winter und Frühling fliesst das Geld, im Herbst bricht die Hurrikansaison die Nachfrage auf ein Drittel. Wer im Sommer nichts zurücklegt, braucht im Oktober einen Kredit — und verliert damit.",
+  airline:{name:"Antilles Air", code:"AN", liv:{c1:"#00a3a3",c2:"#f2c200",body:"weiss",tail:"bogen",stripe:"schwung",glyph:"welle"}},
+  bases:["CUN"], cash:58, rep:50, difficulty:"schwer",
+  fleet:[["at72",4],["b38m",3],["a21n",1]],
+  dests:["MBJ","KIN","NAS","SJU","PUJ","SDQ","HAV","CUR","AUA","BGI","POS","SXM","PTY","SJO","GUA","SAL","MIA","MCO","TPA","BOG","CTG","MEX"],
+  regeln:{season:{region:"NA", peak:2, amp:0.62}, debtWatch:true},
+  ziele:[{art:"charterZahl", wert:10, text:"Zehn Charteraufträge abschliessen"},
+         {art:"strecken", wert:25, text:"25 Strecken im Netz"},
+         {art:"keineKredite", wert:1, text:"Ohne zusätzliche Kredite durchkommen"}],
+  verloren:{art:"kasse", wert:-5e6, text:"Zahlungsunfähigkeit in der Nebensaison"}},
+
+ {id:"hub-krieg", name:"Der Hub-Krieg",
+  text:"Der US-Markt ist aufgeteilt. Delta, United, American und Southwest haben ihre Festungen gebaut. Finden Sie eine Lücke, errichten Sie ein neues Drehkreuz in der Mitte des Landes und greifen Sie die Grossen an.",
+  hinweis:"Frontal ist nichts zu holen — die Platzhirsche fliegen zweistellige Tagesfrequenzen. Binden Sie kleinere Städte an Ihr Drehkreuz und leben Sie vom Umsteigeverkehr.",
+  airline:{name:"Frontier Star", code:"FS", liv:{c1:"#12326b",c2:"#c8102e",body:"weiss",tail:"streifen",stripe:"band",glyph:"stern"}},
+  bases:["DEN"], cash:130, rep:48, difficulty:"schwer",
+  fleet:[["b38m",8],["e29e",4]],
+  dests:["LAS","PHX","SLC","MSP","AUS","PDX","SAN","IAH","DFW","ORD","LAX","SFO","SEA","ATL","JFK","BOS","MCO","TPA","CLT","PHL","DTW"],
+  regeln:{rivalBoost:{ids:["UAL","DAL","AAL","SWA"], faktor:2.2}, aggro:1.4},
+  ziele:[{art:"umsteiger", hub:"DEN", wert:50000, text:"50'000 Umsteiger pro Monat in Denver"},
+         {art:"uebernahmeVon", ids:["UAL","DAL","AAL","SWA"], wert:1, text:"Eine der grossen vier übernehmen"}],
+  verloren:{art:"kasse", wert:-30e6, text:"Zahlungsunfähigkeit"}},
+
+ {id:"wunder-von-bern", name:"Das Wunder von Bern-Belp",
+  text:"Ihre Basis: Bern-Belp. Kurze Piste, strenges Nachtflugverbot, kleiner lokaler Markt. Können Sie eine elitäre Nischenairline für Diplomaten und Reisende aufbauen, ohne am teuren Kerosin zu ersticken?",
+  hinweis:"1730 Meter Piste lassen nur ATR, Dash 8 und die A220-100 zu. Kleine Flugzeuge, hohe Preise, tadelloser Service — anders geht es nicht. Eine zweite Basis ist nicht erlaubt.",
+  airline:{name:"Berna Air", code:"BA", liv:{c1:"#c8102e",c2:"#e0c33a",body:"weiss",tail:"vollton",stripe:"linie",glyph:"baer"}},
+  bases:["BRN"], cash:42, rep:58, difficulty:"schwer",
+  fleet:[["at72",2],["bcs1",2]],
+  dests:["CDG","LHR","AMS","BRU","VIE","MUC","FCO","BCN","MAD","LIS","CPH","PRG","WAW","BUD","NCE","OLB"],
+  regeln:{lockBases:true, fuel:1.55},
+  ziele:[{art:"gewinnFolge", wert:12, text:"Zwölf Monate in Folge mit Gewinn"},
+         {art:"servicePremium", wert:100, text:"Ganze Flotte auf Premium-Service"},
+         {art:"hauptstaedte", wert:10, text:"Zehn europäische Hauptstädte anfliegen"}],
+  verloren:{art:"kasse", wert:-8e6, text:"Zahlungsunfähigkeit"}},
+
+ {id:"nordatlantik-bruecke", name:"Die Nordatlantik-Brücke",
+  text:"Mitten im Ozean gelegen, will fast niemand nur zu Ihnen. Ihre einzige Chance: eine logistische Meisterleistung — Passagiere aus Nordamerika exakt getaktet über Ihre Insel nach Europa weiterreichen.",
+  hinweis:"Der lokale Markt gibt wenig her. Alles hängt am Umsteigefenster: Die Maschinen aus Amerika müssen morgens landen, die Europaflüge kurz danach abgehen. Der Wochenplan ist hier die halbe Miete.",
+  airline:{name:"Saga Atlantic", code:"SA", liv:{c1:"#0d5fbf",c2:"#ffffff",body:"weiss",tail:"bogen",stripe:"schwung",glyph:"welle"}},
+  bases:["KEF"], cash:76, rep:56, difficulty:"normal",
+  fleet:[["b38m",5],["b763",2]],
+  dests:["LHR","CPH","OSL","ARN","AMS","CDG","FRA","MUC","MAD","JFK","BOS","YYZ","EWR","SEA","MSP","ORD"],
+  regeln:{homeDamp:0.45},
+  ziele:[{art:"transferAnteil", wert:70, text:"70% des Umsatzes aus Umsteigern"},
+         {art:"zieleRegion", region:"NA", wert:5, text:"Fünf Ziele in Nordamerika"},
+         {art:"zieleRegion", region:"EU", wert:5, text:"Fünf Ziele in Europa"}],
+  verloren:{art:"kasse", wert:-12e6, text:"Zahlungsunfähigkeit"}},
+
+ {id:"vierte-kraft", name:"Die Vierte Kraft",
+  text:"Das späte zwanzigste Jahrhundert: Die grossen Allianzen entstehen. Sie starten als unabhängige europäische Gesellschaft. Wachsen Sie schnell, schliessen Sie kluge Partnerschaften und werden Sie die vierte globale Kraft.",
+  hinweis:"Billigflieger gibt es noch nicht — der Wettbewerb läuft ausschliesslich über Netzcarrier, also über Frequenz, Ruf und Umsteigeverkehr. Beteiligungen und Marketing sind die Hebel.",
+  airline:{name:"Europa Continental", code:"EC", liv:{c1:"#1b3f7a",c2:"#c9a227",body:"weiss",tail:"streifen",stripe:"band",glyph:"ring"}},
+  bases:["FRA"], cash:260, rep:64, difficulty:"normal", jahr:1997,
+  fleet:[["b752",4],["a21n",4],["b763",3],["a359",2]],
+  dests:["LHR","CDG","MAD","FCO","VIE","CPH","ARN","IST","JFK","ORD","LAX","GRU","JNB","DXB","BKK","SIN","HKG","NRT","PVG","DEL","SYD"],
+  regeln:{noLCC:true},
+  ziele:[{art:"drehkreuze", wert:3, text:"Drehkreuze auf drei Kontinenten"},
+         {art:"rufFolge", mindest:85, wert:6, text:"Sechs Monate Ruf über 85"},
+         {art:"kasse", wert:500e6, text:"500 Mio CHF Barreserve"}],
+  verloren:{art:"kasse", wert:-40e6, text:"Zahlungsunfähigkeit"}},
+
+ {id:"loewe-von-afrika", name:"Der Löwe von Afrika",
+  text:"Zentralafrika: riesige Entfernungen, dünne Infrastruktur. Wer von Lagos nach Nairobi will, fliegt oft über den Golf. Verbinden Sie den Kontinent direkt und drängen Sie die Grossen aus dem Nahen Osten zurück.",
+  hinweis:"Wenig Kapital, harter Kampf um Erträge. Erschliessen Sie zuerst die Nebenstrecken, die sonst niemand fliegt, bevor Sie die Hauptschlagadern angreifen.",
+  airline:{name:"Sahel Wings", code:"SW", liv:{c1:"#0d7a4a",c2:"#e0c33a",body:"weiss",tail:"diagonale",stripe:"schwung",glyph:"gipfel"}},
+  bases:["ADD"], cash:36, rep:50, difficulty:"schwer",
+  fleet:[["at72",3],["e29e",3],["b38m",2]],
+  dests:["NBO","KGL","EBB","DAR","ZNZ","JRO","LOS","ACC","ABJ","DKR","CMN","CAI","JNB","CPT","WDH","LAD","MPM","TNR","MRU","DXB"],
+  regeln:{rivalBoost:{ids:["UAE","QTR","ETD","THY"], faktor:1.6}},
+  ziele:[{art:"zieleRegion", region:"AF", wert:15, text:"15 afrikanische Metropolen anfliegen"},
+         {art:"afrikaFuehrer", wert:1, text:"Meiste Flüge im afrikanischen Luftraum"}],
+  verloren:{art:"kasse", wert:-6e6, text:"Zahlungsunfähigkeit"}},
+
+ {id:"vor-dem-abgrund", name:"Vor dem Abgrund",
+  text:"Sie erben eine einst stolze Gesellschaft am Rand des Zusammenbruchs. Die Schulden erdrücken den Betrieb, die alte Flotte frisst Unsummen an Wartung, die Belegschaft ist zermürbt. Gesundschrumpfen ist die einzige Rettung.",
+  hinweis:"Zuerst die defizitären Strecken streichen, dann die Altflugzeuge über den Gebrauchtmarkt abstossen. Der Zins läuft jeden Monat weiter — Zeit ist hier der eigentliche Gegner.",
+  airline:{name:"Aurora Italiana", code:"AI", liv:{c1:"#0b3d91",c2:"#c8102e",body:"silber",tail:"streifen",stripe:"linie",glyph:"ring"}},
+  bases:["FCO"], cash:5, rep:44, difficulty:"schwer",
+  fleet:[["b752",4],["b763",3],["a21n",3],["at72",2]],
+  dests:["MXP","LIN","NAP","CTA","PMO","VCE","BLQ","CDG","FRA","MUC","LHR","MAD","BCN","ATH","IST","TLV","CAI","JFK"],
+  regeln:{schulden:200e6, alterMin:220, alterMax:290},
+  ziele:[{art:"schulden", wert:0, max:true, text:"Schulden vollständig tilgen"},
+         {art:"kasse", wert:50e6, text:"50 Mio CHF Liquidität"},
+         {art:"flottenalter", wert:8, max:true, text:"Flottenalter unter acht Jahre"}],
+  verloren:{art:"kasse", wert:-60e6, text:"Endgültige Zahlungsunfähigkeit"}},
+
+ {id:"roter-teppich", name:"Der Rote-Teppich-Carrier",
+  text:"Asien ist überschwemmt von Billigfliegern. Ihr Weg ist das Gegenteil: kein Ramsch, nur Luxus. Erschaffen Sie eine Fünf-Sterne-Boutique-Airline für eine sehr kleine, sehr zahlungskräftige Kundschaft.",
+  hinweis:"Low-Cost-Service ist gesperrt, und höchstens drei von zehn Sitzen dürfen Economy sein. Der Ruf ist hier keine Nebengrösse, sondern das Geschäftsmodell.",
+  airline:{name:"Orient Ivory", code:"OI", liv:{c1:"#1a1a1a",c2:"#c9a227",body:"weiss",tail:"vollton",stripe:"linie",glyph:"raute"}},
+  bases:["SIN"], cash:210, rep:66, difficulty:"normal",
+  fleet:[["a359",3],["b789",2],["a21n",2]],
+  dests:["HKG","BKK","KUL","CGK","DPS","MNL","NRT","HND","ICN","PVG","PEK","SYD","MEL","DXB","DOH","LHR","CDG","FRA","ZRH","JFK"],
+  regeln:{noLowCost:true, maxEcoShare:0.30},
+  ziele:[{art:"ruf", wert:95, text:"Ruf von 95 erreichen"},
+         {art:"grossraumProfitabel", wert:10, text:"Zehn Grossraumflugzeuge rentabel betreiben"},
+         {art:"lounge", wert:1, text:"Eigene Lounge am Drehkreuz"}],
+  verloren:{art:"kasse", wert:-50e6, text:"Zahlungsunfähigkeit"}},
+
+ {id:"lebensader-anden", name:"Die Lebensader der Anden",
+  text:"Südamerika fordert alles: extreme Höhenlagen, kurze Pisten, schwieriges Wetter. Nutzen Sie wendige Flugzeuge und holen Sie den Ertrag dort, wo er wirklich liegt — in der Luftfracht.",
+  hinweis:"Der Combi-Umbau ist hier kein Nebenschauplatz: Sitze ausbauen, Frachtraum vergrössern, kurze Pisten bedienen. Passagiere zahlen die Kosten, die Fracht bringt den Gewinn.",
+  airline:{name:"Andes Cargo Lines", code:"AC", liv:{c1:"#b4531a",c2:"#e0c33a",body:"weiss",tail:"diagonale",stripe:"band",glyph:"gipfel"}},
+  bases:["BOG"], cash:64, rep:52, difficulty:"schwer",
+  fleet:[["at72",4],["b38m",3],["b763",2]],
+  dests:["MDE","CTG","CCS","UIO","GYE","LIM","CUZ","AQP","LPB","VVI","SCL","GRU","GIG","ASU","MVD","PTY","MIA"],
+  regeln:{cargoBoost:1.35},
+  ziele:[{art:"frachtWoche", wert:10000, text:"10'000 Tonnen Fracht pro Woche"},
+         {art:"frachtterminal", wert:1, text:"Frachtterminal an der Basis"},
+         {art:"anteilHeim", wert:60, text:"Über 60% Marktanteil im Inland"}],
+  verloren:{art:"kasse", wert:-15e6, text:"Zahlungsunfähigkeit"}}
+];
+
 const SCENARIO_ART = {};
 async function scanScenarios(){
   for(const d of SCENARIO_DIR){
@@ -6450,48 +7041,55 @@ function scenarioImage(sc){
   return SCENARIO_ART[k] || SCENARIO_ART[k.replace(/\s+/g,"-")] || SCENARIO_ART[k.replace(/\s+/g,"_")] || null;
 }
 /** Prüft nach jedem Monatsabschluss, ob Sieg oder Niederlage eingetreten ist. */
+function currentScenario(){ return S.scenario && SCENARIOS.find(x=>x.id===S.scenario); }
 function checkScenario(){
-  const sc=S.scenario && SCENARIOS.find(x=>x.id===S.scenario);
+  const sc=currentScenario();
   if(!sc || S.scenarioDone) return;
-  const monate=S.history.length;
-  const z=sc.ziel||{}, v=sc.verloren||{};
-  const wert=(art)=>{
-    switch(art){
-      case "gewinn":  return S.lastMonth?S.lastMonth.profit:0;
-      case "kasse":   return S.cash;
-      case "pax":     return S.history.reduce((a,h)=>a+h.pax,0);
-      case "ruf":     return S.rep;
-      case "flotte":  return S.fleet.length;
-      case "strecken":return S.routes.length;
-      case "anteil":  { const r=S.routes.filter(x=>x.last&&x.last.ok);
-                        return r.length? r.reduce((a,x)=>a+x.last.share,0)/r.length*100 : 0; }
-      case "eigenkapital": return S.cash+fleetValue()+portfolioValue()-S.debt;
-      default: return 0;
+  S.debtPeak=Math.max(S.debtPeak||0, S.debt);
+  const v=sc.verloren;
+  if(v && v.art){
+    const val=scMetric(v);
+    const raus = v.max ? val>v.wert : val<v.wert;
+    if(raus){
+      S.scenarioDone="verloren"; setSpeed(0);
+      setTimeout(()=>modal(`${sc.name} — gescheitert`,
+        `<p>${esc(v.text||"Die Vorgabe wurde nicht erreicht.")}</p>
+         <p class="dim">Nach ${S.history.length} Monaten.</p>`,
+        [{t:"Zurück zum Menü",p:true,f:()=>{$("#veil").classList.remove("on"); mainMenu();}}]),200);
+      return;
     }
-  };
-  if(v.art && wert(v.art) < (v.wert!=null?v.wert:0)){
-    S.scenarioDone="verloren"; setSpeed(0);
-    setTimeout(()=>modal(`${sc.name} — gescheitert`,
-      `<p>${esc(v.text||"Die Vorgabe wurde nicht erreicht.")}</p>
-       <p class="dim">Nach ${monate} Monaten.</p>`,
-      [{t:"Zurück zum Menü",p:true,f:()=>{$("#veil").classList.remove("on"); mainMenu();}}]),200);
-    return;
   }
-  if(z.monate && monate>z.monate && wert(z.art)<z.wert){
-    S.scenarioDone="verloren"; setSpeed(0);
-    setTimeout(()=>modal(`${sc.name} — Frist abgelaufen`,
-      `<p>Nach ${z.monate} Monaten war das Ziel nicht erreicht.</p>`,
-      [{t:"Zurück zum Menü",p:true,f:()=>{$("#veil").classList.remove("on"); mainMenu();}}]),200);
-    return;
-  }
-  if(z.art && wert(z.art)>=z.wert){
+  const ziele=sc.ziele||[];
+  if(!ziele.length) return;
+  if(ziele.every(scDone)){
     S.scenarioDone="gewonnen"; setSpeed(0);
     logg(`Szenario «${sc.name}» erfüllt.`,"good");
     setTimeout(()=>modal(`${sc.name} — geschafft`,
-      `<p>${esc(z.text||"Die Vorgabe ist erfüllt.")}</p>
-       <p class="dim">Nach ${monate} Monaten. Der Betrieb lässt sich frei weiterführen.</p>`,
+      `<p>Alle Vorgaben sind erfüllt:</p>
+       ${ziele.map(c=>`<div class="kv"><span>${esc(c.text)}</span><span class="pos">${scLabel(c).txt}</span></div>`).join("")}
+       <p class="dim" style="margin-top:8px">Nach ${S.history.length} Monaten. Der Betrieb lässt sich frei weiterführen.</p>`,
       [{t:"Weiterspielen",p:true,f:()=>{$("#veil").classList.remove("on");}}]),200);
   }
+}
+/** Fortschrittsanzeige im Lagebild. */
+function scenarioPanel(){
+  const sc=currentScenario(); if(!sc) return "";
+  const ziele=sc.ziele||[];
+  const erfuellt=ziele.filter(scDone).length;
+  return `<div class="card" style="border-color:${S.scenarioDone==="gewonnen"?"var(--green)":"var(--amber)"}">
+    <div class="row" style="justify-content:space-between">
+      <div><b class="amb">${esc(sc.name)}</b><br>
+        <span class="dim" style="font-size:10.5px">${esc(sc.hinweis||"")}</span></div>
+      <span class="pill ${S.scenarioDone==="gewonnen"?"ok":erfuellt?"warn":""}">${erfuellt} von ${ziele.length}</span></div>
+    ${ziele.map(c=>{ const L=scLabel(c);
+      return `<div class="kv" style="align-items:center">
+        <span style="flex:1">${L.ok?'<span class="pos">✓</span> ':""}${esc(c.text)}</span>
+        <span class="${L.ok?'pos':''}">${L.txt} / ${L.ziel}</span></div>
+        <div class="bar"><i style="width:${(L.anteil*100).toFixed(0)}%;
+          background:${L.ok?"var(--green)":"var(--amber)"}"></i></div>`;}).join("")}
+    ${sc.verloren?`<div class="kv" style="margin-top:6px"><span class="dim">Gescheitert bei</span>
+      <span class="dim">${esc(sc.verloren.text||"")}</span></div>`:""}
+  </div>`;
 }
 function startScenario(id){
   const sc=SCENARIOS.find(x=>x.id===id); if(!sc) return;
@@ -6502,13 +7100,26 @@ function startScenario(id){
   sc.bases.slice(1).forEach(b=>{ if(AP[b]&&!S.bases.includes(b)) S.bases.push(b); });
   if(sc.cash!=null) S.cash=sc.cash*1e6;
   if(sc.rep!=null) S.rep=sc.rep;
+  /* Sonderregeln des Szenarios */
+  const R=Object.assign({}, sc.regeln||{});
+  S.rules=R;
+  if(sc.jahr){ S.clock=Date.UTC(sc.jahr,0,1,4,0); S.year=sc.jahr; S.month=0; }
+  if(R.aggro) BAL.aggroMult=(BAL.aggroMult||1)*R.aggro;
+  if(R.fuel) S.fuel=R.fuel;
+  if(R.schulden){ S.debt=R.schulden; S.debtStart=R.schulden; S.debtPeak=R.schulden; }
+  else { S.debtStart=0; S.debtPeak=0; }
+  if(R.noLCC) S.rivals=S.rivals.filter(x=>x.model!=="lcc");
   if(sc.bal) Object.keys(sc.bal).forEach(k=>{ if(k in BAL) BAL[k]=sc.bal[k]; else S[k]=sc.bal[k]; });
   const dests=(sc.dests||[]).filter(d=>AP[d]);
   let n=0;
   (sc.fleet||[]).forEach(([type,cnt,bIdx])=>{
     for(let i=0;i<cnt;i++){
       const base=sc.bases[bIdx!=null?Math.min(bIdx,sc.bases.length-1):(n%sc.bases.length)];
-      const ac=addAircraft(type,false,base,Math.round(rnd(12,90)));
+      const R2=sc.regeln||{};
+      const ac=addAircraft(type,false,base,
+        Math.round(R2.alterMin!=null ? rnd(R2.alterMin, R2.alterMax||R2.alterMin+60) : rnd(12,90)));
+      if(R2.alterMin) ac.hours=Math.round(rnd(0.5,0.95)*BAL.heavyCheckHrs);
+      if(R2.noLowCost) ac.svc="premium";
       const chain=[];
       for(let k=0;k<dests.length && chain.length<4;k++){
         const dd=dests[(n*3+k)%dests.length];
@@ -6529,6 +7140,13 @@ function startScenario(id){
       n++;
     }
   });
+  /* Wer an einem Tag nicht hin und zurück kommt, fliegt über Nacht */
+  S.fleet.forEach(ac=>{ if(!scheduleOf(ac).flights) seedLongHaul(ac, dests); });
+  const need0=pilotNeed(); S.pilots={};
+  for(const k in need0) S.pilots[k]=Math.ceil(need0[k]*1.05);
+  S.cabin=Math.ceil(cabinNeed()*1.05);
+  seedTrim(2);
+  S.fleet.forEach(ac=>{ if(!scheduleOf(ac).flights) seedLongHaul(ac, dests); });
   const need=pilotNeed(); S.pilots={};
   for(const k in need) S.pilots[k]=Math.ceil(need[k]*1.05);
   S.cabin=Math.ceil(cabinNeed()*1.05);
@@ -6555,7 +7173,7 @@ function scenarioDialog(){
          ${img?`<span style="flex:0 0 92px"><img src="${esc(img)}" style="width:92px;height:62px;object-fit:cover;border-radius:3px" alt=""></span>`:""}
          <div style="flex:1"><div class="t">${esc(sc.name)}</div>
            <div class="d">${esc(sc.text||"")}</div>
-           <div class="d" style="margin-top:3px">${(sc.bases||[]).join(" · ")} · ${(sc.fleet||[]).reduce((a,[,n])=>a+n,0)} Flugzeuge · ${sc.cash} Mio</div></div>
+           <div class="d" style="margin-top:3px">${(sc.bases||[]).join(" · ")} · ${(sc.fleet||[]).reduce((a,[,n])=>a+n,0)} Flugzeuge · ${sc.cash} Mio · ${DIFFICULTY[sc.difficulty||"normal"].n}</div></div>
          <div class="mono amb">›</div></div>`;}).join("")}</div>`,
     [{t:"Zurück",f:mainMenu}]);
   $("#mX").style.display="none";
@@ -6570,14 +7188,86 @@ function scenarioDialog(){
          <div class="kv"><span>Stationen</span><span>${(sc.bases||[]).map(b=>b+(AP[b]?" — "+esc(AP[b].city):"")).join("<br>")}</span></div>
          <div class="kv"><span>Flotte</span><span>${(sc.fleet||[]).map(([t,n])=>n+"× "+esc(ACT[t]?ACT[t].name:t)).join("<br>")}</span></div>
          <div class="kv"><span>Startkapital · Ruf</span><span>${sc.cash} Mio CHF · ${sc.rep}</span></div>
-         ${sc.ziel?`<div class="kv"><span>Ziel</span><span>${esc(sc.ziel.text||"")}</span></div>`:""}
-         ${sc.verloren?`<div class="kv"><span>Gescheitert bei</span><span>${esc(sc.verloren.text||"")}</span></div>`:""}
+         <div class="kv"><span>Schwierigkeit</span><span>${DIFFICULTY[sc.difficulty||"normal"].n}</span></div>
+       </div>
+       ${sc.hinweis?`<p class="dim">${esc(sc.hinweis)}</p>`:""}
+       <h3 class="sub">Ziele</h3>
+       <div class="card">
+         ${(sc.ziele||[]).map(c=>`<div class="kv"><span>${esc(c.text)}</span><span class="amb">›</span></div>`).join("")}
+         ${sc.verloren?`<div class="kv"><span class="dim">Gescheitert bei</span><span class="dim">${esc(sc.verloren.text||"")}</span></div>`:""}
        </div>`,
       [{t:"Zurück",f:scenarioDialog},
        {t:"Starten",p:true,f:()=>{ $("#veil").classList.remove("on"); $("#mX").style.display="";
           startScenario(sc.id); }}]);
     $("#mX").style.display="none";
   };
+}
+
+
+/* Zahlen laufen weich in den neuen Wert, statt umzuspringen. */
+const NUMANIM=new WeakMap();
+function animateNum(el, to, fmtFn){
+  if(!el) return;
+  const prev=NUMANIM.get(el);
+  const from=(prev&&isFinite(prev.val))?prev.val:to;
+  if(prev&&prev.raf) cancelAnimationFrame(prev.raf);
+  if(Math.abs(to-from)<1e-9){ el.textContent=fmtFn(to); NUMANIM.set(el,{val:to}); return; }
+  const t0=performance.now(), dur=520;
+  const step=(t)=>{
+    const k=Math.min((t-t0)/dur,1);
+    const e=1-Math.pow(1-k,3);
+    const v=from+(to-from)*e;
+    el.textContent=fmtFn(v);
+    if(k<1){ NUMANIM.set(el,{val:v, raf:requestAnimationFrame(step)}); }
+    else NUMANIM.set(el,{val:to});
+  };
+  NUMANIM.set(el,{val:from, raf:requestAnimationFrame(step)});
+}
+
+
+/* Am Telefon wandert die Navigation nach unten: vier feste Reiter mit Zeichen
+   und ein Sammelknopf für alles Übrige — mit dem Daumen erreichbar. */
+const TAB_ICON = {ops:"◉", net:"⇄", fleet:"✈", market:"🛒", fin:"💰", staff:"👥",
+  charter:"📋", guest:"★", ach:"🏆", brand:"🎨", log:"📰", data:"⚙"};
+const TAB_MAIN = ["ops","net","fleet","fin"];
+const TAB_NAME = {ops:"Lage", net:"Netz", fleet:"Flotte", market:"Markt", fin:"Finanzen",
+  staff:"Personal", charter:"Charter", guest:"Gäste", ach:"Erfolge", brand:"Marke",
+  log:"Meldungen", data:"Daten"};
+var mobileNav=null;
+function buildTabs(){
+  const wrap=$("#tabs");
+  const narrow=window.innerWidth<=880;
+  if(narrow===mobileNav && wrap.dataset.built) return;
+  mobileNav=narrow; wrap.dataset.built="1";
+  if(!narrow){
+    wrap.innerHTML=Object.keys(TAB_NAME).map(k=>
+      `<button data-t="${k}" class="${tab===k?'on':''}">${TAB_NAME[k]}</button>`).join("");
+  } else {
+    wrap.innerHTML=TAB_MAIN.map(k=>
+      `<button data-t="${k}" class="${tab===k?'on':''}"><span class="ic">${TAB_ICON[k]}</span>${TAB_NAME[k]}</button>`).join("")
+      +`<button data-more="1" class="${TAB_MAIN.includes(tab)?'':'on'}"><span class="ic">☰</span>Mehr</button>`;
+  }
+  wrap.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>setTab(b.dataset.t));
+  const mb=wrap.querySelector("[data-more]");
+  if(mb) mb.onclick=moreSheet;
+}
+function moreSheet(){
+  const rest=Object.keys(TAB_NAME).filter(k=>!TAB_MAIN.includes(k));
+  modal("Weitere Bereiche",
+    `<div id="sheetlist">${rest.map(k=>`<div class="choice ${tab===k?'on':''}" data-t="${k}">
+      <div><div class="t">${TAB_ICON[k]}  ${TAB_NAME[k]}</div></div>
+      <div class="mono amb">›</div></div>`).join("")}</div>`,
+    [{t:"Schliessen",f:()=>$("#veil").classList.remove("on")}]);
+  $("#sheetlist").onclick=e=>{
+    const c=e.target.closest(".choice"); if(!c) return;
+    $("#veil").classList.remove("on"); setTab(c.dataset.t);
+  };
+}
+function setTab(t){
+  tab=t;
+  $$("#tabs button").forEach(b=>b.classList.toggle("on", b.dataset.t===t
+    || (b.dataset.more && !TAB_MAIN.includes(t) && mobileNav)));
+  renderPane();
 }
 
 /* ============================================================ Hauptmenü */
@@ -6734,6 +7424,7 @@ scanScenarios();
 if("serviceWorker" in navigator && location.protocol.startsWith("http")){
   navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
+buildTabs();
 applyBrand();
 renderMap();
 mainMenu();
