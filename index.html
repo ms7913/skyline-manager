@@ -2156,9 +2156,12 @@ function newGame(cfg){
     service:{eco:1,prem:1,biz:1,first:1}, weather:[], reviews:[], punctuality:0.86,
     charters:[], charterJobs:[], achievements:{}, pending:null,
     hedges:[], holdings:{}, takeovers:[], loyalty:false, seatFee:false, mapStyle:"nacht",
-    inbox:[], mailSeq:0, rel:{crew:70, airports:70, partners:55}, blocks:[],
+    inbox:[], mailSeq:0, rel:{crew:70, airports:70, partners:55}, blocks:[], sais:null, feud:{},
+    chronik:[],
+    staff:rollStaff(cfg.home),
     curfewHits:0, tutorial:{done:false, erledigt:{}}, jumpMode:"event",
     dayReport:null, lastStop:null, tarifGesehen:false,
+    boardOn:true, board:null, boardTrust:50,
     flightHistory:[], finTab:"gv",
     lastMonth:null, ownAirports:[] };
   applyDifficulty(cfg.level||"normal");
@@ -2167,6 +2170,7 @@ function newGame(cfg){
   S.speed = 1; S.acc = {rev:0,direct:0,pax:0,seats:0,flights:0,rpk:0,ask:0};
   S.ticker=[]; S.daySched=[];
   rollWeather(); rollCharters(); rollUsed();
+  chronikAdd("start", `${S.name} nimmt den Betrieb auf, Heimatstation ${home.iata}.`);
   logg(`${S.name} (${S.code}) nimmt den Betrieb auf. Heimatstation ${home.iata} — ${home.city}.`,"good");
 }
 function logg(t,k=""){ if(!S) return;
@@ -2261,6 +2265,406 @@ function blockMinutes(t, d){ return Math.round((d/t.speed + BAL.taxiHours)*60); 
 function turnAt(t, iata){
   return Math.max(15, t.turn - (hasUpgrade(iata,"boden") ? 10 : 0));
 }
+
+
+
+
+
+
+/* ========================================================== Chronik ======
+   Nach fünf Spieljahren hat man Hunderte Entscheidungen getroffen und weiss
+   nichts mehr davon. Hier stehen sie als Zeitstrahl — der Unterschied
+   zwischen einem Spielstand und der eigenen Airline. */
+function chronikAdd(art, txt){
+  S.chronik=S.chronik||[];
+  S.chronik.unshift({t:S.clock, art, txt});
+  if(S.chronik.length>200) S.chronik.length=200;
+}
+const CHRONIK_ART = {
+  start:{ic:"◉", col:"var(--amber)"}, meilenstein:{ic:"🏆", col:"var(--green)"},
+  flotte:{ic:"✈", col:"var(--blue)"}, netz:{ic:"⇄", col:"#9b8cf0"},
+  markt:{ic:"⚔", col:"var(--red)"}, geld:{ic:"▤", col:"var(--green)"},
+  krise:{ic:"⚠", col:"var(--red)"}, vr:{ic:"★", col:"var(--amber)"}
+};
+function chronikHTML(){
+  const c=S.chronik||[];
+  if(!c.length) return `<div class="empty"><b>Noch keine Einträge</b>Was Ihre Airline ausmacht, sammelt sich hier im Lauf der Jahre an.</div>`;
+  let jahr=null, h="";
+  c.forEach(e=>{
+    const d=new Date(e.t), j=d.getUTCFullYear();
+    if(j!==jahr){ jahr=j; h+=`<div class="chronjahr">${j}</div>`; }
+    const A=CHRONIK_ART[e.art]||CHRONIK_ART.netz;
+    h+=`<div class="chronrow">
+      <span class="chronic" style="color:${A.col}">${A.ic}</span>
+      <span class="chrondat">${String(d.getUTCDate()).padStart(2,"0")}.${String(d.getUTCMonth()+1).padStart(2,"0")}.</span>
+      <span class="chrontxt">${esc(e.txt)}</span></div>`;
+  });
+  return `<div class="chronik">${h}</div>`;
+}
+/** Flottenposter: alles, was man gebaut hat, untereinander. */
+function posterDialog(){
+  const sorted=[...S.fleet].sort((a,b)=>ACT[b.type].maxSeats-ACT[a.type].maxSeats);
+  modal(`${S.name} — Flotte`,
+    `<p class="dim">${S.fleet.length} Flugzeuge, ${Array.from(new Set(S.fleet.map(a=>a.type))).length} Muster,
+      Durchschnittsalter ${fmt(S.fleet.reduce((x,a)=>x+a.age,0)/Math.max(S.fleet.length,1)/12,1)} Jahre.</p>
+     ${sorted.map(ac=>`<div class="posterrow">
+        <div class="planebox" style="padding:2px 0">${planeSVG(ac.type,S.livery,{wear:acWear(ac)})}</div>
+        <div class="row" style="justify-content:space-between;padding:0 4px 8px">
+          <span class="mono amb">${esc(ac.reg)}</span>
+          <span class="dim" style="font-size:10.5px">${esc(ACT[ac.type].name)} · ${ac.base} · ${fmt(ac.age/12,1)} J · ${seatsOf(ac).total} Sitze</span>
+        </div></div>`).join("")
+      || `<div class="empty"><b>Noch keine Flugzeuge</b></div>`}`);
+}
+
+/* =========================================================== Befund ======
+   Warum verdient diese Strecke nichts? Zwei Sätze, die die Welt erklären —
+   ohne dem Spieler die Entscheidung abzunehmen. */
+function routeDiagnose(r){
+  const L=r.last;
+  if(!L||!L.ok) return ["Diese Strecke wird zurzeit nicht bedient. Erst mit Flügen im Wochenplan entstehen Zahlen."];
+  const A=AP[r.from], B=AP[r.to], d=distKm(A,B);
+  const m=marketDemand(A,B,S.month);
+  const befund=[];
+  const legs=(weeklyLegs()[r.key]||[]);
+  const muster=Array.from(new Set(legs.map(e=>e.ac.type)));
+  const sitze=L.seats.total/Math.max(L.flights,1);
+
+  /* Zu grosses Flugzeug */
+  if(L.lf<0.62 && muster.length){
+    const jetzt=ACT[muster[0]];
+    const kleiner=ACTL.filter(t=>t.maxSeats<jetzt.maxSeats*0.85 && t.range>d*1.08
+      && t.runway<=Math.min(A.runway,B.runway)).sort((a,b)=>b.maxSeats-a.maxSeats)[0];
+    befund.push(`Bei ${fmt(L.lf*100,0)}% Auslastung tragen die Fixkosten nicht — im Schnitt bleiben ${fmt(sitze*(1-L.lf),0)} Sitze je Flug leer.`
+      + (kleiner?` Mit der ${kleiner.name} statt der ${jetzt.name} wären es rund ${fmt(L.pax/Math.max(L.flights,1)/kleiner.maxSeats*100,0)}%.`:""));
+  }
+  /* Preis gegen die Konkurrenz */
+  if(L.split && L.split.rivals.length){
+    const gegen=L.split.rivals.reduce((a,x)=>a+x.fare,0)/L.split.rivals.length;
+    const meins=r.fare;
+    if(meins>gegen*1.12)
+      befund.push(`Der Tarif liegt ${fmt((meins/gegen-1)*100,0)}% über dem der Konkurrenz auf dieser Strecke — bei ${fmt(L.share*100,0)}% Marktanteil zahlt das kaum jemand.`);
+    else if(meins<gegen*0.85 && L.lf>0.82)
+      befund.push(`Die Flüge sind zu ${fmt(L.lf*100,0)}% voll und der Tarif liegt ${fmt((1-meins/gegen)*100,0)}% unter der Konkurrenz — hier wird Ertrag verschenkt.`);
+  }
+  /* Frequenz */
+  const meineFreq=L.flights/7, fremdFreq=r.comp/7;
+  if(fremdFreq>meineFreq*2.2 && L.share<0.25)
+    befund.push(`Die Konkurrenz fliegt ${fmt(fremdFreq,1)} mal täglich, Sie ${fmt(meineFreq,1)} mal. Wer geschäftlich reist, bucht die häufigere Verbindung.`);
+  /* Tageszeit */
+  if(L.timeQual!=null && L.timeQual<0.92)
+    befund.push("Die Abflugzeiten liegen ungünstig — im Mittagsloch statt in der Morgen- oder Abendspitze.");
+  /* Kosten */
+  const kostenSitz=L.cost/Math.max(L.seats.total,1);
+  const erloesSitz=L.rev/Math.max(L.seats.total,1);
+  if(L.profit<0 && kostenSitz>erloesSitz*1.25)
+    befund.push(`Je Sitz kostet der Flug ${chf(kostenSitz)} und bringt ${chf(erloesSitz)}. Auf ${fmt(d)} km ist das mit diesem Muster kaum aufzuholen.`);
+  /* Wetter und Sperrzeiten */
+  if(L.wx>0.35) befund.push("Ein Schlechtwettergebiet drückt Verbrauch und Pünktlichkeit — das ist vorübergehend.");
+  const sperr=legs.some(e=>e.leg.issues.length);
+  if(sperr) befund.push("Einzelne Flüge verstossen gegen Sperrzeiten oder Pistenlängen und fallen aus der Rechnung.");
+  /* Markt */
+  if(m.daily<40)
+    befund.push(`Der Markt gibt nur ${fmt(m.daily,0)} Passagiere am Tag her, über alle Anbieter. Für tägliche Flüge ist das dünn.`);
+  /* Umsteiger */
+  if(L.transfer>0.05)
+    befund.push(`${fmt(L.transfer*100,0)}% der Buchungen kommen von Umsteigern — wer die Zubringerzeiten verschiebt, verliert sie.`);
+
+  if(!befund.length){
+    befund.push(L.profit>=0
+      ? `Die Strecke trägt sich: ${fmt(L.lf*100,0)}% Auslastung, ${fmt(L.share*100,0)}% Marktanteil, ${sgn(L.profit)} pro Woche.`
+      : "Kein einzelner Grund sticht heraus — es ist die Summe aus Auslastung, Tarif und Kosten.");
+  }
+  return befund.slice(0,3);
+}
+
+/* ====================================================== Rivalitäten ======
+   Wer Ihnen zweimal eine Strecke weggenommen hat, wird zum Namen. Das Spiel
+   führt Buch über jede Auseinandersetzung — gewonnen ist sie, wenn Ihr Anteil
+   auf der umkämpften Strecke steigt, verloren, wenn er fällt. */
+function feudOf(id){
+  S.feud=S.feud||{};
+  return S.feud[id] || (S.feud[id]={runden:0, gewonnen:0, verloren:0, letzte:null, gemeldet:0, strecken:0});
+}
+/** Buch geführt wird nur über Gesellschaften, gegen die man wirklich antritt. */
+function feudPrune(){
+  Object.keys(S.feud||{}).forEach(id=>{
+    const f=S.feud[id];
+    if(!f.runden && !(f.strecken>=2) && !f.gemeldet) delete S.feud[id];
+  });
+}
+function feudScore(id){
+  const f=(S.feud||{})[id]; if(!f) return 0;
+  return f.runden*2 + f.verloren*3 + f.gewonnen + (f.strecken||0);
+}
+/** Ein Erzrivale entsteht erst, wenn es wirklich etwas zu erzählen gibt. */
+function archRival(){
+  const ids=Object.keys(S.feud||{}).filter(id=>{
+    const f=S.feud[id];
+    return f.runden>=4 && (f.strecken||0)>=2 && rivalById(id);
+  });
+  if(!ids.length) return null;
+  const best=ids.sort((a,b)=>feudScore(b)-feudScore(a))[0];
+  return feudScore(best)>=12 ? rivalById(best) : null;
+}
+/** Nach jeder Reaktionsrunde der Konkurrenz Bilanz ziehen. */
+function feudUpdate(){
+  const jetzt={};
+  S.routes.forEach(r=>{
+    if(!r.last||!r.last.ok) return;
+    (r.rivals||[]).forEach(v=>{
+      if(v.flights<=0) return;
+      jetzt[v.id]=jetzt[v.id]||{anteil:0, n:0, strecken:[]};
+      jetzt[v.id].anteil+=r.last.share; jetzt[v.id].n++;
+      jetzt[v.id].strecken.push(r.key);
+    });
+  });
+  Object.keys(jetzt).forEach(id=>{
+    if(jetzt[id].n<2) return;          /* eine gemeinsame Strecke ist keine Fehde */
+    const f=feudOf(id), a=jetzt[id].anteil/jetzt[id].n;
+    if(f.letzte!=null){
+      const d=a-f.letzte;
+      if(Math.abs(d)>0.015){
+        f.runden++;
+        if(d<0) f.verloren++; else f.gewonnen++;
+      }
+    }
+    f.letzte=a; f.strecken=jetzt[id].strecken.length;
+  });
+  /* Wenn ein Gegner die Heimatbasis angreift, ist das eine eigene Nachricht */
+  const heim=S.bases[0];
+  feudPrune();
+  S.rivals.forEach(x=>{
+    const trifft=S.routes.filter(r=>(r.from===heim||r.to===heim)
+      && (r.rivals||[]).some(v=>v.id===x.id && v.flights>0)).length;
+    const f=feudOf(x.id);
+    if(trifft>=3 && f.gemeldet<1){
+      f.gemeldet=1;
+      mailAdd({kind:"markt", von:"sales", subj:`${x.name} greift ${heim} an`,
+        kurz:`${trifft} Strecken ab der Heimatbasis`, stufe:3,
+        body:`<p><b>${esc(x.name)}</b> fliegt inzwischen ${trifft} Strecken ab unserer Heimatbasis ${heim}. Das ist kein Zufall mehr.</p>
+          <p class="dim">Bisherige Bilanz gegen diese Gesellschaft: ${f.runden} Auseinandersetzungen, ${f.gewonnen} gewonnen, ${f.verloren} verloren.</p>`,
+        optionen:[
+          {l:"Frequenzen erhöhen und Präsenz zeigen", d:"Kostet Kapazität, verteidigt aber den Markt.",
+           f:()=>{ S.rep=clamp(S.rep+0.5,5,99); S.strategie="verteidigen";
+             logg(`Gegen ${x.name} auf Präsenz gesetzt.`,""); }},
+          {l:"Preise senken, bis sie aufgeben", d:"Kurzfristig teuer, bindet aber Marktanteil.",
+           kosten:Math.round(rnd(0.4,1.2)*1e6),
+           f:()=>{ S.routes.forEach(r=>{ if((r.rivals||[]).some(v=>v.id===x.id)) r.fare=clamp(r.fare*0.9,0.6,1.6); });
+             logg(`Preiskampf gegen ${x.name} eröffnet.`,"warn"); }},
+          {l:"Ausweichen und anderswo wachsen", d:"Kein Kampf, dafür freie Hand im übrigen Netz.",
+           f:()=>{ S.rep=clamp(S.rep-0.5,5,99); S.strategie="ausweichen";
+             logg(`Der Auseinandersetzung mit ${x.name} ausgewichen.`,""); }}
+        ]});
+      stopForEvent(3);
+    }
+  });
+}
+
+/* ========================================================= Was jetzt? ====
+   Zwölf Reiter sind zwölf Möglichkeiten, nichts zu tun. Hier stehen die drei
+   Dinge, die heute wirklich Aufmerksamkeit brauchen — mit einem Knopf, der
+   direkt hinführt. */
+function todoList(){
+  const out=[];
+  const offen=mailOpen().length;
+  if(offen) out.push({p:100, t:`${offen} offene Entscheidung${offen>1?"en":""} im Postfach`,
+    d:"Solange nicht entschieden ist, bleibt die Uhr stehen.", tab:"inbox"});
+  if(S.cash<0) out.push({p:99, t:"Der Kontostand ist negativ",
+    d:`${chf(S.cash)} — Kredit aufnehmen, Strecken streichen oder eine Maschine verkaufen.`, tab:"fin"});
+  else if(S.lastMonth && S.lastMonth.profit<0 && S.cash < Math.abs(S.lastMonth.profit)*4)
+    out.push({p:92, t:"Die Liquidität reicht noch wenige Monate",
+      d:`Bei ${sgn(S.lastMonth.profit)} im Monat und ${chf(S.cash)} in der Kasse wird es knapp.`, tab:"fin"});
+
+  const ohnePlan=S.fleet.filter(a=>a.status==="aktiv" && !scheduleOf(a).flights);
+  if(ohnePlan.length) out.push({p:90, t:`${ohnePlan.length} Flugzeug${ohnePlan.length>1?"e":""} ohne Flugplan`,
+    d:`${ohnePlan.map(a=>a.reg).slice(0,4).join(", ")} — kostet Abschreibung und Standgebühren, bringt nichts ein.`,
+    tab:"fleet"});
+
+  const cn=cabinNeed(), pf=pilotFactors();
+  const eng=Object.keys(pf).filter(k=>pf[k]<0.999);
+  if(S.cabin<cn) out.push({p:88, t:"Zu wenig Kabinenpersonal",
+    d:`${S.cabin} von ${cn} nötig — Flüge fallen aus, die Belegschaft brennt aus.`, tab:"staff"});
+  if(eng.length) out.push({p:87, t:"Zu wenig Cockpitpersonal",
+    d:`Fehlt für ${eng.map(k=>RATING_NAME[k]||k).join(", ")}.`, tab:"staff"});
+
+  const rot=S.routes.filter(r=>r.last&&r.last.ok&&r.last.profit<0)
+    .sort((a,b)=>a.last.profit-b.last.profit);
+  if(rot.length) out.push({p:80, t:`${rot.length} Strecke${rot.length>1?"n":""} im Minus`,
+    d:`Am stärksten ${rot[0].from}–${rot[0].to} mit ${sgn(rot[0].last.profit)} pro Woche.`,
+    tab:"net", route:rot[0].key});
+
+  const leer=S.routes.filter(r=>r.last&&r.last.ok&&r.last.lf<0.48);
+  if(leer.length && !rot.length) out.push({p:70, t:`${leer.length} Strecke${leer.length>1?"n":""} schlecht gefüllt`,
+    d:`${leer[0].from}–${leer[0].to} bei ${fmt(leer[0].last.lf*100,0)}% — Tarif, Frequenz oder Muster prüfen.`,
+    tab:"net", route:leer[0].key});
+
+  const check=S.fleet.filter(a=>a.status==="aktiv" && (a.hours||0)>BAL.heavyCheckHrs*0.9);
+  if(check.length) out.push({p:65, t:`${check.length} Maschine${check.length>1?"n":""} bald im Grosscheck`,
+    d:`${check.map(a=>a.reg).slice(0,3).join(", ")} — Ersatz einplanen, sonst stehen die Umläufe still.`,
+    tab:"fleet"});
+
+  if(S.boardOn && S.board && !boardDone(S.board)){
+    const tage=Math.max(0,Math.round((S.board.bis-S.clock)/DAYMS));
+    if(tage<40) out.push({p:60, t:"Quartalsvorgabe noch nicht erreicht",
+      d:`${boardText(S.board)} — noch ${tage} Tage.`, tab:"ops"});
+  }
+  if((S.rel||{}).crew<45) out.push({p:58, t:"Die Belegschaft ist unzufrieden",
+    d:"Reserve erhöhen oder Löhne anheben, bevor Forderungen laut werden.", tab:"staff"});
+
+  const gebraucht=(S.usedMarket||[]).filter(u=>u.price<S.cash*0.25);
+  if(!ohnePlan.length && !rot.length && gebraucht.length)
+    out.push({p:40, t:"Günstige Gebrauchtmaschine im Angebot",
+      d:`${ACT[gebraucht[0].type].name} für ${chf(gebraucht[0].price)}.`, tab:"market"});
+
+  if(!out.length) out.push({p:10, t:"Nichts Dringendes",
+    d:"Der Betrieb läuft. Guter Moment, das Netz auszubauen oder die Flotte zu erneuern.", tab:"net"});
+  return out.sort((a,b)=>b.p-a.p).slice(0,3);
+}
+function todoPanel(){
+  const l=todoList();
+  return `<div class="card" style="border-color:var(--line2)">
+    <b>Was jetzt?</b>
+    ${l.map((x,i)=>`<div class="kv" style="align-items:flex-start;gap:8px">
+      <span style="flex:1"><b>${esc(x.t)}</b><br>
+        <span class="dim" style="font-size:10.5px">${esc(x.d)}</span></span>
+      <button class="sm" data-todo="${i}">hin</button></div>`).join("")}
+  </div>`;
+}
+
+/* ================================================== Der Verwaltungsrat ===
+   Alle drei Monate eine Vorgabe, die aus der aktuellen Lage abgeleitet wird —
+   nah genug, um daran zu arbeiten, weit genug, um eine Strategie zu brauchen.
+   Erfüllt bringt Kapital und Vertrauen, verfehlt kostet Spielraum.
+   Abschaltbar unter Einstellungen. */
+const BOARD_KINDS = [
+  {art:"lf", t:v=>`Sitzladefaktor über ${fmt(v,0)}%`,
+   wert:()=>{ const L=S.lastMonth; return clamp((L?L.lf*100:70)+6, 62, 88); },
+   lies:()=>S.lastMonth?S.lastMonth.lf*100:0, einheit:"%"},
+  {art:"gewinn", t:v=>`Monatsergebnis über ${chf(v)}`,
+   wert:()=>{ const L=S.lastMonth; const b=L?L.profit:0;
+     return Math.max(250000, Math.round((b>0?b*1.35:Math.abs(b)*0.2+300000)/50000)*50000); },
+   lies:()=>S.lastMonth?S.lastMonth.profit:0, einheit:"chf"},
+  {art:"ruf", t:v=>`Ruf über ${fmt(v,0)}`,
+   wert:()=>clamp(Math.round(S.rep+5), 40, 92), lies:()=>S.rep, einheit:""},
+  {art:"strecken", t:v=>`${fmt(v,0)} Strecken im Netz`,
+   wert:()=>S.routes.length+Math.max(2,Math.round(S.routes.length*0.2)),
+   lies:()=>S.routes.length, einheit:""},
+  {art:"pax", t:v=>`${fmt(v)} Passagiere im Quartal`,
+   wert:()=>{ const L=S.lastMonth; return Math.round((L?L.pax:20000)*3.3/1000)*1000; },
+   lies:()=>S.history.slice(-3).reduce((a,h)=>a+h.pax,0), einheit:""},
+  {art:"puenktlich", t:v=>`Pünktlichkeit über ${fmt(v,0)}%`,
+   wert:()=>clamp(Math.round((S.punctuality||0.88)*100+4), 78, 95),
+   lies:()=>(S.punctuality||0)*100, einheit:"%"},
+  {art:"kosten", t:v=>`Stückkosten unter ${fmt(v,2)} Rappen je ASK`,
+   wert:()=>{ const L=S.lastMonth; const c=L&&L.ask?L.cost/L.ask*100:8; return Math.round(c*0.94*100)/100; },
+   lies:()=>{ const L=S.lastMonth; return L&&L.ask?L.cost/L.ask*100:99; }, einheit:"rp", kleiner:true}
+];
+function boardText(b){ const K=BOARD_KINDS.find(x=>x.art===b.art); return K?K.t(b.wert):""; }
+function boardValue(b){ const K=BOARD_KINDS.find(x=>x.art===b.art); return K?K.lies():0; }
+function boardDone(b){
+  const K=BOARD_KINDS.find(x=>x.art===b.art); if(!K) return false;
+  return K.kleiner ? boardValue(b)<=b.wert : boardValue(b)>=b.wert;
+}
+function boardFormat(b, v){
+  const K=BOARD_KINDS.find(x=>x.art===b.art);
+  if(!K) return fmt(v,0);
+  if(K.einheit==="chf") return chf(v);
+  if(K.einheit==="rp") return fmt(v,2)+" Rp.";
+  if(K.einheit==="%") return fmt(v,1)+"%";
+  return fmt(v,0);
+}
+/** Neue Vorgabe stellen. */
+function boardNewGoal(){
+  if(!S.boardOn) return;
+  const moeglich=BOARD_KINDS.filter(k=>{
+    if(k.art==="kosten"||k.art==="lf"||k.art==="gewinn") return S.history.length>=1;
+    if(k.art==="pax") return S.history.length>=2;
+    return true;
+  });
+  const K=pick(moeglich.length?moeglich:BOARD_KINDS);
+  const d=clockDate();
+  const bis=Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+3, 1, 5, 0);
+  S.board={art:K.art, wert:K.wert(), gestellt:S.clock, bis, erfuellt:null,
+    lohn:Math.round(rnd(2,6))*1e6};
+  const b=S.board;
+  mailAdd({kind:"vr", von:"board", subj:"Vorgabe des Verwaltungsrats",
+    kurz:boardText(b), stufe:2,
+    body:`<p>Der Verwaltungsrat hat für das kommende Quartal eine Vorgabe beschlossen:</p>
+      <div class="card"><b class="amb">${boardText(b)}</b><br>
+        <span class="dim">Frist: ${new Date(bis).toLocaleDateString("de-CH")} · aktuell ${boardFormat(b, boardValue(b))}</span></div>
+      <p>Wird sie erreicht, stellt der Rat <b>${chf(b.lohn)} CHF</b> zusätzliches Kapital bereit und spricht Ihnen das Vertrauen aus.</p>
+      <p class="dim">Wird sie verfehlt, kürzt der Rat den Kreditrahmen und die Geduld. Wer die Vorgaben grundsätzlich nicht will, schaltet sie unter «Einstellungen» ab.</p>`});
+  stopForEvent(2);
+}
+/** Am Ende des Quartals abrechnen. */
+function boardCheck(){
+  if(!S.boardOn){ S.board=null; return; }
+  const b=S.board;
+  if(!b){ boardNewGoal(); return; }
+  if(S.clock < b.bis) return;
+  const ok=boardDone(b);
+  b.erfuellt=ok;
+  if(ok){
+    S.cash+=b.lohn; S.rep=clamp(S.rep+2,5,99);
+    S.boardTrust=clamp((S.boardTrust||50)+12,0,100);
+    mailAdd({kind:"vr", von:"board", subj:"Vorgabe erreicht",
+      kurz:boardText(b), stufe:2,
+      body:`<p><b>${boardText(b)}</b> — erreicht mit ${boardFormat(b, boardValue(b))}.</p>
+        <p>Der Rat stellt wie zugesagt <b>${chf(b.lohn)} CHF</b> bereit und hat Ihnen das Vertrauen ausgesprochen.</p>`});
+    logg(`Quartalsvorgabe erfüllt: ${boardText(b)}.`,"good");
+    chronikAdd("vr", `Quartalsvorgabe erfüllt: ${boardText(b)}.`);
+  } else {
+    S.boardTrust=clamp((S.boardTrust||50)-18,0,100);
+    S.rep=clamp(S.rep-1.5,5,99);
+    const eng=S.boardTrust<25;
+    mailAdd({kind:"vr", von:"board", subj:eng?"Letzte Verwarnung":"Vorgabe verfehlt",
+      kurz:boardText(b), stufe:2,
+      body:`<p><b>${boardText(b)}</b> — verfehlt, erreicht wurden ${boardFormat(b, boardValue(b))}.</p>
+        ${eng
+          ? `<p>Der Rat hat wenig Geduld übrig. Der Kreditrahmen wird deutlich gekürzt; bei weiteren Fehlschlägen steht Ihre Position zur Debatte.</p>`
+          : `<p>Der Rat nimmt es zur Kenntnis und kürzt den Kreditrahmen. Beim nächsten Quartal erwartet er Besserung.</p>`}
+        <p class="dim">Vertrauen des Rats: ${fmt(S.boardTrust,0)} von 100.</p>`});
+    logg(`Quartalsvorgabe verfehlt: ${boardText(b)}.`,"bad");
+    chronikAdd("vr", `Quartalsvorgabe verfehlt: ${boardText(b)}.`);
+  }
+  stopForEvent(2);
+  boardNewGoal();
+}
+function boardPanel(){
+  if(!S.boardOn || !S.board) return "";
+  const b=S.board, ok=boardDone(b);
+  const v=boardValue(b);
+  const K=BOARD_KINDS.find(x=>x.art===b.art);
+  const anteil = K&&K.kleiner ? clamp(b.wert/Math.max(v,0.001),0,1) : clamp(v/(b.wert||1),0,1);
+  const tage=Math.max(0,Math.round((b.bis-S.clock)/DAYMS));
+  return `<div class="card" style="border-color:${ok?"var(--green)":"var(--amber)"}">
+    <div class="row" style="justify-content:space-between">
+      <div><b class="amb">Vorgabe des Verwaltungsrats</b><br>
+        <span class="dim" style="font-size:10.5px">Vertrauen ${fmt(S.boardTrust||50,0)} von 100 · noch ${tage} Tag${tage===1?"":"e"}</span></div>
+      <span class="pill ${ok?"ok":"warn"}">${ok?"erreicht":"offen"}</span></div>
+    <div class="kv"><span>${esc(boardText(b))}</span>
+      <span class="${ok?"pos":""}">${boardFormat(b, v)} / ${boardFormat(b, b.wert)}</span></div>
+    <div class="bar"><i style="width:${(anteil*100).toFixed(0)}%;background:${ok?"var(--green)":"var(--amber)"}"></i></div>
+    <div class="kv" style="margin-top:5px"><span class="dim">Bei Erfolg</span>
+      <span class="dim">${chf(b.lohn)} zusätzliches Kapital</span></div>
+  </div>`;
+}
+
+/* ================================================= Sommer und Winter =====
+   Zwei Flugpläne im Jahr, wie in der Branche üblich: der Sommerflugplan gilt
+   von Ende März bis Ende Oktober, der Winterflugplan den Rest. Beide werden
+   getrennt gepflegt — das gibt dem Jahr zwei Höhepunkte, auf die man
+   zuarbeitet, und macht die Saisonkurve endlich spürbar. */
+const SEASON_NAME = {sommer:"Sommerflugplan", winter:"Winterflugplan"};
+function seasonOf(month){ return (month>=3 && month<=9) ? "sommer" : "winter"; }
+function currentSeason(){ return S ? seasonOf(S.month) : "sommer"; }
+function seasonStart(sais){ return sais==="sommer" ? "Ende März" : "Ende Oktober"; }
+/** Der Satz Wochentage, der gerade gilt. */
+function planWeek(ac, sais){
+  const p=ensurePlan(ac);
+  return (sais||currentSeason())==="winter" ? p.winter : p.week;
+}
+
 /* Der Wochenplan: für jeden Wochentag eine eigene Kette von Zielen mit eigener
    Startzeit. Ein Tag beginnt dort, wo der Vortag geendet hat — nur so lassen
    sich Langstrecken abbilden, bei denen Hin- und Rückflug an verschiedenen
@@ -2279,16 +2683,22 @@ function ensurePlan(ac){
       : emptyDay());
     delete p.start; delete p.dests; delete p.days; delete p.nums;
   }
-  for(let d=0;d<7;d++){
-    const w=p.week[d]||(p.week[d]=emptyDay());
-    if(!Array.isArray(w.dests)) w.dests=[];
-    if(!Array.isArray(w.nums)) w.nums=[];
-    if(w.start==null) w.start=390;
-    w.nums.length=w.dests.length;   // nur noch für eigene Überschreibungen
+  /* Winterflugplan: beim ersten Mal eine Kopie des Sommers */
+  if(!Array.isArray(p.winter)){
+    p.winter=p.week.map(w=>({start:w.start, dests:w.dests.slice(), nums:[]}));
   }
+  [p.week, p.winter].forEach(satz=>{
+    for(let d=0;d<7;d++){
+      const w=satz[d]||(satz[d]=emptyDay());
+      if(!Array.isArray(w.dests)) w.dests=[];
+      if(!Array.isArray(w.nums)) w.nums=[];
+      if(w.start==null) w.start=390;
+      w.nums.length=w.dests.length;
+    }
+  });
   return p;
 }
-const dayPlan = (ac,d)=> ensurePlan(ac).week[d];
+const dayPlan = (ac,d,sais)=> planWeek(ac,sais)[d];
 /* Flugnummern gehören zur Strecke, nicht zum Wochentag: LX 318 fliegt jeden
    Tag Zürich–Paris. Vergeben wird einmal je Richtung; der Rückflug bekommt
    die nächsthöhere Nummer. Die Zuordnung bleibt im Spielstand erhalten. */
@@ -2296,16 +2706,20 @@ let PAIR_OPS={sig:null, map:null};
 /** Reihenfolge der Umläufe auf einer Strecke — damit die zweite Tagesfrequenz
     eine eigene Nummer bekommt, so wie LX 316, 318 und 320 nach London. */
 function pairOperators(){
-  const sig=S.fleet.map(a=>(a.plan&&a.plan.week?a.plan.week.map(w=>(w.dests||[]).join(",")).join("|"):"")).join("#");
+  const sig=S.fleet.map(a=>{
+    const W=(a.plan&&a.plan.week)?a.plan.week:[], V=(a.plan&&a.plan.winter)?a.plan.winter:[];
+    return W.map(w=>(w.dests||[]).join(",")).join("|")+"/"+V.map(w=>(w.dests||[]).join(",")).join("|");
+  }).join("#")+"@"+currentSeason();
   if(PAIR_OPS.sig===sig) return PAIR_OPS.map;
   const map={};
   S.fleet.forEach(ac=>{
     const pl=ac.plan; if(!pl||!Array.isArray(pl.week)) return;
+    const W=planWeek(ac);
     const pos=weekPositions(ac);
     const seen=new Set();
     for(let d=0;d<7;d++){
       let cur=pos[d]; const local={};
-      (pl.week[d].dests||[]).forEach(dest=>{
+      (W[d].dests||[]).forEach(dest=>{
         const k=cur+">"+dest;
         local[k]=(local[k]||0)+1;
         const tag=ac.id+"#"+(local[k]-1);
@@ -2343,27 +2757,27 @@ function pruneFlightNumbers(){
   Object.keys(S.flightNums).forEach(k=>{ if(!live.has(k)) delete S.flightNums[k]; });
 }
 /** Wo steht die Maschine zu Beginn jedes Wochentags? */
-function weekPositions(ac){
-  const p=ensurePlan(ac);
+function weekPositions(ac, sais){
+  const W=planWeek(ac,sais);
   let pos=ac.base;
   /* zweimal umlaufen, damit sich die Kette über den Wochenwechsel einpendelt */
   for(let pass=0;pass<2;pass++){
     for(let d=0;d<7;d++){
-      const w=p.week[d];
+      const w=W[d];
       if(w.dests.length) pos=w.dests[w.dests.length-1];
     }
   }
   const start=[]; let cur=pos;
   for(let d=0;d<7;d++){
     start[d]=cur;
-    const w=p.week[d];
+    const w=W[d];
     if(w.dests.length) cur=w.dests[w.dests.length-1];
   }
   return start;
 }
 /** Umlauf eines einzelnen Wochentags mit Zeiten und Prüfungen. */
-function scheduleDay(ac, d, fromCode){
-  const t=ACT[ac.type], w=dayPlan(ac,d);
+function scheduleDay(ac, d, fromCode, sais){
+  const t=ACT[ac.type], w=dayPlan(ac,d,sais);
   const legs=[], warn=[];
   let cur=AP[fromCode||ac.base], time=w.start, blockSum=0;
   if(!cur) return {legs, warn:["Standort unbekannt"], duty:0, blockSum:0, endsAt:fromCode};
@@ -2395,18 +2809,18 @@ function scheduleDay(ac, d, fromCode){
   return {legs, warn, duty, blockSum, endsAt: legs.length?legs[legs.length-1].to:(fromCode||ac.base)};
 }
 /** Der ganze Wochenplan. */
-function scheduleOf(ac){
-  const pos=weekPositions(ac);
+function scheduleOf(ac, sais){
+  const pos=weekPositions(ac, sais);
   const week=[], warn=[];
   let blockWeek=0, flights=0;
   for(let d=0;d<7;d++){
-    const sd=scheduleDay(ac,d,pos[d]);
+    const sd=scheduleDay(ac,d,pos[d],sais);
     week.push(sd); warn.push(...sd.warn);
     blockWeek+=sd.blockSum; flights+=sd.legs.length;
   }
   const endsHome = pos[0]===ac.base;
   if(!endsHome) warn.push(`Der Wochenplan endet in ${pos[0]}, nicht an der Basis ${ac.base}`);
-  return {week, pos, warn, blockWeek, flights, endsHome,
+  return {week, pos, warn, blockWeek, flights, endsHome, sais: sais||currentSeason(),
     legs: week.reduce((a,x)=>a.concat(x.legs),[])};
 }
 const planDays = ac => scheduleOf(ac).week.reduce((s,x)=>s+(x.legs.length?1:0),0);
@@ -2646,6 +3060,7 @@ function checkAchievements(){
     if(ok){ S.achievements[a.id]={y:S.year,m:S.month}; neu.push(a); }
   });
   if(neu.length){
+    neu.forEach(a=>chronikAdd("meilenstein", `Meilenstein: ${a.t} — ${a.d}`));
     neu.forEach(a=>logg(`Meilenstein erreicht: ${a.t}${a.r?` — Sonderbemalung «${UNLOCK_NAME[a.r]}» freigeschaltet`:""}.`,"good"));
     setTimeout(()=>modal("Meilenstein erreicht",
       neu.map(a=>`<div class="card"><b class="amb">${esc(a.t)}</b><br><span class="dim">${esc(a.d)}</span>
@@ -3367,6 +3782,7 @@ function takeover(id){
   S.cash-=integration;
   S.rep=clamp(S.rep+3,5,99);
   logg(`Übernahme abgeschlossen: ${x.name} geht in ${S.name} auf.`,"good");
+  chronikAdd("markt", `${x.name} übernommen${newBases.length?` — ${newBases.join(", ")} kommen dazu`:""}.`);
   interrupt("Übernahme abgeschlossen",
     `<p><b>${esc(x.name)}</b> gehört jetzt zu ${esc(S.name)}.</p>
      ${newBases.length?`<p>Die Drehkreuze <b>${newBases.join(", ")}</b> gehen mitsamt Zeitfenstern in Ihren Besitz über.</p>`:""}
@@ -3518,6 +3934,7 @@ function simRoute(r, legList, monthIdx, ctx){
   out.cost = out.fuelKg*S.fuel + out.maintC + out.crewC + fees + svcCost;
   out.lf = out.seats.total ? pax/out.seats.total : 0;
   out.profit = out.rev-out.cost;
+  out.timeQual = timeQual;
   out.share = share; out.market = m.weekly; out.wx = wxAvg; out.transfer = transferAvg; out.ok = true;
 
   /* Auf die einzelnen Flüge herunterbrechen: Passagiere nach Sitzangebot,
@@ -3706,7 +4123,7 @@ function newDay(){
   });
   S.charters=(S.charters||[]).filter(c=>!c.paid);
   S.aiCounter=(S.aiCounter||0)+1;
-  if(S.aiCounter >= (BAL.aiDays||30)){ S.aiCounter=0; competitorTurn(); }
+  if(S.aiCounter >= (BAL.aiDays||30)){ S.aiCounter=0; competitorTurn(); feudUpdate(); }
   /* Wetterzellen ziehen weiter und schwächen sich allmählich ab */
   (S.weather||[]).forEach(z=>{
     z.lon += (z.dx||0); z.lat = clamp(z.lat+(z.dy||0), -55, 78);
@@ -3821,11 +4238,43 @@ function monthClose(){
       const regs=[];
       for(let i=0;i<o.n;i++) regs.push(addAircraft(o.type,o.lease,o.base,0).reg);
       logg(`${o.n}× ${ACT[o.type].name} ausgeliefert nach ${o.base}.`,"good");
+      chronikAdd("flotte", `${o.n}× ${ACT[o.type].name} ausgeliefert nach ${o.base}.`);
       interrupt("Auslieferung", `<p>${o.n}× <b>${esc(ACT[o.type].name)}</b> ist in ${o.base} eingetroffen: ${regs.join(", ")}.</p>
         <p class="dim">Die Maschinen stehen ohne Tagesplan am Boden. Unter «Flotte» einteilen.</p>`);
       return false; }
     return true; });
 
+  /* Saisonwechsel: neuer Flugplan tritt in Kraft */
+  const neueSais=seasonOf(S.month);
+  if(S.sais && S.sais!==neueSais){
+    /* Wer den neuen Flugplan noch nie angefasst hat, soll nicht plötzlich
+       mit leerer Flotte dastehen: dann wird der bisherige übernommen. */
+    let uebernommen=0;
+    S.fleet.forEach(ac=>{
+      ensurePlan(ac);
+      const neu = neueSais==="winter" ? ac.plan.winter : ac.plan.week;
+      const alt = neueSais==="winter" ? ac.plan.week   : ac.plan.winter;
+      const leer = neu.every(x=>!x.dests.length);
+      const voll = alt.some(x=>x.dests.length);
+      if(leer && voll){
+        for(let i=0;i<7;i++) neu[i]={start:alt[i].start, dests:alt[i].dests.slice(), nums:[]};
+        uebernommen++;
+      }
+    });
+    if(uebernommen) ensurePlan(S.fleet[0]||{});
+    const alt=S.sais==="sommer"?"Sommer":"Winter";
+    mailAdd({kind:"betrieb", von:"ops", subj:`${SEASON_NAME[neueSais]} tritt in Kraft`,
+      kurz:`Wechsel vom ${alt}flugplan`, stufe:2,
+      body:`<p>Ab heute gilt der <b>${SEASON_NAME[neueSais]}</b>. Er wird getrennt vom ${alt}flugplan geführt — was Sie dort eingerichtet haben, bleibt unangetastet und gilt wieder ${seasonStart(S.sais)}.</p>
+        <p class="dim">${neueSais==="sommer"
+          ? "Der Sommer bringt Ferienverkehr: Mittelmeer, Inseln, Fernziele. Geschäftsstrecken tragen weniger."
+          : "Im Winter dreht es sich: Geschäftsverkehr und Skidestinationen tragen, Ferienstrecken brechen ein."}
+          ${uebernommen?`Für ${uebernommen} Maschinen wurde der bisherige Plan unverändert übernommen — passen Sie ihn an die Saison an.`
+            :"Unter «Flotte» lässt sich der Plan der neuen Saison prüfen und vom anderen übernehmen."}</p>`});
+    stopForEvent(2);
+    logg(`${SEASON_NAME[neueSais]} in Kraft.`,"warn");
+  }
+  S.sais=neueSais;
   updateRelations(M);
   S.curfewHits=Math.max(0,(S.curfewHits||0)-4);
   S.thinMonth=null;
@@ -3834,6 +4283,7 @@ function monthClose(){
   if(S.strikeRisk && Math.random()<S.strikeRisk){
     S.strikeRisk=0; S.rep=clamp(S.rep-5,5,99); S.cash-=rnd(0.8,2.5)*1e6;
     logg("Streik des Kabinenpersonals. Zahlreiche Ausfälle und Entschädigungen.","bad");
+    chronikAdd("krise", "Streik des Kabinenpersonals, zahlreiche Ausfälle.");
     interrupt("Streik", "<p>Das Kabinenpersonal legt die Arbeit nieder. Zahlreiche Flüge fallen aus, Entschädigungen werden fällig.</p>");
   }
   const vol=BAL.fuelVol||0.035;
@@ -3856,9 +4306,16 @@ function monthClose(){
     ek:S.cash+fleetValue()+portfolioValue()-S.debt});
   if(S.history.length>240) S.history.shift();
   S.lastMonth=Object.assign({},M,{costs,profit,lf:lfAll});
+  if(S.month===0 && S.history.length>=12){
+    const jahr=S.history.slice(-12);
+    const erg=jahr.reduce((a,h)=>a+h.profit,0), pax=jahr.reduce((a,h)=>a+h.pax,0);
+    chronikAdd("geld", `Jahresabschluss: ${sgn(erg)} bei ${fmt(Math.round(pax))} Passagieren, ${S.fleet.length} Flugzeuge, ${S.routes.length} Strecken.`);
+  }
   S.acc=emptyAcc();
 
   cloudAuto();
+  if(S.boardOn && !S.board && S.history.length>=1) boardNewGoal();
+  boardCheck();
   checkScenario();
   maybeDilemma();
   if(S.pending){ setSpeed(0); setTimeout(showDilemma,220); }
@@ -4437,6 +4894,11 @@ function paneOps(p){
     S.transferInfo.slice(0,6).forEach(t=>h+=`<div class="kv"><span>${t.from} → ${t.hub} → ${t.to}</span>
       <span>${fmt(t.pax/7,0)} Pax/Tag · Umstieg ${fmt(t.gap,0)} min</span></div>`);
   }
+  h+=todoPanel();
+  h+=boardPanel();
+  const arch=archRival();
+  if(arch) h+=`<div class="kv" style="margin-top:8px"><span>Erzrivale</span>
+    <span class="neg">${esc(arch.name)} · ${(S.feud[arch.id]||{}).verloren||0} verlorene Auseinandersetzungen</span></div>`;
   h+=relPanel();
   h+=`<h3 class="sub">Stationen</h3>`;
   const mv=airportMovements();
@@ -4460,6 +4922,12 @@ function paneOps(p){
   p.querySelectorAll("[data-closebase]").forEach(b=>b.onclick=()=>closeBase(b.dataset.closebase));
   p.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>upgradeDialog(b.dataset.up));
   p.querySelectorAll("[data-tut]").forEach(b=>b.onclick=()=>setTab(b.dataset.tut));
+  const tl=todoList();
+  p.querySelectorAll("[data-todo]").forEach(b=>b.onclick=()=>{
+    const x=tl[+b.dataset.todo]; if(!x) return;
+    if(x.route){ setTab("net"); setTimeout(()=>routeDetail(x.route),120); }
+    else setTab(x.tab);
+  });
   const ts=$("#tutSkip"); if(ts) ts.onclick=()=>{ S.tutorial.done=true; render(); };
   $("#addBase").onclick=baseDialog;
 }
@@ -4656,7 +5124,10 @@ function routeDetail(key){
       <div class="tile"><b>${chf(L.cost*BAL.weeksPerMonth)}</b><span>Direktkosten</span></div>
       <div class="tile"><b class="${cls(L.profit)}">${sgn(L.profit*BAL.weeksPerMonth)}</b><span>Deckungsbeitrag</span></div></div>`;
   }
-  h+=`<div class="row" style="margin:8px 0"><button class="sm" id="fhist">Letzte Flüge dieser Strecke</button></div>`;
+  h+=`<div class="row" style="margin:8px 0">
+    <button class="sm primary" id="diag">Befund</button>
+    <button class="sm" id="fhist">Letzte Flüge dieser Strecke</button></div>
+    <div id="diagbox"></div>`;
   h+=`<h3 class="sub">Tarifniveau</h3>
   <label class="f"><span id="fv" class="mono">${fmt(r.fare*100,0)}</span> — 100 entspricht dem Marktpreis
     (Economy ${fmt(baseFare(d,"eco")*r.fare*Math.pow(m.inc,0.35),0)} CHF)</label>
@@ -4668,6 +5139,12 @@ function routeDetail(key){
       $("#veil").classList.remove("on"); render();}}]);
   $("#fare").oninput=e=>$("#fv").textContent=e.target.value;
   $("#fhist").onclick=()=>flightHistoryDialog({key:r.key});
+  $("#diag").onclick=()=>{
+    const b=routeDiagnose(r);
+    $("#diagbox").innerHTML=`<div class="card" style="border-color:var(--blue)">
+      <b>Befund ${r.from}–${r.to}</b>
+      ${b.map(x=>`<p style="font-size:12px;margin:6px 0 0">${esc(x)}</p>`).join("")}</div>`;
+  };
   $("#mkt").onclick=()=>{ r.fare=+$("#fare").value/100; campaignDialog(r.key); };
 }
 
@@ -4729,11 +5206,23 @@ function rivalDialog(){
       <div class="kv"><span>Preisniveau · Ruf</span><span>${fmt(x.fareMod*100,0)} · ${fmt(x.rep,0)}</span></div>
       <div class="kv"><span>Angriffslust</span><span>${fmt(x.aggro*(BAL.aggroMult||1)*100,0)}</span></div>
       <div class="kv"><span>Flüge gegen Sie</span><span>${fmt(fl/7,1)} pro Tag</span></div>
+      ${(()=>{const f=(S.feud||{})[x.id];
+        if(!f||!f.runden) return "";
+        const arch=archRival();
+        return `<div class="kv"><span>Bilanz</span>
+          <span>${f.runden} Auseinandersetzung${f.runden>1?"en":""}, ${f.gewonnen} gewonnen, ${f.verloren} verloren
+          ${arch&&arch.id===x.id?' <span class="pill bad">Erzrivale</span>':""}</span></div>`;})()}
       <div class="dim" style="font-size:10.5px;margin-top:4px">${on.map(r=>r.key).join(" · ")}</div></div>`).join("");
   };
   modal("Wettbewerber",
     `<p class="dim">Wer auf einer Strecke auftaucht, richtet sich nach den tatsächlichen Drehkreuzen: In Basel trifft man auf easyJet, in Zürich auf Swiss, in Frankfurt auf Lufthansa. Billigflieger senken den Preis, sobald Sie unterbieten; Netzcarrier räumen eine Strecke, wenn sie für sie nicht mehr trägt. Die Namen lassen sich ändern.</p>
      <p class="dim">Reaktionsintervall der Konkurrenz: alle ${BAL.aiDays||30} Tage (Schwierigkeit ${diffCfg().n}).</p>
+     ${(()=>{const a=archRival(); if(!a) return "";
+       const f=S.feud[a.id];
+       return `<div class="card" style="border-color:var(--red)">
+         <div class="row" style="gap:9px"><span style="flex:0 0 30px">${rivalMark(a,30)}</span>
+           <div><b class="neg">Erzrivale: ${esc(a.name)}</b><br>
+             <span class="dim" style="font-size:10.5px">${f.runden} Auseinandersetzungen, ${f.gewonnen} gewonnen, ${f.verloren} verloren</span></div></div></div>`;})()}
      <div id="rvl">${body()}</div>`);
   $("#rvl").addEventListener("input",e=>{
     const id=e.target.dataset.rn; if(!id) return;
@@ -4868,7 +5357,10 @@ function weekTimelineHTML(ac, active){
 }
 function paneFleet(p){
   ensureArt(Array.from(new Set(S.fleet.map(a=>a.type))));
-  let h=`<h2 class="sec">Flotte und Wochenpläne</h2><div class="fleetgrid">`;
+  let h=`<h2 class="sec">Flotte — ${SEASON_NAME[currentSeason()]}</h2>
+  <p class="dim" style="font-size:11px;margin:-4px 0 9px">Gilt bis ${currentSeason()==="sommer"?"Ende Oktober":"Ende März"}. Der andere Flugplan wird getrennt geführt.</p>
+  <div class="row" style="margin-bottom:9px"><button class="sm" id="posterBtn">Flottenposter</button></div>
+  <div class="fleetgrid">`;
   if(S.orders.length){
     h+=`<h3 class="sub">Auftragsbuch</h3>`;
     S.orders.forEach(o=>h+=`<div class="card"><div class="planebox">${planeSVG(o.type,S.livery,{gear:false})}</div>
@@ -4929,6 +5421,7 @@ function paneFleet(p){
   });
   h+=`</div>`;
   p.innerHTML=h;
+  const pb2=$("#posterBtn"); if(pb2) pb2.onclick=posterDialog;
   p.querySelectorAll("[data-plan]").forEach(b=>b.onclick=()=>planDialog(b.dataset.plan));
   p.querySelectorAll("[data-trim]").forEach(b=>b.onclick=()=>trimPlan(b.dataset.trim));
   p.querySelectorAll("[data-svc]").forEach(b=>b.onclick=()=>serviceDialog(b.dataset.svc));
@@ -4955,7 +5448,7 @@ function trimPlan(id){
       if(st && st.profit<0) drop.add(l.i);
     });
     if(!drop.size) continue;
-    const w=p.week[d], dests=[], nums=[];
+    const w=planWeek(ac)[d], dests=[], nums=[];
     w.dests.forEach((x,i)=>{ if(!drop.has(i)){ dests.push(x); nums.push(w.nums[i]); } });
     w.dests=dests; w.nums=nums; dropped+=drop.size;
   }
@@ -4969,7 +5462,7 @@ function planDialog(id){
   const ac=S.fleet.find(x=>x.id===id); if(!ac) return;
   const t=ACT[ac.type]; const p=ensurePlan(ac);
   const backup=JSON.parse(JSON.stringify(p));
-  modal(`Wochenplan ${ac.reg}`, `<div id="pw"></div>`, [
+  modal(`Wochenplan ${ac.reg} — ${SEASON_NAME[currentSeason()]}`, `<div id="pw"></div>`, [
     {t:"Verwerfen",f:()=>{ ac.plan=backup; $("#veil").classList.remove("on"); render(); }},
     {t:"Übernehmen",p:true,f:()=>{ $("#veil").classList.remove("on"); render(); }}]);
 
@@ -4985,9 +5478,17 @@ function planDialog(id){
     const dayS=sch.week[d];
     const startPos=sch.pos[d];
     const last = dayS.legs.length ? dayS.legs[dayS.legs.length-1].to : startPos;
-    const w=p.week[d];
+    const sais=currentSeason();
+    const W=planWeek(ac);
+    const w=W[d];
     const opts=reachable(last);
     let h=`<div class="planebox">${planeSVG(ac.type,S.livery,{wear:acWear(ac)})}</div>
+      <div class="card" style="padding:8px 10px;margin-bottom:8px">
+        <div class="row" style="justify-content:space-between">
+          <div><b class="amb">${SEASON_NAME[sais]}</b>
+            <span class="dim"> gilt bis ${sais==="sommer"?"Ende Oktober":"Ende März"}</span></div>
+          <button class="sm" id="copyseason">Vom ${sais==="sommer"?"Winter":"Sommer"}plan übernehmen</button></div>
+        <p class="dim" style="font-size:10.5px;margin:5px 0 0">Der andere Flugplan bleibt unangetastet und gilt wieder ab ${sais==="sommer"?"Ende Oktober":"Ende März"}.</p></div>
       <div class="kv"><span>Blockzeit ganze Woche</span>
         <span>${fmt(sch.blockWeek/60,1)} h · ${sch.flights} Flüge · ${planDays(ac)} Betriebstage</span></div>
       <div class="kv"><span>Wochenschluss</span>
@@ -5042,16 +5543,24 @@ function planDialog(id){
       const ix=+b.dataset.del; w.dests.splice(ix,1); w.nums.splice(ix,1); draw(); });
     const rh=$("#rethome"); if(rh) rh.onclick=()=>{ w.dests.push(ac.base); ensurePlan(ac); draw(); };
     $("#clearp").onclick=()=>{ w.dests=[]; w.nums=[]; draw(); };
-    $("#clearweek").onclick=()=>{ p.week=[0,1,2,3,4,5,6].map(()=>emptyDay()); ensurePlan(ac); draw(); };
+    $("#clearweek").onclick=()=>{
+      const Z=planWeek(ac); for(let i=0;i<7;i++) Z[i]=emptyDay(); ensurePlan(ac); draw(); };
+    $("#copyseason").onclick=()=>{
+      const von = sais==="sommer" ? p.winter : p.week;
+      const nach= sais==="sommer" ? p.week   : p.winter;
+      for(let i=0;i<7;i++) nach[i]={start:von[i].start, dests:von[i].dests.slice(), nums:[]};
+      ensurePlan(ac); draw();
+      toast(`${SEASON_NAME[sais]} vom anderen Flugplan übernommen.`); };
     $("#copyall").onclick=()=>{ copyDay(0,7); };
     $("#copywd").onclick=()=>{ copyDay(0,5); };
     $("#fillday").onclick=()=>{ autoFill(ac,d); draw(); };
     function copyDay(from,count){
+      const Z=planWeek(ac);
       for(let i=0;i<count;i++){
         if(i===d) continue;
-        p.week[i]={start:w.start, dests:w.dests.slice(), nums:[]};
+        Z[i]={start:w.start, dests:w.dests.slice(), nums:[]};
       }
-      if(count<7) for(let i=count;i<7;i++) p.week[i]=emptyDay();
+      if(count<7) for(let i=count;i<7;i++) Z[i]=emptyDay();
       ensurePlan(ac); draw();
     }
     const fillList=()=>{
@@ -5075,7 +5584,7 @@ function planDialog(id){
   }
   /** Füllt einen Tag mit ertragreichen Zielen, ohne die Grenzen zu sprengen. */
   function autoFill(ac, d){
-    const t=ACT[ac.type], p=ensurePlan(ac), w=p.week[d];
+    const t=ACT[ac.type], p=ensurePlan(ac), w=planWeek(ac)[d];
     let guard=0;
     while(guard++<12){
       const sch=scheduleOf(ac), dayS=sch.week[d];
@@ -5510,10 +6019,6 @@ function portfolioValue(){
     if(x) v+=rivalValue(x)*holdings(id); });
   return v;
 }
-function creditLimit(){
-  const earn=S.history.slice(-6).reduce((s,h)=>s+Math.max(0,h.profit),0);
-  return Math.max(30e6, fleetValue()*0.62+earn*4);
-}
 
 /* ================================================ Erfolgsrechnung ========
    Zahlen in gewohnter Gliederung, immer mit Vergleich — wahlweise Vormonat
@@ -5611,24 +6116,12 @@ function sparkline(){
     <span>${String(h[h.length-1].m+1).padStart(2,"0")}/${h[h.length-1].y}</span></div>`;
 }
 function creditLimit(){
+  /* Der Kreditrahmen hängt am Vertrauen des Verwaltungsrats: wer Vorgaben
+     verfehlt, bekommt weniger Spielraum. */
+  const vertrauen = (S.boardOn && S.boardTrust!=null) ? clamp(0.6+S.boardTrust/100*0.8, 0.6, 1.4) : 1;
   const earn=S.history.slice(-6).reduce((s,h)=>s+Math.max(0,h.profit),0);
-  return Math.max(30e6, fleetValue()*0.62+earn*4);
+  return Math.round(Math.max(30e6, fleetValue()*0.62+earn*4)*vertrauen);
 }
-function sparkline(){
-  const hs=S.history.slice(-24); if(hs.length<2) return "";
-  const W=380,H=70,pad=4, vals=hs.map(x=>x.profit);
-  const mn=Math.min(0,...vals), mx=Math.max(0,...vals), rg=(mx-mn)||1;
-  const pts=vals.map((v,i)=>[pad+i*(W-2*pad)/(vals.length-1), H-pad-((v-mn)/rg)*(H-2*pad)]);
-  const zero=H-pad-((0-mn)/rg)*(H-2*pad);
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:70px">
-    <line x1="0" y1="${zero}" x2="${W}" y2="${zero}" stroke="#2b415e"/>
-    <polyline fill="none" stroke="var(--amber)" stroke-width="1.6"
-      points="${pts.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")}"/>
-    ${pts.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="1.6" fill="var(--amber)"/>`).join("")}
-  </svg><div class="dim mono" style="font-size:10px;text-align:right">Monatsergebnis, letzte ${hs.length} Monate</div>`;
-}
-
-/* ---------------------------------------------------------- Personal --- */
 function paneStaff(p){
   const need=pilotNeed(), cn=cabinNeed();
   const trC=S.cabinTrain.reduce((s,x)=>s+x.n,0);
@@ -5814,9 +6307,23 @@ function charterDialog(jobId){
 
 /* ---------------------------------------------------------- Erfolge ---- */
 function paneAch(p){
+  S.achTab=S.achTab||"ziele";
   const got=S.achievements||{};
+  if(S.achTab==="chronik"){
+    p.innerHTML=`<h2 class="sec">Erfolge</h2>
+      <div class="segbar" id="achseg">
+        <button data-at="ziele">Meilensteine</button>
+        <button class="on" data-at="chronik">Chronik</button></div>
+      <p class="dim">Was in dieser Airline geschehen ist, in der Reihenfolge, in der es geschah.</p>
+      ${chronikHTML()}`;
+    p.querySelectorAll("[data-at]").forEach(b=>b.onclick=()=>{S.achTab=b.dataset.at; renderPane();});
+    return;
+  }
   const n=Object.keys(got).length;
-  let h=`<h2 class="sec">Meilensteine</h2>
+  let h=`<h2 class="sec">Erfolge</h2>
+  <div class="segbar" id="achseg">
+    <button class="on" data-at="ziele">Meilensteine</button>
+    <button data-at="chronik">Chronik</button></div>
   <div class="card"><div class="kv"><span>Erreicht</span><span>${n} von ${ACHIEVEMENTS.length}</span></div>
     <div class="bar"><i style="width:${(n/ACHIEVEMENTS.length*100).toFixed(0)}%"></i></div></div>`;
   ACHIEVEMENTS.forEach(a=>{
@@ -5834,6 +6341,7 @@ function paneAch(p){
     ? `<p class="dim">Unter «Marke» wählbar: ${un.map(k=>UNLOCK_NAME[k]).join(", ")}.</p>`
     : `<p class="dim">Noch keine. Meilensteine mit Bemalungshinweis schalten zusätzliche Gestaltungen frei.</p>`;
   p.innerHTML=h;
+  p.querySelectorAll("[data-at]").forEach(b=>b.onclick=()=>{S.achTab=b.dataset.at; renderPane();});
 }
 
 
@@ -5856,13 +6364,14 @@ function paneInbox(p){
     if(!list.length) h+=`<div class="empty"><b>Keine Nachrichten</b>Berichte, Störungen und Entscheidungen erscheinen hier, sobald der Betrieb läuft.</div>`;
     list.forEach(m=>{
       const K=MAIL_KIND[m.kind]||MAIL_KIND.bericht;
+      const P=staffOf(m);
       const wartet=m.optionen && m.entschieden==null;
       h+=`<div class="mailrow ${m.read?"":"un"}" data-m="${m.id}">
-        <span class="mi" style="color:${K.col}">${K.ic}</span>
+        <span class="mi" style="color:${P.col}">${P.ic}</span>
         <div style="flex:1">
           <div class="ms">${m.read?"":'<span class="undot"></span>'}${esc(m.subj)}
             ${wartet?'<span class="pill warn" style="margin-left:5px">offen</span>':""}</div>
-          <div class="mp">${esc(m.kurz||K.n)}</div></div>
+          <div class="mp"><b style="color:${P.col}">${esc(P.n)}</b> · ${esc(m.kurz||K.n)}</div></div>
         <span class="md">${mailDate(m).slice(0,9)}</span></div>`;
     });
   } else {
@@ -6474,7 +6983,7 @@ function prepDialog(){
 }
 
 function paneData(p){
-  p.innerHTML=`<h2 class="sec">Daten und Spielstand</h2>
+  p.innerHTML=`<h2 class="sec">Einstellungen</h2>
   <h3 class="sub">Spielstand</h3>
   <div class="row"><button id="save" class="primary">Spielstand sichern</button>
     <button id="load">Spielstand laden</button><button id="restart">Neue Fluggesellschaft</button></div>
@@ -6507,6 +7016,18 @@ function paneData(p){
       <button class="sm primary" id="scanBtn">Neu aufbereiten</button>
       <button class="sm" id="prepBtn">Eigene Vorlage aufbereiten</button>
       <button class="sm" id="idsBtn">Musterkennungen zeigen</button></div>
+  </div>
+
+  <h3 class="sub">Spielweise</h3>
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div style="flex:1"><b>Vorgaben des Verwaltungsrats</b><br>
+        <span class="dim" style="font-size:10.5px">Alle drei Monate eine Zielvorgabe. Erfüllt bringt Kapital und Kreditspielraum, verfehlt kostet beides. Wer lieber frei aufbaut, schaltet sie ab.</span></div>
+      <button class="sm ${S.boardOn?'primary':''}" id="boardTgl">${S.boardOn?"an":"aus"}</button></div>
+    ${S.boardOn?`<div class="kv" style="margin-top:7px"><span>Vertrauen des Rats</span>
+      <span style="color:${relColor(S.boardTrust||50)}">${fmt(S.boardTrust||50,0)} von 100</span></div>
+      <div class="bar"><i style="width:${S.boardTrust||50}%;background:${relColor(S.boardTrust||50)}"></i></div>
+      ${S.board?`<div class="kv"><span>Laufende Vorgabe</span><span>${esc(boardText(S.board))}</span></div>`:""}`:""}
   </div>
 
   <h3 class="sub">Schwierigkeit</h3>
@@ -6542,6 +7063,13 @@ function paneData(p){
     <div class="kv"><span>Höchstdienstzeit je Tag</span><span>${BAL.maxDuty/60} h</span></div>
     <div class="kv"><span>Zeitfluss</span><span>1 Realsekunde = 1 Spielstunde bei 1×</span></div>
     <div class="kv"><span>Wettbewerb</span><span>${(S.rivals||[]).length} benannte Gesellschaften, wöchentliche Reaktion</span></div></div>`;
+  const bt=$("#boardTgl");
+  if(bt) bt.onclick=()=>{
+    S.boardOn=!S.boardOn;
+    if(S.boardOn){ if(!S.board) boardNewGoal(); logg("Vorgaben des Verwaltungsrats eingeschaltet.",""); }
+    else { S.board=null; logg("Vorgaben des Verwaltungsrats abgeschaltet.",""); }
+    render();
+  };
   p.querySelectorAll("[data-df]").forEach(b=>b.onclick=()=>{
     applyDifficulty(b.dataset.df);
     logg(`Schwierigkeit auf ${diffCfg().n} gestellt.`,"warn"); render();});
@@ -6735,6 +7263,11 @@ function adoptSave(d){
   if(!S.blocks) S.blocks=[];
   if(!S.tutorial) S.tutorial={done:true, erledigt:{}};
   if(!S.jumpMode) S.jumpMode="event";
+  if(S.boardOn==null) S.boardOn=true;
+  if(S.boardTrust==null) S.boardTrust=50;
+  if(!S.staff) S.staff=rollStaff(S.bases[0]);
+  if(!S.feud) S.feud={};
+  if(!S.chronik) S.chronik=[];
   S.fleet.forEach(ac=>{ if(!ac.plan) ac.plan={start:390,dests:[],days:[1,1,1,1,1,1,1],nums:[]};
     if(!ac.plan) ac.plan={};
     if(!ac.cab) ac.cab=CABIN_PRESETS[ACT[ac.type].cat==="Grossraum"?"standard":"europa"].f(ACT[ac.type]);
@@ -6916,21 +7449,21 @@ function seedLongHaul(ac, dests){
   if(!far.length) return false;
   for(const target of far.slice(0,4)){
     ensurePlan(ac);
-    for(let d=0;d<7;d++) ac.plan.week[d]=emptyDay();
+    for(let d=0;d<7;d++) planWeek(ac)[d]=emptyDay();
     [[0,1],[2,3],[4,5]].forEach(([out,back])=>{
-      ac.plan.week[out]={start:10*60+30, dests:[target], nums:[]};
-      ac.plan.week[back]={start:21*60, dests:[ac.base], nums:[]};
+      planWeek(ac)[out]={start:10*60+30, dests:[target], nums:[]};
+      planWeek(ac)[back]={start:21*60, dests:[ac.base], nums:[]};
     });
     ensurePlan(ac);
     let g=0;
     while(g++<6 && scheduleOf(ac).week.some(x=>x.legs.some(l=>l.issues.length))){
-      for(let d=0;d<7;d++) if(ac.plan.week[d].dests.length)
-        ac.plan.week[d].start=(ac.plan.week[d].start+75)%1440;
+      for(let d=0;d<7;d++) if(planWeek(ac)[d].dests.length)
+        planWeek(ac)[d].start=(planWeek(ac)[d].start+75)%1440;
     }
     const sch=scheduleOf(ac);
     if(sch.flights && !sch.week.some(x=>x.legs.some(l=>l.issues.length))) return true;
   }
-  for(let d=0;d<7;d++) ac.plan.week[d]=emptyDay();
+  for(let d=0;d<7;d++) planWeek(ac)[d]=emptyDay();
   ensurePlan(ac);
   return false;
 }
@@ -6967,7 +7500,10 @@ function startExisting(idx){
       }
       const chain=[]; pick2.forEach(dd=>chain.push(dd, base));
       ensurePlan(ac);
-      for(let d=0;d<7;d++) ac.plan.week[d]={start:startMin, dests:chain.slice(), nums:[]};
+      for(let d=0;d<7;d++){
+        ac.plan.week[d]={start:startMin, dests:chain.slice(), nums:[]};
+        ac.plan.winter[d]={start:startMin, dests:chain.slice(), nums:[]};
+      }
       ensurePlan(ac);
       /* zu lange Umläufe kürzen, bis der Tag passt */
       let guard=0;
@@ -6976,21 +7512,21 @@ function startExisting(idx){
         const bad = sch.week.some(x=>x.blockSum>t.block*60 || x.duty>BAL.maxDuty
           || x.legs.some(l=>l.issues.length));
         if(!bad) break;
-        for(let d=0;d<7;d++){ ac.plan.week[d].dests.splice(-2,2); ac.plan.week[d].nums.splice(-2,2); }
+        for(let d=0;d<7;d++){ planWeek(ac)[d].dests.splice(-2,2); planWeek(ac)[d].nums.splice(-2,2); }
         ensurePlan(ac);
-        if(!ac.plan.week[0].dests.length) break;
+        if(!planWeek(ac)[0].dests.length) break;
       }
       /* Kam nichts zustande, an der Hauptbasis mit einem Ziel neu ansetzen */
-      if(!ac.plan.week[0].dests.length){
+      if(!planWeek(ac)[0].dests.length){
         ac.base=A.bases[0];
         ac.reg=newRegistration(ac.base);
         for(const dd of dests){
           if(acCanFly(ac, AP[ac.base], AP[dd])) continue;
-          for(let d=0;d<7;d++) ac.plan.week[d]={start:startMin, dests:[dd, ac.base], nums:[]};
+          for(let d=0;d<7;d++) planWeek(ac)[d]={start:startMin, dests:[dd, ac.base], nums:[]};
           ensurePlan(ac);
           const sch=scheduleOf(ac);
           if(!sch.week.some(x=>x.blockSum>t.block*60 || x.legs.some(l=>l.issues.length))) break;
-          for(let d=0;d<7;d++) ac.plan.week[d]=emptyDay();
+          for(let d=0;d<7;d++) planWeek(ac)[d]=emptyDay();
           ensurePlan(ac);
         }
       }
@@ -7371,14 +7907,17 @@ function startScenario(id){
         chain.push(dd, base);
       }
       ensurePlan(ac);
-      for(let d=0;d<7;d++) ac.plan.week[d]={start:6*60+(n%7)*26, dests:chain.slice(), nums:[]};
+      for(let d=0;d<7;d++){
+        ac.plan.week[d]={start:6*60+(n%7)*26, dests:chain.slice(), nums:[]};
+        ac.plan.winter[d]={start:6*60+(n%7)*26, dests:chain.slice(), nums:[]};
+      }
       ensurePlan(ac);
       let g=0;
       while(g++<8 && scheduleOf(ac).week.some(x=>x.blockSum>ACT[type].block*60
           || x.duty>BAL.maxDuty || x.legs.some(l=>l.issues.length))){
-        for(let d=0;d<7;d++){ ac.plan.week[d].dests.splice(-2,2); ac.plan.week[d].nums.splice(-2,2); }
+        for(let d=0;d<7;d++){ planWeek(ac)[d].dests.splice(-2,2); planWeek(ac)[d].nums.splice(-2,2); }
         ensurePlan(ac);
-        if(!ac.plan.week[0].dests.length) break;
+        if(!planWeek(ac)[0].dests.length) break;
       }
       n++;
     }
@@ -7479,7 +8018,7 @@ const TAB_ICON = {ops:"◉", net:"⇄", fleet:"✈", inbox:"✉", market:"🛒",
 const TAB_MAIN = ["ops","net","fleet","inbox"];
 const TAB_NAME = {ops:"Lage", net:"Netz", fleet:"Flotte", inbox:"Postfach", market:"Markt",
   fin:"Finanzen", staff:"Personal", charter:"Charter", guest:"Gäste", ach:"Erfolge",
-  brand:"Marke", data:"Daten"};
+  brand:"Marke", data:"Einstellungen"};
 var mobileNav=null;
 /** Nur die Zähler auffrischen — die Reiter selbst bleiben stehen. */
 function updateBadges(){
@@ -7534,7 +8073,7 @@ function setTab(t){
 
 /* Fassungskennung — steht im Hauptmenü und unter Daten. So lässt sich auf
    einen Blick prüfen, welcher Stand tatsächlich auf dem Server liegt. */
-const APP_VERSION = "2026-08-27b · Flotte & Bilanz";
+const APP_VERSION = "2026-08-28b · Chronik, Rivalen, Befund";
 
 
 
@@ -7628,7 +8167,7 @@ function mapPlanTo(iata){
         ensurePlan(ac);
         let n=0;
         for(let d=0;d<7;d++){ if(!tage[d]) continue;
-          ac.plan.week[d].dests.push(zu, ab); n++; }
+          planWeek(ac)[d].dests.push(zu, ab); n++; }
         ensurePlan(ac);
         const sch=scheduleOf(ac);
         logg(`${ac.reg}: ${ab}–${zu} an ${n} Tagen aufgenommen.`, sch.warn.length?"warn":"good");
@@ -7852,7 +8391,7 @@ function rollDisruptions(){
     const pax = heute.reduce((a,f)=>a+f.pax,0) || 90;
     const daheim = ort===ac.base;
     const teil=Math.round(rnd(35,140)*1000);
-    mailAdd({kind:"stoerung", subj:`Technische Störung ${ac.reg} in ${ort}`,
+    mailAdd({kind:"stoerung", von:"tech", subj:`Technische Störung ${ac.reg} in ${ort}`,
       kurz:`${ACT[ac.type].name} · ${heute.length} Flüge betroffen`,
       stufe:3,
       body:`<p>Bei der Vorflugkontrolle in <b>${ort}</b> ${daheim?"an der Basis":"auf Aussenstation"} wurde an <b>${ac.reg}</b> ein Defekt festgestellt. Heute stehen noch ${heute.length} Flüge mit rund ${paxWord(pax)} an.</p>
@@ -7896,7 +8435,8 @@ function rollDisruptions(){
     const c=cancelRoute(code,code);
     if(!c.n) return;
     const pax=Math.max(c.pax,40);
-    mailAdd({kind:"stoerung", subj:`Wetter legt ${code} lahm`,
+    mailAdd({kind:"stoerung", von: S.bases.includes(code)?"ops":"station",
+      subj:`Wetter legt ${code} lahm`,
       kurz:`${c.n} Flüge annulliert · ${paxWord(pax)}`, stufe:3,
       body:`<p>Über <b>${esc(a.city)}</b> steht ein Schlechtwettergebiet. ${c.n} Flüge sind annulliert, ${paxWord(pax)} stranden.</p>
             <p class="dim">Wie gehen Sie mit den Betroffenen um? Die Entscheidung spricht sich herum.</p>`,
@@ -7910,7 +8450,7 @@ function rollDisruptions(){
     addBlock({art:"crew", wert:"all", bis:S.clock+DAYMS*3, grund:"Krankheitswelle"});
     const betroffen=aktiv.slice(0,Math.max(1,Math.round(aktiv.length*0.25)));
     let n=0; betroffen.forEach(ac=>{ n+=cancelToday(ac.id).n; });
-    mailAdd({kind:"personal", subj:"Krankheitswelle in der Kabine",
+    mailAdd({kind:"personal", von:"ops", subj:"Krankheitswelle in der Kabine",
       kurz:`${n} Flüge betroffen · keine Reserve vorhanden`, stufe:2,
       body:`<p>Eine Grippewelle hat die Kabinenbesatzung erwischt. Weil kaum Reserve eingeplant ist, fallen heute ${n} Flüge aus.</p>
             <p class="dim">Unter «Personal» lässt sich die Reserve dauerhaft erhöhen — das kostet Lohn, verhindert aber genau solche Tage.</p>`});
@@ -7922,7 +8462,7 @@ function rollDisruptions(){
   if(S.rel.crew<42 && !S.streikPhase && Math.random()<0.05){
     S.streikPhase=1;
     const mehr=Math.round(BAL.cabinPay*0.08);
-    mailAdd({kind:"personal", subj:"Personalvertretung stellt Forderungen",
+    mailAdd({kind:"personal", von:"crew", subj:"Personalvertretung stellt Forderungen",
       kurz:"Ultimatum über vier Wochen", stufe:3,
       body:`<p>Die Belegschaft ist seit Monaten unzufrieden: knappe Reserve, hohe Blockstunden, Löhne unter dem Branchenschnitt. Die Vertretung verlangt eine Erhöhung und droht mit Ausstand.</p>
             <p class="dim">Zufriedenheit der Belegschaft: <b>${fmt(S.rel.crew,0)}</b> von 100.</p>`,
@@ -7947,7 +8487,7 @@ function rollDisruptions(){
   if((S.curfewHits||0)>=12 && Math.random()<0.08){
     S.curfewHits=0;
     const busse=Math.round(rnd(180,520))*1000;
-    mailAdd({kind:"behoerde", subj:"Aufsichtsbehörde eröffnet ein Verfahren",
+    mailAdd({kind:"behoerde", von:"legal", subj:"Aufsichtsbehörde eröffnet ein Verfahren",
       kurz:`Verstösse gegen Nachtflugverbote · ${chf(busse)}`, stufe:2,
       body:`<p>Wiederholte Starts und Landungen innerhalb der Sperrzeiten sind aktenkundig geworden. Die Behörde verhängt eine Busse von <b>${chf(busse)} CHF</b> und behält sich Auflagen vor.</p>
             <p class="dim">Die Warnhinweise im Wochenplan sind nicht nur Kosmetik.</p>`});
@@ -7962,7 +8502,7 @@ function rollDisruptions(){
     if(gut||schlecht){
       const d=gut?rnd(2.5,5):-rnd(3,6);
       S.rep=clamp(S.rep+d,5,99);
-      mailAdd({kind:gut?"chance":"stoerung", subj:gut?"Ein Video macht die Runde":"Ein Video macht die Runde",
+      mailAdd({kind:gut?"chance":"stoerung", von:"sales", subj:"Ein Video macht die Runde",
         kurz:(gut?"+":"")+fmt(d,1)+" Ruf",
         stufe:2,
         body:gut
@@ -7980,7 +8520,7 @@ function rollDisruptions(){
       const grund=pick(["Vulkanasche","ein Streik der Flugsicherung","eine militärische Sperrung","ein schwerer Sturmzug"]);
       addBlock({art:"region", wert:rg, bis:S.clock+DAYMS*tage, grund:"Luftraumsperrung"});
       const betroffen=S.routes.filter(r=>AP[r.from].region===rg||AP[r.to].region===rg).length;
-      mailAdd({kind:"stoerung", subj:`Luftraum über ${REGION_NAME[rg]||rg} gesperrt`,
+      mailAdd({kind:"stoerung", von:"ops", subj:`Luftraum über ${REGION_NAME[rg]||rg} gesperrt`,
         kurz:`${tage} Tage · ${betroffen} Strecken betroffen`, stufe:2,
         body:`<p>Wegen ${grund} ist der Luftraum für rund ${tage} Tage gesperrt. ${betroffen} Ihrer Strecken sind betroffen und fallen aus.</p>
               <p class="dim">Ein breit gestreutes Netz federt so etwas ab. Wer alles auf eine Region setzt, steht still.</p>`});
@@ -7995,7 +8535,7 @@ function rollDisruptions(){
     if(t && !blockActive("type",t)){
       const tage=Math.round(rnd(5,16));
       addBlock({art:"type", wert:t, bis:S.clock+DAYMS*tage, grund:"Startverbot"});
-      mailAdd({kind:"behoerde", subj:`Startverbot für ${ACT[t].name}`,
+      mailAdd({kind:"behoerde", von:"legal", subj:`Startverbot für ${ACT[t].name}`,
         kurz:`${typen[t]} Maschinen · ${tage} Tage`, stufe:2,
         body:`<p>Nach einem Vorfall bei einer anderen Gesellschaft haben die Behörden ein weltweites Startverbot für die <b>${esc(ACT[t].name)}</b> verhängt. ${typen[t]} Ihrer Maschinen sind betroffen, voraussichtlich ${tage} Tage.</p>
               <p class="dim">Eine Einheitsflotte spart Wartung und Ausbildung — und trifft Sie an einem Tag wie diesem doppelt.</p>`});
@@ -8005,6 +8545,125 @@ function rollDisruptions(){
 }
 const REGION_NAME={EU:"Europa", NA:"Nordamerika", SA:"Südamerika", AF:"Afrika",
   ME:"dem Nahen Osten", AS:"Asien", OC:"Ozeanien"};
+
+
+
+/* Namensvorräte nach Sprachraum. Wer in Athen fliegt, hat keine Beatrice Wyss
+   in der Flugbetriebsleitung. Die Namen werden beim Gründen einmal gezogen
+   und bleiben dann für die ganze Partie dieselben. */
+/* Vollständige Namen statt getrennter Listen — sonst entstehen Mischungen wie
+   «Priya Nakamura», die niemandem gehören. Bei Island sind zudem die
+   Vatersnamen geschlechtsgebunden. */
+const NAME_POOLS = {
+  ch:["Beatrice Wyss","Ruedi Amrein","Marco Iten","Nico Fehr","Anna Keller","Silvia Brunner",
+      "Hans-Peter Bühler","Andrea Zimmermann","Urs Steiner","Franziska Frei","Reto Baumgartner","Céline Roth"],
+  de:["Katrin Berger","Jürgen Schneider","Stefan Hoffmann","Miriam Wagner","Holger Krüger","Petra Lehmann",
+      "Wolfgang Fischer","Sabine Weber","Andreas Schulz","Nadine Neumann","Dirk Vogel","Claudia Hartmann"],
+  at:["Gerlinde Gruber","Sepp Huber","Bernhard Steinbacher","Elisabeth Leitner","Franz Wallner",
+      "Ingrid Pichler","Markus Ebner","Johanna Moser","Herbert Kramer","Renate Fuchs"],
+  fr:["Sylvie Rousseau","Thierry Girard","Camille Moreau","Olivier Lefèvre","Nathalie Dubois",
+      "Bruno Marchand","Élodie Bonnet","Pascal Rey","Isabelle Garnier","Laurent Chevalier"],
+  it:["Chiara Ferrari","Gianni Conti","Marta Ricci","Alessandro Bianchi","Federica Greco",
+      "Paolo Marino","Silvia Rossi","Matteo Fontana","Giulia Barbieri","Stefano Costa"],
+  es:["Elena Delgado","Javier Navarro","Marta Ortega","Alberto Molina","Rocío Ibáñez",
+      "Sergio Serrano","Nuria Vega","Diego Castaño","Pilar Aguilar","Rubén Cortés"],
+  pt:["Inês Almeida","Rui Carvalho","Beatriz Faria","Tiago Pinto","Sofia Rocha",
+      "Nuno Teixeira","Mariana Barros","Duarte Matos","Cláudia Lopes","Vasco Freitas"],
+  nl:["Marieke van Dijk","Bas Bakker","Sanne de Vries","Joost Jansen","Femke Visser",
+      "Wouter Smit","Anouk Meijer","Dirk Kok","Lotte Hendriks","Sander de Boer"],
+  be:["Els Peeters","Geert Claes","Charlotte Dubois","Vincent Wouters","Ilse Maes",
+      "Kristof Lemaire","Aurélie Janssens","Bram De Smet","Nele Verhoeven","Thomas Willems"],
+  no:["Ingrid Johansen","Lars Berg","Kristin Nilsen","Bjørn Haugen","Marit Dahl",
+      "Håkon Lund","Silje Solberg","Anders Moen","Kari Bakke","Erik Strand"],
+  fi:["Riikka Virtanen","Mikko Nieminen","Sanna Mäkelä","Juha Koskinen","Elina Laine",
+      "Antti Salminen","Laura Heikkilä","Teemu Rantanen","Päivi Korhonen","Jukka Aalto"],
+  is:["Guðrún Jónsdóttir","Ólafur Sigurðsson","Sigrún Þórsdóttir","Björn Guðmundsson",
+      "Katrín Ólafsdóttir","Einar Magnússon","Helga Haraldsdóttir","Magnús Einarsson",
+      "Anna Kristjánsdóttir","Gunnar Þórsson"],
+  pl:["Agnieszka Kowalczyk","Tomasz Nowak","Magdalena Wójcik","Piotr Lewandowski","Karolina Zielińska",
+      "Marek Kaczmarek","Ewa Mazur","Krzysztof Wróbel","Joanna Szymańska","Paweł Dąbrowski"],
+  cz:["Jana Nováková","Petr Svoboda","Lucie Dvořáková","Tomáš Černý","Veronika Procházková",
+      "Martin Kučera","Kateřina Veselá","Jakub Horák","Hana Marková","Ondřej Beneš"],
+  hr:["Ivana Horvat","Marko Kovačević","Petra Babić","Ante Marić","Nikolina Novak",
+      "Josip Jurić","Maja Vuković","Luka Perić","Sanja Matić","Damir Bošnjak"],
+  gr:["Eleni Papadopoulou","Dimitris Georgiou","Katerina Nikolaidou","Nikos Vlachos","Sofia Antoniou",
+      "Yannis Christou","Maria Samara","Kostas Panagiotou","Despina Markou","Stelios Diamantis"],
+  tr:["Zeynep Yılmaz","Emre Demir","Elif Kaya","Mustafa Şahin","Aylin Çelik",
+      "Serkan Aydın","Deniz Arslan","Burak Doğan","Merve Kılıç","Onur Şimşek"],
+  gb:["Fiona Whitfield","Graham Harper","Louise Blackwood","Nigel Fletcher","Hannah Cavendish",
+      "Colin Sinclair","Rachel Ashworth","Duncan Bramley","Gemma Holloway","Ian Pemberton"],
+  ie:["Aoife O'Sullivan","Cillian Byrne","Niamh Gallagher","Declan Doherty","Órla Kavanagh",
+      "Ronan Fitzgerald","Sinéad Brennan","Padraig Molloy","Ciara Mulligan","Eamon Kearney"],
+  us:["Karen Whitaker","Doug Brennan","Michelle Coleman","Brad Sanders","Alyssa Novak",
+      "Chuck Hughes","Danielle Barrett","Wayne Ellison","Tracy Lindquist","Gary Whitman"],
+  latam:["Valentina Restrepo","Rodrigo Vargas","Camila Herrera","Andrés Salazar","Lucía Ocampo",
+      "Mateo Quintero","Daniela Bustamante","Felipe Mendoza","Paula Arango","Sebastián Rivas"],
+  af:["Amina Okonkwo","Kwame Mensah","Nadia Diallo","Tesfaye Abebe","Fatou Ndiaye",
+      "Samuel Mwangi","Leila Tadesse","Joseph Achieng","Grace Wanjiru","Ibrahim Traoré"],
+  me:["Layla Al-Farsi","Omar Haddad","Rania Nasser","Khalid Al-Rashid","Yasmin Khoury",
+      "Faisal Mansour","Dana Saleh","Tariq Barakat","Hana Aziz","Samir Dabbagh"],
+  as:["Mei Zhang","Hiroshi Nakamura","Priya Sharma","Wei Tan","Yuki Watanabe",
+      "Arjun Iyer","Siew Lin Lim","Kenji Sato","Ling Chen","Ravi Menon"],
+  oc:["Sharon Thompson","Grant Kirkland","Kylie Mallory","Trevor Sutton","Bronwyn Hargreaves",
+      "Shane Doyle","Amber Whittaker","Craig Pearce","Donna Aspinall","Wayne Mercer"]
+};
+const LAND_POOL = {
+  "Schweiz":"ch", "Deutschland":"de", "Österreich":"at", "Frankreich":"fr", "Italien":"it",
+  "Spanien":"es", "Portugal":"pt", "Niederlande":"nl", "Belgien":"be", "Luxemburg":"be",
+  "Norwegen":"no", "Schweden":"no", "Dänemark":"no", "Finnland":"fi", "Island":"is",
+  "Polen":"pl", "Tschechien":"cz", "Slowakei":"cz", "Ungarn":"cz",
+  "Kroatien":"hr", "Serbien":"hr", "Slowenien":"hr", "Bosnien":"hr", "Montenegro":"hr",
+  "Griechenland":"gr", "Türkei":"tr", "Zypern":"gr",
+  "Vereinigtes Königreich":"gb", "Grossbritannien":"gb", "Irland":"ie",
+  "USA":"us", "Kanada":"us", "Lettland":"pl", "Litauen":"pl", "Estland":"fi",
+  "Rumänien":"hr", "Bulgarien":"hr", "Albanien":"hr", "Nordmazedonien":"hr", "Malta":"it"
+};
+const REGION_POOL = {EU:"de", NA:"us", SA:"latam", AF:"af", ME:"me", AS:"as", OC:"oc"};
+function namePool(iata){
+  const a=AP[iata];
+  if(!a) return NAME_POOLS.de;
+  return NAME_POOLS[LAND_POOL[a.country]] || NAME_POOLS[REGION_POOL[a.region]] || NAME_POOLS.de;
+}
+/** Zieht die Belegschaft passend zum Heimatland. */
+function rollStaff(home){
+  const P=namePool(home);
+  const rollen=[["ops","Leitung Flugbetrieb","✈","#4aa8e0"],
+    ["tech","Leitung Technik","⚙","#e2695f"],
+    ["crew","Personalvertretung","👥","#e0a13a"],
+    ["sales","Vertrieb und Netz","⇄","#9b8cf0"],
+    ["fin","Finanzen","▤","#5fcf95"],
+    ["legal","Rechtsdienst","§","#e2695f"],
+    ["board","Präsident des Verwaltungsrats","★","#f2a93b"]];
+  const rest=[...P], out={};
+  rollen.forEach(([k,r,ic,col])=>{
+    const n=rest.length?rest.splice(Math.floor(Math.random()*rest.length),1)[0]:"Alex Meier";
+    out[k]={n, r, ic, col};
+  });
+  out.station={n:"Stationsleitung", r:"vor Ort", ic:"⌂", col:"#2aa8c4"};
+  return out;
+}
+
+/* ======================================================== Die Belegschaft
+   Nachrichten kommen von Menschen, nicht vom System. Sieben wiederkehrende
+   Figuren mit eigenem Ton — nach einem halben Spieljahr weiss man schon am
+   Absender, ob es Geld kostet. */
+const STAFF = {
+  ops:    {n:"Beatrice Wyss",        r:"Leitung Flugbetrieb",     ic:"✈", col:"#4aa8e0"},
+  tech:   {n:"Ruedi Amrein",         r:"Leitung Technik",         ic:"⚙", col:"#e2695f"},
+  crew:   {n:"Marco Iten",           r:"Personalvertretung",      ic:"👥", col:"#e0a13a"},
+  sales:  {n:"Nico Fehr",            r:"Vertrieb und Netz",       ic:"⇄", col:"#9b8cf0"},
+  fin:    {n:"Anna Keller",          r:"Finanzen",                ic:"▤", col:"#5fcf95"},
+  legal:  {n:"Dr. Silvia Brunner",   r:"Rechtsdienst",            ic:"§", col:"#e2695f"},
+  board:  {n:"Hans-Peter Bühler",    r:"Präsident des Verwaltungsrats", ic:"★", col:"#f2a93b"},
+  station:{n:"Stationsleitung",      r:"vor Ort",                 ic:"⌂", col:"#2aa8c4"}
+};
+/* Wer schreibt worüber */
+const KIND_STAFF = {stoerung:"ops", personal:"crew", behoerde:"legal",
+  markt:"sales", chance:"sales", bericht:"fin", betrieb:"ops", vr:"board"};
+function staffOf(m){
+  const T=(S&&S.staff)||STAFF;
+  return T[m.von] || T[KIND_STAFF[m.kind]] || T.ops || STAFF.ops;
+}
 
 /* ============================================================== Postfach ==
    Alles, was Aufmerksamkeit verlangt, landet hier: Berichte, Warnungen und
@@ -8039,13 +8698,16 @@ function mailDate(m){
 function mailShow(id){
   const m=(S.inbox||[]).find(x=>x.id===id); if(!m) return;
   m.read=true;
-  const K=MAIL_KIND[m.kind]||MAIL_KIND.bericht;
+  const K=MAIL_KIND[m.kind]||MAIL_KIND.bericht, P=staffOf(m);
   const offen=m.optionen && m.entschieden==null;
   modal(m.subj,
-    `<div class="row" style="justify-content:space-between;margin-bottom:8px">
-       <span class="pill" style="border-color:${K.col};color:${K.col}">${K.ic} ${K.n}</span>
-       <span class="dim mono" style="font-size:10.5px">${mailDate(m)}</span></div>
+    `<div class="row" style="justify-content:space-between;margin-bottom:9px;align-items:flex-start">
+       <div><b style="color:${P.col}">${P.ic} ${esc(P.n)}</b><br>
+         <span class="dim" style="font-size:10.5px">${esc(P.r)}</span></div>
+       <div style="text-align:right"><span class="pill" style="border-color:${K.col};color:${K.col}">${K.n}</span><br>
+         <span class="dim mono" style="font-size:10px">${mailDate(m)}</span></div></div>
      <div>${m.body}</div>
+     <p class="dim" style="font-size:11px;margin-top:10px;font-style:italic">${esc(P.n)}</p>
      ${m.frist&&offen?`<p class="dim" style="margin-top:8px">Entscheidung nötig bis ${new Date(m.frist).toLocaleDateString("de-CH")} — ohne Antwort wird die erste Möglichkeit gewählt.</p>`:""}
      ${offen?`<div id="mailopt" style="margin-top:10px">${m.optionen.map((o,i)=>
        `<div class="choice" data-i="${i}"><div><div class="t">${esc(o.l)}</div>
