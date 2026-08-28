@@ -224,6 +224,11 @@ h3.sub{font-family:var(--disp);font-size:13px;letter-spacing:.13em;text-transfor
 .pill{font-family:var(--mono);font-size:10px;padding:1.5px 6px;border:1px solid var(--line2);border-radius:20px;
   color:var(--dim);white-space:nowrap}
 .pill.ok{color:var(--green);border-color:#2c5a42}
+.hlp{display:inline-block;width:15px;height:15px;line-height:13px;padding:0;margin-left:5px;
+  border-radius:50%;font-size:10px;font-family:var(--mono);color:var(--dim);
+  border:1px solid var(--line2);background:transparent;vertical-align:middle;min-height:0}
+.hlp:hover{color:var(--amber);border-color:var(--amber)}
+.warn2{color:var(--amber)}
 .pill.warn{color:var(--amber);border-color:var(--amber-d)}
 .pill.bad{color:var(--red);border-color:#63302c}
 .bar{height:6px;background:#0a1322;border-radius:3px;overflow:hidden;margin-top:4px;display:flex}
@@ -279,7 +284,7 @@ table.tbl th.r,table.tbl td.r{text-align:right}
 #veil{position:fixed;inset:0;background:rgba(3,7,14,.86);display:none;z-index:40;align-items:center;
   justify-content:center;padding:16px;backdrop-filter:blur(2px)}
 #veil.on{display:flex}
-#modal{background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);max-width:720px;width:100%;
+#modal{background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);max-width:880px;width:100%;
   max-height:92vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.7)}
 #modal .mh{padding:13px 16px;border-bottom:1px solid var(--line2);display:flex;align-items:center;
   justify-content:space-between;position:sticky;top:0;background:var(--panel);z-index:1}
@@ -350,6 +355,7 @@ table.tbl th.r,table.tbl td.r{text-align:right}
     <div id="ticker"><h5>Flugbetrieb</h5><div id="tkl"></div></div>
     <div id="mapsize"><button id="btnMapSize">Karte grösser</button></div>
     <button id="sideToggle" title="Bedienfeld ein- und ausblenden">⤢</button>
+    <button id="sideWide" title="Bedienfeld verbreitern">▭</button>
     <div id="legend">
       <div><i style="background:var(--green)"></i>Strecke rentabel</div>
       <div><i style="background:var(--red)"></i>Strecke defizitär</div>
@@ -2161,7 +2167,8 @@ function newGame(cfg){
     staff:rollStaff(cfg.home),
     curfewHits:0, tutorial:{done:false, erledigt:{}}, jumpMode:"event",
     dayReport:null, lastStop:null, tarifGesehen:false,
-    boardOn:true, board:null, boardTrust:50,
+    boardOn:true, board:null, boardTrust:50, crewRealism:true,
+    lastPool:0, poolLast:[], lastSeuche:0, sideWide:0,
     flightHistory:[], finTab:"gv",
     lastMonth:null, ownAirports:[] };
   applyDifficulty(cfg.level||"normal");
@@ -2182,6 +2189,13 @@ function cabinOf(ac){
   const t=ACT[ac.type];
   if(!ac.cab){ ac.cab = CABIN_PRESETS[ac.layout&&CABIN_PRESETS[ac.layout]?ac.layout:"standard"].f(t); }
   return ac.cab;
+}
+/** Wer die übliche Tagesauslastung überschreitet, zahlt in der Wartung. */
+function ueberlastFaktor(ac){
+  const sch=scheduleOf(ac);
+  if(!sch.ueberlast) return 1;
+  const anteil=sch.ueberlast/60/Math.max(sch.blockWeek/60,1);
+  return 1+clamp(anteil*1.8, 0, 0.55);
 }
 function acWear(ac){ return clamp((ac.hours||0)/BAL.heavyCheckHrs, 0, 1); }
 function seatsOf(ac){
@@ -2362,6 +2376,12 @@ function routeDiagnose(r){
   if(L.wx>0.35) befund.push("Ein Schlechtwettergebiet drückt Verbrauch und Pünktlichkeit — das ist vorübergehend.");
   const sperr=legs.some(e=>e.leg.issues.length);
   if(sperr) befund.push("Einzelne Flüge verstossen gegen Sperrzeiten oder Pistenlängen und fallen aus der Rechnung.");
+  /* Zu viel des Guten auf einer Strecke */
+  if(L.lf<0.6 && muster.length){
+    const e=empfohleneFrequenz(A,B,muster[0]);
+    if(e && meineFreq>e.f+0.6)
+      befund.push(`Sie fliegen ${fmt(meineFreq,1)} mal täglich; am meisten trägt diese Strecke bei rund ${e.f} Flügen. Jeder weitere Flug holt kaum noch Fahrgäste dazu, kostet aber voll.`);
+  }
   /* Markt */
   if(m.daily<40)
     befund.push(`Der Markt gibt nur ${fmt(m.daily,0)} Passagiere am Tag her, über alle Anbieter. Für tägliche Flüge ist das dünn.`);
@@ -2458,6 +2478,149 @@ function feudUpdate(){
       stopForEvent(3);
     }
   });
+}
+
+
+/* ============================================== Vorschläge im Zusammenhang
+   Am Anfang weiss man nicht, welcher Flughafen sich lohnt oder welches Muster
+   passt. Der Hilfeknopf rechnet das aus der aktuellen Lage aus — keine
+   allgemeinen Ratschläge, sondern konkrete Namen und Zahlen. */
+function AP2fee(a){ return (a&&a.fee!=null)?a.fee*6:6; }
+/** Schätzt, bei welcher Frequenz eine Strecke am meisten trägt. Verwendet
+    dieselbe Marktaufteilung wie die Simulation, damit die genannten Zahlen
+    zu dem passen, was der Spieler später tatsächlich sieht. */
+function empfohleneFrequenz(A,B,type){
+  const t=ACT[type]; if(!t||!A||!B) return null;
+  const m=marketDemand(A,B,S.month);
+  const d=m.d;
+  const kab=CABIN_PRESETS[t.cat==="Grossraum"?"standard":"europa"].f(t);
+  const sitze=seatsOf({type, cab:kab}).total || t.maxSeats*0.85;
+  const komfort=comfortOf({type, cab:kab});
+  const temp={key:routeKey(A.iata,B.iata), from:A.iata<B.iata?A.iata:B.iata,
+    to:A.iata<B.iata?B.iata:A.iata, fare:1, comp:competitorBase(A,B), last:null};
+  const bh=d/t.speed+BAL.taxiHours;
+  /* Neben Treibstoff, Technik und Besatzung fallen Gebühren, Bordservice,
+     Leasing beziehungsweise Abschreibung und Verwaltung an — ohne die wirkt
+     jede Strecke doppelt so gut, wie sie ist. */
+  const kostenLeg = t.burn*bh*S.fuel + t.maint*bh
+    + (2*BAL.pilotHourly+t.cabin*BAL.cabinHourly)*bh
+    + sitze*(AP2fee(A)+AP2fee(B))/2*0.7
+    + sitze*11
+    + t.price*1e6/(BAL.depYears*12*4.345*2)/Math.max(1,10);
+  let beste=null;
+  for(let f=1;f<=8;f++){
+    delete temp.rivals;
+    /* Die Simulation zählt alle Flüge einer Strecke, Hin- und Rückflug
+       zusammen — der Schätzer muss dasselbe tun, sonst stimmt weder Anteil
+       noch Auslastung. */
+    const legs=f*7*2;
+    const split=marketSplit(temp, 1.0, legs, komfort, loyaltyActive());
+    const pax=Math.min(m.weekly*split.share, legs*sitze*0.96);
+    const lf=clamp(pax/(legs*sitze),0,1);
+    /* Erlös mit gemischter Kabine und Zusatzerlösen, wie in der Simulation */
+    const erloes=pax*baseFare(d,"eco")*Math.pow(m.inc,0.35)*1.30;
+    const gewinn=(erloes-legs*kostenLeg)*(1-BAL.overhead);
+    /* Wie viele Flugzeuge bindet das? Eine Maschine schafft rund t.block
+       Stunden am Tag — auf einer Langstrecke ist das schnell erreicht. */
+    const wochenBlock=legs*bh;
+    const flz=Math.max(1, Math.ceil(wochenBlock/(t.block*7)));
+    const jeFlugzeug=gewinn/flz;
+    if(!beste || jeFlugzeug>beste.jeFlugzeug)
+      beste={f, lf, gewinn, anteil:split.share, flz, jeFlugzeug};
+  }
+  delete temp.rivals;
+  return beste;
+}
+function hilfeText(tab){
+  const home=S.bases[0], A=AP[home];
+  const out=[];
+  if(tab==="net" || tab==="ops"){
+    /* Bewertet wird der erwartete Wochengewinn mit dem günstigsten Muster,
+       das die Strecke schafft — nicht die blosse Marktgrösse und schon gar
+       nicht die Abwesenheit von Konkurrenz. */
+    const reichweite = S.fleet.length
+      ? Math.max(...S.fleet.map(a=>ACT[a.type].range))*0.92
+      : 3200;
+    const kandidaten=APL.filter(B=>B.iata!==home && !findRoute(home,B.iata))
+      .map(B=>({B, d:distKm(A,B)}))
+      .filter(x=>x.d>250 && x.d<reichweite && x.B.runway>=1300)
+      .map(x=>{
+        const flotte=S.fleet.filter(a=>ACT[a.type].range>x.d*1.12
+          && ACT[a.type].runway<=Math.min(A.runway,x.B.runway));
+        const typ = flotte.length
+          ? ACT[flotte.sort((a,b)=>ACT[b.type].maxSeats-ACT[a.type].maxSeats)[0].type]
+          : ACTL.filter(t=>t.range>x.d*1.12 && t.runway<=Math.min(A.runway,x.B.runway)
+              && t.price*1e6<Math.max(S.cash*0.6, 30e6))
+            .sort((a,b)=>b.maxSeats-a.maxSeats)[0];
+        if(!typ) return null;
+        const e=empfohleneFrequenz(A, x.B, typ.id);
+        if(!e || e.gewinn<=0) return null;
+        /* Massstab ist der Ertrag je gebundenem Flugzeug — sonst gewinnen
+           immer die weiten, dünnen Strecken mit hohem Ticketpreis. */
+        return Object.assign(x, {typ, e, m:marketDemand(A,x.B,S.month), score:e.jeFlugzeug});
+      }).filter(Boolean)
+      .sort((a,b)=>b.score-a.score).slice(0,5);
+    out.push({t:"Welche Strecken lohnen sich als Nächstes?",
+      b:kandidaten.length?kandidaten.map(x=>
+        `<b>${x.B.iata} · ${esc(x.B.city)}</b> — ${fmt(x.d)} km, Markt ${fmt(x.m.daily,0)} Pax/Tag,
+         Konkurrenz ${fmt(competitorBase(A,x.B)/7,1)} Flüge/Tag.
+         Mit der ${esc(x.typ.name)} wären etwa <b>${x.e.f} Flüge am Tag</b> sinnvoll —
+         rund ${fmt(x.e.lf*100,0)}% voll, geschätzt ${sgn(x.e.gewinn)} pro Woche
+         bei ${x.e.flz} gebundenen Flugzeug${x.e.flz>1?"en":""}.`)
+        :["Mit der heutigen Flotte und Kasse ist keine zusätzliche Strecke sichtbar, die sich trägt. Erst ein passendes Flugzeug beschaffen."]});
+  }
+  if(tab==="fleet" || tab==="market"){
+    const strecken=S.routes.map(r=>distKm(AP[r.from],AP[r.to]));
+    const typ=strecken.length? strecken.reduce((a,b)=>a+b,0)/strecken.length : 900;
+    const budget=S.cash*0.55;
+    const passend=ACTL.filter(t=>t.range>typ*1.2 && t.price*1e6<budget
+      && t.runway<=(A?A.runway:3000))
+      .sort((a,b)=>(a.burn/a.maxSeats)-(b.burn/b.maxSeats)).slice(0,4);
+    out.push({t:"Welches Flugzeug passt zum Netz?",
+      b:passend.length?passend.map(t=>
+        `<b>${esc(t.name)}</b> — ${t.maxSeats} Sitze, ${fmt(t.range)} km Reichweite, ${chf(t.price*1e6)},
+         ${fmt(t.burn/t.maxSeats,1)} kg Treibstoff je Sitz und Stunde. ${
+          t.price*1e6>S.cash*0.35?"Bindet viel Kapital.":"Passt zur Kasse."}`)
+        :[`Für die aktuelle Kasse von ${chf(S.cash)} und Ihre durchschnittliche Streckenlänge von ${fmt(typ)} km gibt es kein passendes Neugerät. Schauen Sie in den Gebrauchtmarkt.`]});
+    const gebraucht=(S.usedMarket||[]).filter(u=>ACT[u.type].range>typ*1.2 && u.price<S.cash*0.5);
+    if(gebraucht.length) out.push({t:"Gebrauchtmarkt",
+      b:gebraucht.map(u=>`<b>${esc(ACT[u.type].name)}</b> für ${chf(u.price)} — ${fmt(u.ageM/12,0)} Jahre alt,
+        ${fmt((1-u.price/(ACT[u.type].price*1e6))*100,0)}% unter Neupreis. Sofort verfügbar, keine Lieferzeit.`)});
+  }
+  if(tab==="staff"){
+    const need=pilotNeed(), cn=cabinNeed();
+    const fehlt=Object.keys(need).filter(k=>(S.pilots[k]||0)<need[k]);
+    out.push({t:"Wie viel Personal brauche ich?",
+      b:[`Der Bedarf richtet sich nach den Blockstunden: eine Besatzung schafft ${BAL.dutyPerCrewWeek} Stunden pro Woche.`,
+         fehlt.length?`Zurzeit fehlen Cockpitmitglieder für ${fehlt.map(k=>RATING_NAME[k]||k).join(", ")}.`
+           :"Das Cockpit ist gedeckt.",
+         S.cabin<cn?`In der Kabine fehlen ${cn-S.cabin} Personen — Flüge fallen aus.`
+           :`Die Kabine ist mit ${S.cabin} von ${cn} nötigen gedeckt${S.cabin>cn*1.1?", mit Reserve":""}.`,
+         "Etwa zehn Prozent Reserve über dem Bedarf verhindert Ausfälle bei Krankheit und hebt die Stimmung."]});
+  }
+  if(tab==="fin"){
+    const L=S.lastMonth;
+    out.push({t:"Woran erkenne ich, ob es läuft?",
+      b:[L?`Umsatzrendite: ${fmt(L.profit/Math.max(L.rev,1)*100,1)}% — unter fünf Prozent ist es dünn, über zwölf gut.`:"Nach dem ersten Monatsabschluss stehen hier Kennzahlen.",
+         L&&L.ask?`Stückkosten ${fmt(L.cost/L.ask*100,2)} Rappen je Sitzkilometer. Billigflieger liegen bei vier bis sechs, Netzcarrier bei acht bis zwölf.`:"",
+         `Liquidität sollte mindestens drei Monatsausgaben decken. Zurzeit: ${L&&L.cost?fmt(S.cash/L.cost,1):"—"} Monate.`].filter(Boolean)});
+  }
+  if(tab==="guest"){
+    out.push({t:"Lohnt sich besserer Service?",
+      b:["In der Economy zählt fast nur der Preis — dort ist Low-Cost oft die richtige Wahl.",
+         "In Business und First wirkt Service dagegen stark: Premium hebt die Buchungsbereitschaft um gut ein Viertel.",
+         "Eine gemischte Flotte ist erlaubt: Ferienflieger auf Basic, Geschäftsstrecken auf Premium."]});
+  }
+  if(!out.length) out.push({t:"Kein Vorschlag für diesen Bereich",
+    b:["Hier gibt es nichts zu empfehlen, was Sie nicht schon sehen."]});
+  return out;
+}
+function hilfeDialog(tab){
+  const l=hilfeText(tab||tab);
+  modal("Vorschläge",
+    l.map(x=>`<h3 class="sub" style="margin-top:10px">${esc(x.t)}</h3>
+      ${x.b.map(y=>`<p style="font-size:12px;line-height:1.6;margin:6px 0">${y}</p>`).join("")}`).join("")
+    +`<p class="dim" style="font-size:11px;margin-top:12px">Berechnet aus Ihrer aktuellen Lage — Kasse, Flotte, Netz und Wettbewerb.</p>`);
 }
 
 /* ========================================================= Was jetzt? ====
@@ -2669,7 +2832,7 @@ function planWeek(ac, sais){
    Startzeit. Ein Tag beginnt dort, wo der Vortag geendet hat — nur so lassen
    sich Langstrecken abbilden, bei denen Hin- und Rückflug an verschiedenen
    Tagen liegen. */
-function emptyDay(){ return {start:390, dests:[], nums:[]}; }
+function emptyDay(){ return {start:390, dests:[], nums:[], holds:[]}; }
 function ensurePlan(ac){
   if(!ac.plan) ac.plan={};
   const p=ac.plan;
@@ -2692,8 +2855,10 @@ function ensurePlan(ac){
       const w=satz[d]||(satz[d]=emptyDay());
       if(!Array.isArray(w.dests)) w.dests=[];
       if(!Array.isArray(w.nums)) w.nums=[];
+      if(!Array.isArray(w.holds)) w.holds=[];
       if(w.start==null) w.start=390;
       w.nums.length=w.dests.length;
+      w.holds.length=w.dests.length;
     }
   });
   return p;
@@ -2778,7 +2943,7 @@ function weekPositions(ac, sais){
 /** Umlauf eines einzelnen Wochentags mit Zeiten und Prüfungen. */
 function scheduleDay(ac, d, fromCode, sais){
   const t=ACT[ac.type], w=dayPlan(ac,d,sais);
-  const legs=[], warn=[];
+  const legs=[], warn=[], hinweise=[];
   let cur=AP[fromCode||ac.base], time=w.start, blockSum=0;
   if(!cur) return {legs, warn:["Standort unbekannt"], duty:0, blockSum:0, endsAt:fromCode};
   const local={};
@@ -2789,8 +2954,16 @@ function scheduleDay(ac, d, fromCode, sais){
     local[pk]=(local[pk]||0)+1;
     const tag=ac.id+"#"+(local[pk]-1);
     const dist=distKm(cur,to), bm=blockMinutes(t,dist);
-    const dep=time, arr=dep+bm;
+    /* Feste Abflugzeit, wenn gesetzt — sonst so früh wie möglich nach der
+       Abfertigung. Nur so lassen sich Abendrückflüge planen. */
+    const fix=(w.holds&&w.holds[i]!=null)?w.holds[i]:null;
+    let dep=time;
+    if(fix!=null){
+      dep = (i===0) ? fix : (fix>=time ? fix : fix+1440*Math.ceil((time-fix)/1440));
+    }
+    const arr=dep+bm;
     const leg={i, day:d, from:cur.iata, to:to.iata, dep, arr, block:bm, dist, issues:[],
+      warte: fix!=null ? Math.max(0, dep-time) : 0, fix: fix!=null,
       no: w.nums[i] || flightNumFor(cur.iata, to.iata, tag)};
     if(dist>t.range*0.97) leg.issues.push("Reichweite");
     if(cur.runway<t.runway) leg.issues.push(`Piste ${cur.iata}`);
@@ -2803,24 +2976,34 @@ function scheduleDay(ac, d, fromCode, sais){
     cur=to;
   });
   const duty=legs.length?legs[legs.length-1].arr-legs[0].dep:0;
-  if(blockSum>t.block*60) warn.push(`${DAYS[d]}: Blockzeit ${(blockSum/60).toFixed(1)} h über dem Tageslimit von ${t.block} h`);
-  if(duty>BAL.maxDuty) warn.push(`${DAYS[d]}: Dienstzeit ${(duty/60).toFixed(1)} h über ${BAL.maxDuty/60} h`);
+  /* Ein Flugzeug hat keine gesetzliche Tagesgrenze. Über der üblichen
+     Auslastung fehlt aber die Zeit für Kontrollen und kleine Reparaturen —
+     das kostet Wartung und erhöht die Ausfallwahrscheinlichkeit. */
+  const ueber = blockSum - t.block*60;
+  if(ueber>0) hinweise.push({art:"auslastung", d,
+    t:`${DAYS[d]}: ${(blockSum/60).toFixed(1)} h Flugzeit — ${(ueber/60).toFixed(1)} h über der üblichen Auslastung von ${t.block} h. Höhere Wartungskosten und Ausfallrisiko.`});
+  /* Die Dienstzeit dagegen ist eine echte Grenze: sie gilt für die Besatzung. */
+  if(duty>BAL.maxDuty) warn.push(`${DAYS[d]}: Dienstzeit ${(duty/60).toFixed(1)} h über der zulässigen Höchstdienstzeit von ${BAL.maxDuty/60} h — die Besatzung darf so nicht fliegen`);
   legs.forEach(l=>{ if(l.issues.length) warn.push(`${DAYS[d]} ${l.from}–${l.to}: ${l.issues.join(", ")}`); });
-  return {legs, warn, duty, blockSum, endsAt: legs.length?legs[legs.length-1].to:(fromCode||ac.base)};
+  return {legs, warn, hinweise, duty, blockSum,
+    ueberlast: Math.max(0, blockSum-t.block*60),
+    endsAt: legs.length?legs[legs.length-1].to:(fromCode||ac.base)};
 }
 /** Der ganze Wochenplan. */
 function scheduleOf(ac, sais){
   const pos=weekPositions(ac, sais);
   const week=[], warn=[];
   let blockWeek=0, flights=0;
+  let ueberlast=0;
+  const hinweise=[];
   for(let d=0;d<7;d++){
     const sd=scheduleDay(ac,d,pos[d],sais);
-    week.push(sd); warn.push(...sd.warn);
-    blockWeek+=sd.blockSum; flights+=sd.legs.length;
+    week.push(sd); warn.push(...sd.warn); hinweise.push(...sd.hinweise);
+    blockWeek+=sd.blockSum; flights+=sd.legs.length; ueberlast+=sd.ueberlast;
   }
   const endsHome = pos[0]===ac.base;
   if(!endsHome) warn.push(`Der Wochenplan endet in ${pos[0]}, nicht an der Basis ${ac.base}`);
-  return {week, pos, warn, blockWeek, flights, endsHome, sais: sais||currentSeason(),
+  return {week, pos, warn, hinweise, ueberlast, blockWeek, flights, endsHome, sais: sais||currentSeason(),
     legs: week.reduce((a,x)=>a.concat(x.legs),[])};
 }
 const planDays = ac => scheduleOf(ac).week.reduce((s,x)=>s+(x.legs.length?1:0),0);
@@ -2873,11 +3056,69 @@ const acValue = ac => ACT[ac.type].price*1e6*Math.max(Math.pow(0.93,ac.age/12),0
 const fleetValue = ()=> S.fleet.reduce((s,ac)=>s+(ac.lease?0:acValue(ac)),0);
 
 /* ----------------------------------------------- Musterberechtigungen --- */
+
+
+/* Kurze Erklärungen zu Begriffen, die Erfahrung voraussetzen. */
+const ERKLAERUNG = {
+  block:{t:"Flugzeit am Tag",
+    b:`<p>Die Summe aller Blockzeiten eines Tages — von der Bewegung am Gate bis zum Stillstand am Ziel, inklusive Rollen.</p>
+       <p><b>Ein Flugzeug hat keine gesetzliche Tagesgrenze.</b> Der angegebene Wert ist die übliche Auslastung, die im Betrieb erreicht wird: Kurzstreckenmuster kommen auf neun bis zehn Stunden, Grossraumflugzeuge auf zwölf bis vierzehn.</p>
+       <p>Wer darüber hinausgeht, presst mehr Flüge aus derselben Maschine — das ist erlaubt und manchmal richtig. Es fehlt dann aber die Zeit für Kontrollen und kleine Reparaturen zwischen den Umläufen. Die Folge: <b>höhere Wartungskosten</b> und ein <b>grösseres Ausfallrisiko</b>. Beides greift ab der ersten Minute über der Marke, nicht schlagartig.</p>
+       <p class="dim">Was hilft: eine Maschine mehr, kürzere Strecken auf dem Umlauf, oder bewusst in Kauf nehmen und die Mehrkosten einrechnen.</p>`},
+  duty:{t:"Dienstzeit der Besatzung",
+    b:`<p>Die Zeit vom ersten Abflug bis zur letzten Landung eines Tages — bei der Besatzung kommen Vorbereitung und Nachbereitung dazu.</p>
+       <p><b>Das ist eine echte Grenze</b>, im Gegensatz zur Flugzeit des Flugzeugs. Über ${'${BAL.maxDuty/60}'} Stunden darf eine Besatzung nicht eingesetzt werden; der Flug findet dann schlicht nicht statt und erscheint als Warnung im Plan.</p>
+       <p>Achtung: Es zählt die <b>gesamte Spanne</b>, nicht nur die Flugzeit. Eine Maschine, die morgens um sechs startet, mittags fünf Stunden steht und abends um zwanzig Uhr zurückfliegt, hat vierzehn Stunden Dienstzeit — auch wenn sie nur sechs Stunden geflogen ist. Lange Standzeiten sind deshalb teurer, als sie aussehen.</p>
+       <p><b>Mehr Personal hilft hier nicht direkt</b>, denn es geht um eine einzelne Besatzung an einem einzelnen Tag. Was hilft:</p>
+       <ul style="padding-left:18px;line-height:1.8">
+         <li>Den Umlauf auf zwei Tage verteilen — Hinflug heute, Rückflug morgen früh.</li>
+         <li>Standzeiten verkürzen, indem der Rückflug früher gesetzt wird.</li>
+         <li>Einen Flug streichen.</li>
+       </ul>
+       <p class="dim">Übernachtet die Maschine auswärts, bleibt die Besatzung mit — dafür braucht es dann zusätzliches Personal. Das lässt sich unter «Einstellungen» abschalten.</p>`},
+  freq:{t:"Sinnvolle Frequenz",
+    b:`<p>Mehr Flüge auf derselben Strecke bringen mehr Marktanteil — aber immer weniger je zusätzlichem Flug. Wer die Konkurrenz bereits deutlich überbietet, gewinnt kaum noch Fahrgäste dazu, füllt aber immer mehr Sitze nicht.</p>
+       <p>Der genannte Wert ist die Frequenz, bei der das Wochenergebnis am höchsten liegt. Darüber steigt zwar der Anteil weiter, der Gewinn aber nicht mehr.</p>
+       <p class="dim">Ein Rechenbeispiel aus dem Spiel: Basel–London mit einem Flugzeug ergibt 26% Anteil bei 51% Auslastung, mit dreien 58% Anteil — aber nur noch 38% Auslastung und weniger Gewinn als mit zweien.</p>`},
+  layover:{t:"Auswärtsübernachtung",
+    b:`<p>Endet ein Tag nicht an der Heimatbasis, steht das Flugzeug über Nacht anderswo — und die Besatzung ebenso. Sie fliegt am Folgetag zurück und ist bis dahin gebunden.</p>
+       <p>Dafür wird zusätzliches Personal gerechnet: eine Besatzung, die zu Hause einspringt, während die andere unterwegs ist. Sichtbar unter «Personal».</p>
+       <p class="dim">Wer lieber ohne diese Feinheit spielt, schaltet sie unter «Einstellungen» ab — dann zählt nur die reine Flugzeit.</p>`}
+};
+function erklaerung(k){
+  const e=ERKLAERUNG[k]; if(!e) return;
+  const body=e.b.replace("${BAL.maxDuty/60}", String(BAL.maxDuty/60));
+  modal(e.t, body);
+}
+
+/* =============================================== Übernachtungen auswärts ==
+   Bleibt ein Flugzeug über Nacht ausserhalb seiner Basis, bleibt auch die
+   Besatzung dort — sie fliegt am nächsten Tag zurück und steht in dieser Zeit
+   nirgends sonst zur Verfügung. Wer so plant, braucht mehr Personal.
+   Abschaltbar unter Einstellungen, dann zählt nur die reine Flugzeit. */
+function layoverDays(ac){
+  const pos=weekPositions(ac);
+  let n=0;
+  for(let d=0;d<7;d++) if(pos[d]!==ac.base) n++;
+  return n;
+}
+function crewRealism(){ return S ? S.crewRealism!==false : true; }
+/** Zusätzliche Besatzungen wegen Auswärtsübernachtungen. */
+function layoverCrews(ac){
+  if(!crewRealism()) return 0;
+  const tage=layoverDays(ac);
+  if(!tage) return 0;
+  return Math.ceil(tage/7*1.35);   // eine Reserve je dauerhaft auswärtiger Maschine
+}
+function layoverTotal(){
+  return S.fleet.filter(a=>a.status==="aktiv").reduce((n,a)=>n+layoverDays(a),0);
+}
+
 function pilotNeed(){
   const need={};
   S.fleet.filter(a=>a.status==="aktiv").forEach(ac=>{
     const t=ACT[ac.type];
-    const crews=Math.ceil(Math.max(acWeeklyBlock(ac),1)/BAL.dutyPerCrewWeek);
+    const crews=Math.ceil(Math.max(acWeeklyBlock(ac),1)/BAL.dutyPerCrewWeek)+layoverCrews(ac);
     need[t.rating]=(need[t.rating]||0)+crews*2;
   });
   return need;
@@ -2886,7 +3127,7 @@ function cabinNeed(){
   let n=0;
   S.fleet.filter(a=>a.status==="aktiv").forEach(ac=>{
     const t=ACT[ac.type];
-    n += Math.ceil(Math.max(acWeeklyBlock(ac),1)/BAL.dutyPerCrewWeek)*t.cabin;
+    n += (Math.ceil(Math.max(acWeeklyBlock(ac),1)/BAL.dutyPerCrewWeek)+layoverCrews(ac))*t.cabin;
   });
   return n;
 }
@@ -4257,7 +4498,8 @@ function monthClose(){
       const leer = neu.every(x=>!x.dests.length);
       const voll = alt.some(x=>x.dests.length);
       if(leer && voll){
-        for(let i=0;i<7;i++) neu[i]={start:alt[i].start, dests:alt[i].dests.slice(), nums:[]};
+        for(let i=0;i<7;i++) neu[i]={start:alt[i].start, dests:alt[i].dests.slice(), nums:[],
+          holds:(alt[i].holds||[]).slice()};
         uebernommen++;
       }
     });
@@ -4723,6 +4965,22 @@ function applyCam(){ const c=document.getElementById("cam");
     document.documentElement.style.setProperty("--maph", MAPH_STEPS[mapStep]);
     bms.textContent = mapStep===2 ? "Karte kleiner" : "Karte grösser";
   });
+  /* Drei Breiten: schmal neben der Karte, breit für Listen und Tabellen,
+     ganz für Auswertungen. Die Wahl bleibt im Spielstand. */
+  const BREITEN=["","w2","w3"], BREITTXT=["▭","▯","▮"];
+  const setzeBreite=(i)=>{
+    const sd=$("#side");
+    sd.classList.remove("w2","w3");
+    if(BREITEN[i]) sd.classList.add(BREITEN[i]);
+    const b=$("#sideWide"); if(b) b.textContent=BREITTXT[i];
+    if(S) S.sideWide=i;
+  };
+  const sw=$("#sideWide");
+  if(sw) sw.addEventListener("click",()=>{
+    const i=(((S&&S.sideWide)||0)+1)%3;
+    setzeBreite(i);
+  });
+  window.__setzeBreite=setzeBreite;
   const stg=$("#sideToggle");
   if(stg) stg.addEventListener("click",()=>{
     const sd=$("#side"); sd.classList.toggle("hid");
@@ -4753,17 +5011,23 @@ document.addEventListener("keydown",e=>{
   if(e.key==="1") setSpeed(1); if(e.key==="2") setSpeed(5); if(e.key==="3") setSpeed(20);
   if(e.key==="j"||e.key==="J"){ e.preventDefault(); jumpAhead((S&&S.jumpMode)||"event"); }
 });
-$("#mX").addEventListener("click",()=>$("#veil").classList.remove("on"));
+$("#mX").addEventListener("click",veilClose);
+/* Sicherheitsnetz: Solange keine Partie läuft, darf kein leerer Bildschirm
+   entstehen — dann kommt immer das Hauptmenü zurück. */
+function veilClose(){
+  $("#veil").classList.remove("on");
+  if(!S) setTimeout(mainMenu, 60);
+}
 $("#veil").addEventListener("click",e=>{
   if(e.target.id!=="veil") return;
   /* Menüfenster lassen sich nicht durch Klick daneben schliessen — sonst
      stünde man vor einem leeren Bildschirm ohne Weg zurück. */
   if($("#veil").dataset.fest==="1") return;
-  $("#veil").classList.remove("on");
+  veilClose();
 });
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && $("#veil").classList.contains("on") && $("#veil").dataset.fest!=="1")
-    $("#veil").classList.remove("on");
+    veilClose();
 });
 function modal(title,html,btns,fest){
   $("#mBody").onclick=null;
@@ -4792,6 +5056,7 @@ function applyBrand(){
     : markSVG(L,30);
 }
 function render(){ if(S){ recomputeWeek(); buildDaySchedule(); }
+  if(window.__setzeBreite) window.__setzeBreite((S&&S.sideWide)||0);
   syncMapStyle(); applyBrand(); renderHeader(); renderMap(); renderPane(); renderTicker(); }
 function renderHeader(){
   if(!S) return;
@@ -4828,6 +5093,13 @@ function renderPane(){
     staff:paneStaff,charter:paneCharter,guest:paneGuest,ach:paneAch,
     brand:paneBrand,data:paneData})[tab](p);
   buildTabs(true);
+  /* Vorschläge im Zusammenhang — nur dort, wo es etwas zu empfehlen gibt */
+  if(S && ["ops","net","fleet","market","staff","fin","guest"].includes(tab)){
+    const b=document.createElement("button");
+    b.id="hilfeBtn"; b.textContent="Vorschläge";
+    b.onclick=()=>hilfeDialog(tab);
+    p.appendChild(b);
+  }
 }
 
 /* ------------------------------------------------------------ Lage ----- */
@@ -4852,7 +5124,8 @@ function paneOps(p){
     h+=`<h3 class="sub">Vormonat</h3><div class="grid3">
       <div class="tile"><b>${chf(L.rev)}</b><span>Umsatz</span></div>
       <div class="tile"><b class="${cls(L.profit)}">${sgn(L.profit)}</b><span>Ergebnis</span></div>
-      <div class="tile"><div class="row" style="justify-content:center">${donut(L.lf,52)}</div><span>Sitzladefaktor</span></div>
+      <div class="tile"><div class="row" style="justify-content:center">${donut(L.lf,52)}</div>
+        <span>Sitzladefaktor · ${ringText(L.lf)}</span></div>
       <div class="tile"><b>${fmt(Math.round(L.pax/30))}</b><span>Pax pro Tag</span></div>
       <div class="tile"><b>${fmt(L.flights/30,1)}</b><span>Flüge pro Tag</span></div>
       <div class="tile"><b>${fmt(L.block,0)}</b><span>Blockstunden</span></div>
@@ -5073,6 +5346,16 @@ function routeDetail(key){
       if(rest>0.01) parts.push({n:"übrige", v:rest, c:"#4a5c70"});
       return `<label class="f">Marktanteile</label>${stackBar(parts,12)}${stackLegend(parts)}`;
     })():""}
+    ${(()=>{ const legs=weeklyLegs()[r.key]||[];
+      const typ=legs.length?legs[0].ac.type:ACTL.filter(t=>t.range>d*1.15).sort((a,b)=>a.price-b.price)[0];
+      const tid=typeof typ==="string"?typ:(typ&&typ.id);
+      const e=tid?empfohleneFrequenz(AP[r.from],AP[r.to],tid):null;
+      if(!e) return "";
+      const jetzt=L&&L.ok?L.flights/7:0;
+      return `<div class="kv"><span>Sinnvolle Frequenz
+        <button class="hlp" data-hlp="freq">?</button></span>
+        <span>${e.f} Flüge pro Tag mit ${esc(ACT[tid].name)} · ${e.flz} Flugzeug${e.flz>1?"e":""} gebunden${
+          jetzt?` · zurzeit ${fmt(jetzt,1)}`:""}</span></div>`;})()}
     <div class="kv"><span>Wettbewerb gesamt</span><span>${fmt(r.comp/7,1)} Flüge pro Tag</span></div>
     <div class="kv"><span>Wettbewerber auf der Strecke</span><span>${
       rivalsOn(r).length ? rivalsOn(r).map(v=>{const x=rivalById(v.id);
@@ -5139,6 +5422,7 @@ function routeDetail(key){
       $("#veil").classList.remove("on"); render();}}]);
   $("#fare").oninput=e=>$("#fv").textContent=e.target.value;
   $("#fhist").onclick=()=>flightHistoryDialog({key:r.key});
+  $("#mBody").querySelectorAll("[data-hlp]").forEach(b=>b.onclick=()=>erklaerung(b.dataset.hlp));
   $("#diag").onclick=()=>{
     const b=routeDiagnose(r);
     $("#diagbox").innerHTML=`<div class="card" style="border-color:var(--blue)">
@@ -5359,7 +5643,10 @@ function paneFleet(p){
   ensureArt(Array.from(new Set(S.fleet.map(a=>a.type))));
   let h=`<h2 class="sec">Flotte — ${SEASON_NAME[currentSeason()]}</h2>
   <p class="dim" style="font-size:11px;margin:-4px 0 9px">Gilt bis ${currentSeason()==="sommer"?"Ende Oktober":"Ende März"}. Der andere Flugplan wird getrennt geführt.</p>
-  <div class="row" style="margin-bottom:9px"><button class="sm" id="posterBtn">Flottenposter</button></div>
+  <div class="row" style="margin-bottom:9px"><button class="sm" id="posterBtn">Flottenposter</button>
+    <button class="sm" data-hlp2="block">Was heisst Auslastung?</button>
+    <button class="sm" data-hlp2="duty">Was heisst Dienstzeit?</button>
+    ${crewRealism()?`<button class="sm" data-hlp2="layover">Auswärtsübernachtung</button>`:""}</div>
   <div class="fleetgrid">`;
   if(S.orders.length){
     h+=`<h3 class="sub">Auftragsbuch</h3>`;
@@ -5399,7 +5686,10 @@ function paneFleet(p){
       ${weekTimelineHTML(ac, -1)}
       <div style="margin-top:6px">`;
     if(sch.flights){
-      h+=`<div class="kv"><span>Blockzeit</span><span>${fmt(wb,1)} h pro Woche · max ${t.block} h pro Tag</span></div>
+      h+=`<div class="kv"><span>Flugzeit</span><span>${fmt(wb,1)} h pro Woche${
+        sch.ueberlast?` · <span class="warn2">${fmt(sch.ueberlast/60,1)} h über der üblichen Auslastung</span>`:""}</span></div>
+        ${crewRealism()&&layoverDays(ac)?`<div class="kv"><span>Auswärtsnächte</span>
+          <span>${layoverDays(ac)} pro Woche · ${layoverCrews(ac)} zusätzliche Besatzung${layoverCrews(ac)>1?"en":""}</span></div>`:""}
           <div class="kv"><span>Betriebstage · Wochenschluss</span>
             <span>${days} · <span class="${sch.endsHome?'pos':'neg'}">${sch.endsHome?"Basis":sch.pos[0]}</span></span></div>`;
       const first=sch.week.find(x=>x.legs.length);
@@ -5408,7 +5698,8 @@ function paneFleet(p){
           ${l.issues.length?`<br><span class="neg">${esc(l.issues.join(", "))}</span>`:`<br>${legStatHTML(ac,l.day,l.i)}`}</span>
         <span>${fmt(l.block/60,1)} h</span></div>`);
     } else h+=`<span class="dim" style="font-size:11.5px">Ohne Flugplan verdient dieses Flugzeug nichts, kostet aber Abschreibung und Standgebühren.</span>`;
-    sch.warn.slice(0,4).forEach(x=>h+=`<div class="pill bad" style="margin-top:4px;display:inline-block">${esc(x)}</div> `);
+    sch.warn.slice(0,3).forEach(x=>h+=`<div class="pill bad" style="margin-top:4px;display:inline-block">${esc(x)}</div> `);
+    (sch.hinweise||[]).slice(0,2).forEach(x=>h+=`<div class="pill warn" style="margin-top:4px;display:inline-block">${esc(x.t)}</div> `);
     h+=`</div><div class="row" style="margin-top:8px">
         <button class="sm primary" data-plan="${ac.id}">Wochenplan</button>
         <button class="sm" data-trim="${ac.id}">Schwache Flüge streichen</button>
@@ -5422,6 +5713,7 @@ function paneFleet(p){
   h+=`</div>`;
   p.innerHTML=h;
   const pb2=$("#posterBtn"); if(pb2) pb2.onclick=posterDialog;
+  p.querySelectorAll("[data-hlp2]").forEach(b=>b.onclick=()=>erklaerung(b.dataset.hlp2));
   p.querySelectorAll("[data-plan]").forEach(b=>b.onclick=()=>planDialog(b.dataset.plan));
   p.querySelectorAll("[data-trim]").forEach(b=>b.onclick=()=>trimPlan(b.dataset.trim));
   p.querySelectorAll("[data-svc]").forEach(b=>b.onclick=()=>serviceDialog(b.dataset.svc));
@@ -5449,8 +5741,9 @@ function trimPlan(id){
     });
     if(!drop.size) continue;
     const w=planWeek(ac)[d], dests=[], nums=[];
-    w.dests.forEach((x,i)=>{ if(!drop.has(i)){ dests.push(x); nums.push(w.nums[i]); } });
-    w.dests=dests; w.nums=nums; dropped+=drop.size;
+    const holds=[];
+    w.dests.forEach((x,i)=>{ if(!drop.has(i)){ dests.push(x); nums.push(w.nums[i]); holds.push(w.holds[i]); } });
+    w.dests=dests; w.nums=nums; w.holds=holds; dropped+=drop.size;
   }
   if(!dropped){ toast("Alle Flüge tragen sich — nichts zu streichen."); return; }
   ensurePlan(ac);
@@ -5505,9 +5798,14 @@ function planDialog(id){
             `<button class="${i===d?'on':''}" data-d="${i}">${dn}</button>`).join("")}</div></div>
       </div>
       ${timelineHTML(ac, d)}
-      <div class="kv" style="margin-top:6px"><span>Blockzeit / Tageslimit</span>
-        <span class="${dayS.blockSum>t.block*60?'neg':''}">${fmt(dayS.blockSum/60,1)} von ${t.block} h</span></div>
-      <div class="kv"><span>Dienstzeit</span><span class="${dayS.duty>BAL.maxDuty?'neg':''}">${fmt(dayS.duty/60,1)} h</span></div>
+      <div class="kv" style="margin-top:6px"><span>Flugzeit am Tag
+          <button class="hlp" data-hlp="block">?</button></span>
+        <span class="${dayS.ueberlast?'warn2':''}">${fmt(dayS.blockSum/60,1)} h${
+          dayS.ueberlast?` · ${fmt(dayS.ueberlast/60,1)} h über der üblichen Auslastung`:` von rund ${t.block} h üblich`}</span></div>
+      <div class="kv"><span>Dienstzeit der Besatzung
+          <button class="hlp" data-hlp="duty">?</button></span>
+        <span class="${dayS.duty>BAL.maxDuty?'neg':''}">${fmt(dayS.duty/60,1)} von höchstens ${BAL.maxDuty/60} h</span></div>
+      ${sch.week[d].hinweise.map(x=>`<div class="pill warn" style="display:inline-block;margin:4px 4px 0 0">${esc(x.t)}</div>`).join("")}
       <div class="kv"><span>Abfertigung je Zwischenhalt</span><span>${t.turn} min${hasUpgrade(ac.base,"boden")?" · eigene Abfertigung −10 min":""}</span></div>
       <p class="dim" style="font-size:11px;margin:6px 0 0">Landet an einer Station 35 bis 240 Minuten vor dem Abflug ein eigener Zubringer, buchen Umsteiger mit — bis zu 30% zusätzliche Nachfrage. Nachfrage nach Tageszeit: 05–08 Uhr Morgenspitze, 11–15 Uhr Mittagsloch, 18–22 Uhr Abendspitze.</p>
       <h3 class="sub">Umlauf am ${DAYS[d]}</h3>`;
@@ -5519,11 +5817,19 @@ function planDialog(id){
             <span class="dim mono" style="font-size:11px"> ab ${hhmmD(l.dep)} · an ${hhmmD(l.arr)} · ${fmt(l.block/60,1)} h · ${fmt(l.dist)} km</span>
             <br><span style="font-size:11px">${legStatHTML(ac,l.day,l.i)}</span></div>
           <button class="sm" data-del="${i}">Entfernen</button></div>
+        <div class="row" style="margin-top:6px;gap:7px;align-items:center">
+          <label class="f" style="margin:0;flex:0 0 auto">Abflug</label>
+          <input type="time" data-hold="${i}" value="${hhmm((l.dep%1440+1440)%1440)}" style="width:104px">
+          ${l.fix?`<button class="sm" data-free="${i}">frühestmöglich</button>`:`<span class="dim" style="font-size:10.5px">frühestmöglich — Zeit setzen für einen späteren Abflug</span>`}
+          ${l.warte>30?`<span class="pill">${fmt(l.warte/60,1)} h Standzeit</span>`:""}
+        </div>
         ${l.issues.length?`<div class="pill bad" style="margin-top:4px;display:inline-block">${esc(l.issues.join(" · "))}</div>`:""}
       </div>`;
     });
     h+=`<div class="row" style="margin:8px 0">
-      ${last!==ac.base?`<button class="sm primary" id="rethome">Rückflug nach ${ac.base} anhängen</button>`:""}
+      ${last!==ac.base?`<button class="sm primary" id="rethome">Rückflug nach ${ac.base} anhängen</button>
+        <button class="sm" id="retabend">Rückflug am Abend</button>
+        <button class="sm" id="retmorgen">Rückflug am Folgetag</button>`:""}
       <button class="sm" id="fillday">Tag automatisch füllen</button>
       <button class="sm" id="clearp">Tag leeren</button>
       <button class="sm" id="copyall">Auf alle Tage übertragen</button>
@@ -5538,17 +5844,40 @@ function planDialog(id){
     $("#pstart").onchange=e=>{ const [H,M]=e.target.value.split(":").map(Number);
       w.start=clamp((H||0)*60+(M||0),0,1439); draw(); };
     $("#pdays").querySelectorAll("button").forEach(b=>b.onclick=()=>{ PLAN_DAY=+b.dataset.d; draw(); });
+    $("#pw").querySelectorAll("[data-hlp]").forEach(b=>b.onclick=()=>erklaerung(b.dataset.hlp));
     $("#pw").querySelectorAll(".wkrow").forEach(r=>r.onclick=()=>{ PLAN_DAY=+r.dataset.wd; draw(); });
     $("#pw").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
-      const ix=+b.dataset.del; w.dests.splice(ix,1); w.nums.splice(ix,1); draw(); });
+      const ix=+b.dataset.del; w.dests.splice(ix,1); w.nums.splice(ix,1); w.holds.splice(ix,1); draw(); });
+    $("#pw").querySelectorAll("[data-hold]").forEach(el=>el.onchange=()=>{
+      const ix=+el.dataset.hold, [H,M]=el.value.split(":").map(Number);
+      w.holds[ix]=clamp((H||0)*60+(M||0),0,1439);
+      if(ix===0) w.start=w.holds[0];
+      draw(); });
+    $("#pw").querySelectorAll("[data-free]").forEach(b=>b.onclick=()=>{
+      w.holds[+b.dataset.free]=null; draw(); });
     const rh=$("#rethome"); if(rh) rh.onclick=()=>{ w.dests.push(ac.base); ensurePlan(ac); draw(); };
+    const ra=$("#retabend");
+    if(ra) ra.onclick=()=>{
+      w.dests.push(ac.base); ensurePlan(ac);
+      w.holds[w.dests.length-1]=19*60;       // Abflug 19:00 am selben Tag
+      draw(); };
+    const rm=$("#retmorgen");
+    if(rm) rm.onclick=()=>{
+      /* Der Rückflug wandert auf den nächsten Wochentag — die Maschine und
+         ihre Besatzung übernachten auswärts. */
+      const n=(d+1)%7, Z=planWeek(ac);
+      Z[n]={start:7*60, dests:[ac.base].concat(Z[n].dests), nums:[],
+        holds:[7*60].concat(Z[n].holds||[])};
+      ensurePlan(ac); PLAN_DAY=n; draw();
+      toast(`Rückflug auf ${DAYS[n]} gelegt — Besatzung übernachtet in ${last}.`); };
     $("#clearp").onclick=()=>{ w.dests=[]; w.nums=[]; draw(); };
     $("#clearweek").onclick=()=>{
       const Z=planWeek(ac); for(let i=0;i<7;i++) Z[i]=emptyDay(); ensurePlan(ac); draw(); };
     $("#copyseason").onclick=()=>{
       const von = sais==="sommer" ? p.winter : p.week;
       const nach= sais==="sommer" ? p.week   : p.winter;
-      for(let i=0;i<7;i++) nach[i]={start:von[i].start, dests:von[i].dests.slice(), nums:[]};
+      for(let i=0;i<7;i++) nach[i]={start:von[i].start, dests:von[i].dests.slice(), nums:[],
+        holds:(von[i].holds||[]).slice()};
       ensurePlan(ac); draw();
       toast(`${SEASON_NAME[sais]} vom anderen Flugplan übernommen.`); };
     $("#copyall").onclick=()=>{ copyDay(0,7); };
@@ -5558,7 +5887,7 @@ function planDialog(id){
       const Z=planWeek(ac);
       for(let i=0;i<count;i++){
         if(i===d) continue;
-        Z[i]={start:w.start, dests:w.dests.slice(), nums:[]};
+        Z[i]={start:w.start, dests:w.dests.slice(), nums:[], holds:w.holds.slice()};
       }
       if(count<7) for(let i=count;i<7;i++) Z[i]=emptyDay();
       ensurePlan(ac); draw();
@@ -5758,7 +6087,7 @@ function paneMarket(p){
         <div class="kv"><span>Reichweite · Reise</span><span>${fmt(t.range)} km · ${t.speed} km/h</span></div>
         <div class="kv"><span>Verbrauch · Wartung</span><span>${fmt(t.burn)} kg/h · ${fmt(t.maint)} CHF/h</span></div>
         <div class="kv"><span>Piste · Crew · Abfertigung</span><span>${fmt(t.runway)} m · ${t.cabin} · ${t.turn} min</span></div>
-        <div class="kv"><span>Blockzeit je Tag</span><span>max ${t.block} h</span></div>
+        <div class="kv"><span>Übliche Tagesauslastung</span><span>${t.block} h Flugzeit</span></div>
         <div class="kv"><span>Frachtkapazität</span><span>${fmt(CARGO_T[t.id]||0,1)} t im Unterdeck</span></div>
         <div class="kv"><span>Musterberechtigung</span><span class="${have?'pos':''}">${RATING_NAME[t.rating]}${have?" — vorhanden":""}</span></div>
         <div class="kv"><span>Lieferzeit</span><span>${t.lead} Monate</span></div>
@@ -6062,9 +6391,25 @@ function finTable(zeilen, ref){
 
 /* ================================================ Kleine Infografiken ====
    Zahlen sind schneller zu erfassen, wenn sie eine Form haben. */
+/* Vier Stufen, immer gleich gelesen: rot schlecht, gelb knapp, hellgrün in
+   Ordnung, grün gut. */
+const RING_STUFEN = [
+  {bis:0.55, c:"#e2695f", t:"schlecht"},
+  {bis:0.68, c:"#e0c33a", t:"knapp"},
+  {bis:0.84, c:"#8fd694", t:"in Ordnung"},
+  {bis:1.01, c:"#3fb96a", t:"gut"}
+];
+function ringFarbe(v){
+  const st=RING_STUFEN.find(x=>v<x.bis)||RING_STUFEN[RING_STUFEN.length-1];
+  return st.c;
+}
+function ringText(v){
+  const st=RING_STUFEN.find(x=>v<x.bis)||RING_STUFEN[RING_STUFEN.length-1];
+  return st.t;
+}
 function donut(pct, size, label, col){
   const r=size/2-3.5, c=2*Math.PI*r, v=clamp(pct,0,1);
-  const color=col||(v>0.88?"#e0c33a":v>0.62?"#5fcf95":v>0.45?"#e0a13a":"#e2695f");
+  const color=col||ringFarbe(v);
   return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="donut">
     <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="rgba(140,170,200,.18)" stroke-width="4"/>
     <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="4"
@@ -6131,7 +6476,10 @@ function paneStaff(p){
   <div class="card"><div class="kv"><span>Stimmung in der Belegschaft</span>
     <span style="color:${relColor((S.rel||{}).crew||0)}">${fmt((S.rel||{}).crew||0,0)} · ${relLabel((S.rel||{}).crew||0)}</span></div>
     <div class="bar"><i style="width:${(S.rel||{}).crew||0}%;background:${relColor((S.rel||{}).crew||0)}"></i></div>
-    <p class="dim" style="font-size:11px;margin-top:6px">Steigt mit Reserve über dem Bedarf und anständiger Bezahlung, sinkt bei Dauerbelastung und Ausfällen. Unter 42 werden Forderungen laut.</p></div>
+    <p class="dim" style="font-size:11px;margin-top:6px">Steigt mit Reserve über dem Bedarf und anständiger Bezahlung, sinkt bei Dauerbelastung und Ausfällen. Unter 42 werden Forderungen laut.</p>
+    ${crewRealism()&&layoverTotal()?`<div class="kv" style="margin-top:7px"><span>Auswärtsübernachtungen</span>
+      <span>${layoverTotal()} Nächte pro Woche · ${S.fleet.reduce((n,a)=>n+layoverCrews(a),0)} zusätzliche Besatzungen nötig</span></div>
+      <p class="dim" style="font-size:10.5px">Wer Langstrecken mit Rückflug am Folgetag plant, braucht mehr Personal — die Besatzung übernachtet mit. Unter «Einstellungen» abschaltbar.</p>`:""}</div>
   <p class="dim">Cockpitcrews sind an eine Musterberechtigung gebunden. Der Bedarf richtet sich nach den geplanten Blockstunden: ${BAL.dutyPerCrewWeek} Stunden pro Crew und Woche.</p>
   <h3 class="sub">Cockpit nach Musterberechtigung</h3>`;
   if(!rats.length) h+=`<div class="empty"><b>Noch keine Berechtigungen</b>Sobald ein Muster bestellt ist, können Sie ausbilden.</div>`;
@@ -7024,6 +7372,12 @@ function paneData(p){
       <div style="flex:1"><b>Vorgaben des Verwaltungsrats</b><br>
         <span class="dim" style="font-size:10.5px">Alle drei Monate eine Zielvorgabe. Erfüllt bringt Kapital und Kreditspielraum, verfehlt kostet beides. Wer lieber frei aufbaut, schaltet sie ab.</span></div>
       <button class="sm ${S.boardOn?'primary':''}" id="boardTgl">${S.boardOn?"an":"aus"}</button></div>
+    <div class="row" style="justify-content:space-between;margin-top:10px;padding-top:9px;border-top:1px solid var(--line)">
+      <div style="flex:1"><b>Besatzungen übernachten auswärts</b><br>
+        <span class="dim" style="font-size:10.5px">Bleibt ein Flugzeug über Nacht ausserhalb der Basis, bleibt die Besatzung dort und fehlt zu Hause. Das kostet zusätzliches Personal, ist aber realitätsnah. Ausgeschaltet zählt nur die reine Flugzeit.</span></div>
+      <button class="sm ${crewRealism()?'primary':''}" id="crewTgl">${crewRealism()?"an":"aus"}</button></div>
+    ${crewRealism()&&S.fleet.length?`<div class="kv" style="margin-top:7px"><span>Auswärtsnächte pro Woche</span>
+      <span>${layoverTotal()} · dafür ${S.fleet.reduce((n,a)=>n+layoverCrews(a),0)} zusätzliche Besatzungen</span></div>`:""}
     ${S.boardOn?`<div class="kv" style="margin-top:7px"><span>Vertrauen des Rats</span>
       <span style="color:${relColor(S.boardTrust||50)}">${fmt(S.boardTrust||50,0)} von 100</span></div>
       <div class="bar"><i style="width:${S.boardTrust||50}%;background:${relColor(S.boardTrust||50)}"></i></div>
@@ -7060,9 +7414,16 @@ function paneData(p){
     <div class="kv"><span>Ertrag Referenz</span><span>${fmt(BAL.yieldBase,3)} CHF je Pax-km</span></div>
     <div class="kv"><span>Rollzeit je Flug</span><span>${fmt(BAL.taxiHours*60,0)} min</span></div>
     <div class="kv"><span>Dienstzeit je Crew</span><span>${BAL.dutyPerCrewWeek} h pro Woche</span></div>
-    <div class="kv"><span>Höchstdienstzeit je Tag</span><span>${BAL.maxDuty/60} h</span></div>
+    <div class="kv"><span>Höchstdienstzeit der Besatzung</span><span>${BAL.maxDuty/60} h je Tag</span></div>
     <div class="kv"><span>Zeitfluss</span><span>1 Realsekunde = 1 Spielstunde bei 1×</span></div>
     <div class="kv"><span>Wettbewerb</span><span>${(S.rivals||[]).length} benannte Gesellschaften, wöchentliche Reaktion</span></div></div>`;
+  const ct=$("#crewTgl");
+  if(ct) ct.onclick=()=>{
+    S.crewRealism = !crewRealism();
+    logg(S.crewRealism?"Auswärtsübernachtungen zählen wieder zum Personalbedarf."
+      :"Auswärtsübernachtungen zählen nicht mehr zum Personalbedarf.","");
+    render();
+  };
   const bt=$("#boardTgl");
   if(bt) bt.onclick=()=>{
     S.boardOn=!S.boardOn;
@@ -7268,6 +7629,7 @@ function adoptSave(d){
   if(!S.staff) S.staff=rollStaff(S.bases[0]);
   if(!S.feud) S.feud={};
   if(!S.chronik) S.chronik=[];
+  if(S.crewRealism==null) S.crewRealism=true;
   S.fleet.forEach(ac=>{ if(!ac.plan) ac.plan={start:390,dests:[],days:[1,1,1,1,1,1,1],nums:[]};
     if(!ac.plan) ac.plan={};
     if(!ac.cab) ac.cab=CABIN_PRESETS[ACT[ac.type].cat==="Grossraum"?"standard":"europa"].f(ACT[ac.type]);
@@ -7509,7 +7871,7 @@ function startExisting(idx){
       let guard=0;
       while(guard++<8){
         const sch=scheduleOf(ac);
-        const bad = sch.week.some(x=>x.blockSum>t.block*60 || x.duty>BAL.maxDuty
+        const bad = sch.week.some(x=>x.blockSum>t.block*60*1.05 || x.duty>BAL.maxDuty
           || x.legs.some(l=>l.issues.length));
         if(!bad) break;
         for(let d=0;d<7;d++){ planWeek(ac)[d].dests.splice(-2,2); planWeek(ac)[d].nums.splice(-2,2); }
@@ -8073,7 +8435,7 @@ function setTab(t){
 
 /* Fassungskennung — steht im Hauptmenü und unter Daten. So lässt sich auf
    einen Blick prüfen, welcher Stand tatsächlich auf dem Server liegt. */
-const APP_VERSION = "2026-08-28b · Chronik, Rivalen, Befund";
+const APP_VERSION = "2026-08-29b · Vorschläge & Ereignisvielfalt";
 
 
 
@@ -8330,6 +8692,153 @@ function jumpReportHTML(){
   </div>`;
 }
 
+
+/* ============================================ Ereignisse mit Abwechslung ==
+   Nicht häufiger, sondern vielfältiger: Aus einem Vorrat wird höchstens alle
+   paar Tage eines gezogen, und was zuletzt kam, wird eine Weile gemieden.
+   So wiederholt sich nichts, ohne dass der Spieler ständig gestört wird. */
+const EVENT_POOL = [
+ {id:"vogelschlag", w:8, art:"stoerung", von:"tech",
+  gilt:()=>S.fleet.some(a=>a.status==="aktiv"),
+  bau:()=>{ const ac=pick(S.fleet.filter(a=>a.status==="aktiv"));
+    const kosten=Math.round(rnd(60,220))*1000;
+    return {subj:`Vogelschlag bei ${ac.reg}`, kurz:"Triebwerksbefund nötig", stufe:3,
+      body:`<p>Beim Steigflug ab ${ac.base} ist ein Vogel ins rechte Triebwerk geraten. Die Besatzung ist umgekehrt, es ist niemandem etwas geschehen.</p>
+        <p class="dim">Bis zur Freigabe muss die Maschine geprüft werden — wie gründlich, entscheiden Sie.</p>`,
+      optionen:[
+        {l:`Vollständige Prüfung (${chf(kosten)})`, d:"Ein Tag Ausfall, danach ist die Sache erledigt.",
+         kosten, f:()=>{ cancelToday(ac.id); addBlock({art:"ac",wert:ac.id,bis:S.clock+DAYMS,grund:"Triebwerksprüfung"}); }},
+        {l:"Sichtprüfung und weiterfliegen", d:"Kein Ausfall — dafür ein Risiko in den nächsten Wochen.",
+         f:()=>{ ac.hours=(ac.hours||0)+900; S.rel.crew=clamp(S.rel.crew-3,0,100); }}]};}},
+
+ {id:"lotsenstreik", w:9, art:"stoerung", von:"ops",
+  gilt:()=>S.routes.length>2,
+  bau:()=>{ const land=pick(Array.from(new Set(S.routes.map(r=>AP[r.to].country))));
+    const tage=Math.round(rnd(1,3));
+    return {subj:`Fluglotsen in ${land} streiken`, kurz:`${tage} Tage eingeschränkt`, stufe:2,
+      body:`<p>Die Flugsicherung in <b>${esc(land)}</b> legt die Arbeit für rund ${tage} Tage nieder. Überflüge und Landungen sind stark eingeschränkt.</p>`,
+      wirkung:()=>{ S.routes.forEach(r=>{ if(AP[r.to].country===land||AP[r.from].country===land)
+        addBlock({art:"wx", wert:AP[r.to].country===land?r.to:r.from, bis:S.clock+DAYMS*tage, grund:"Lotsenstreik"}); }); }};}},
+
+ {id:"gepaeck", w:7, art:"stoerung", von:"station",
+  gilt:()=>S.bases.length>0,
+  bau:()=>{ const b=pick(S.bases);
+    return {subj:`Gepäckanlage in ${b} ausgefallen`, kurz:"Verspätungen den ganzen Tag", stufe:2,
+      body:`<p>In <b>${b}</b> steht die Gepäcksortierung seit dem frühen Morgen still. Die Flüge gehen, das Gepäck bleibt.</p>
+        <p class="dim">Nachsendungen und Entschädigungen kosten Geld, der Ruf leidet.</p>`,
+      wirkung:()=>{ S.cash-=Math.round(rnd(40,160))*1000; S.rep=clamp(S.rep-1.4,5,99);
+        S.rel.airports=clamp(S.rel.airports-2,0,100); }};}},
+
+ {id:"abwerbung", w:8, art:"personal", von:"crew",
+  gilt:()=>Object.values(S.pilots||{}).some(v=>v>4),
+  bau:()=>{ const x=pick(S.rivals.filter(r=>r.model!=="regional"))||{name:"eine andere Gesellschaft"};
+    const n=Math.round(rnd(3,9));
+    return {subj:`${x.name} wirbt Cockpitpersonal ab`, kurz:`${n} Personen abgeworben`, stufe:3,
+      body:`<p><b>${esc(x.name)}</b> bietet unseren Kapitänen deutlich mehr. ${n} Personen haben bereits gekündigt.</p>
+        <p class="dim">Stimmung der Belegschaft: ${fmt((S.rel||{}).crew||0,0)} von 100.</p>`,
+      optionen:[
+        {l:"Gehälter anpassen", d:"6% mehr Personalkosten, dafür bleiben sie.",
+         f:()=>{ BAL.pilotPay=Math.round(BAL.pilotPay*1.06); S.rel.crew=clamp(S.rel.crew+10,0,100); }},
+        {l:"Ziehen lassen und neu ausbilden", d:"Günstiger, dauert aber Monate.",
+         f:()=>{ const k=Object.keys(S.pilots)[0];
+           if(k) S.pilots[k]=Math.max(0,S.pilots[k]-n);
+           S.rel.crew=clamp(S.rel.crew-4,0,100); }}]};}},
+
+ {id:"gebuehren", w:8, art:"behoerde", von:"legal",
+  gilt:()=>S.bases.length>0,
+  bau:()=>{ const b=pick(S.bases), pct=Math.round(rnd(6,18));
+    return {subj:`${b} erhöht die Gebühren um ${pct}%`, kurz:"Neue Entgeltordnung", stufe:3,
+      body:`<p>Der Flughafen <b>${b}</b> hebt die Entgelte an. Betroffen sind alle Starts und Landungen ab dieser Station.</p>`,
+      optionen:[
+        {l:"Hinnehmen", d:"Die Kosten steigen dauerhaft.",
+         f:()=>{ AP[b].fee*=1+pct/100; }},
+        {l:"Verhandeln, dafür Wachstum zusagen", d:"Halbe Erhöhung, aber Sie binden sich an die Station.",
+         f:()=>{ AP[b].fee*=1+pct/200; S.rel.airports=clamp(S.rel.airports+4,0,100); }},
+        {l:"Öffentlich Druck machen", d:"Riskant — kann die Beziehung beschädigen.",
+         f:()=>{ if(Math.random()<0.45){ S.rel.airports=clamp(S.rel.airports+2,0,100); }
+           else { AP[b].fee*=1+pct/100; S.rel.airports=clamp(S.rel.airports-9,0,100); } }}]};}},
+
+ {id:"sponsor", w:6, art:"chance", von:"sales",
+  gilt:()=>S.rep>50,
+  bau:()=>{ const geld=Math.round(rnd(0.6,2.4)*1e6);
+    return {subj:"Anfrage für eine Sonderbemalung", kurz:`${chf(geld)} für zwei Jahre`, stufe:3,
+      body:`<p>Ein Unternehmen möchte eine Maschine in seinen Farben sehen und bietet <b>${chf(geld)}</b> für zwei Jahre.</p>
+        <p class="dim">Geld ohne Gegenleistung gibt es selten. Manche Fluggäste finden es billig.</p>`,
+      optionen:[
+        {l:"Annehmen", d:"Sofort Geld, etwas Ruf.", f:()=>{ S.cash+=geld; S.rep=clamp(S.rep-1.5,5,99); }},
+        {l:"Ablehnen", d:"Die eigene Bemalung bleibt unangetastet.", f:()=>{ S.rep=clamp(S.rep+0.6,5,99); }}]};}},
+
+ {id:"kerosin", w:7, art:"betrieb", von:"ops",
+  gilt:()=>S.bases.length>0,
+  bau:()=>{ const b=pick(S.bases);
+    return {subj:`Kerosinengpass in ${b}`, kurz:"Betankung eingeschränkt", stufe:2,
+      body:`<p>Ein Ausfall in der Pipeline nach <b>${b}</b> zwingt zur Rationierung. Für einige Tage muss anderswo getankt werden, was Umwege und Mehrgewicht bedeutet.</p>`,
+      wirkung:()=>{ S.fuelPenalty=(S.fuelPenalty||1)*1.04;
+        S.cash-=Math.round(rnd(30,120))*1000; }};}},
+
+ {id:"vip", w:6, art:"chance", von:"sales",
+  gilt:()=>S.fleet.some(a=>a.status==="aktiv"),
+  bau:()=>{ const geld=Math.round(rnd(0.15,0.6)*1e6);
+    return {subj:"Kurzfristige Charteranfrage", kurz:`${chf(geld)} für ein Wochenende`, stufe:3,
+      body:`<p>Eine Delegation sucht kurzfristig eine Maschine für ein Wochenende und zahlt <b>${chf(geld)}</b>.</p>
+        <p class="dim">Die Maschine fehlt dann zwei Tage im Linienbetrieb.</p>`,
+      optionen:[
+        {l:"Annehmen", d:"Zwei Tage Ausfall für eine Maschine.",
+         f:()=>{ const ac=pick(S.fleet.filter(a=>a.status==="aktiv"));
+           if(ac){ S.cash+=geld; addBlock({art:"ac",wert:ac.id,bis:S.clock+DAYMS*2,grund:"Charterauftrag"}); } }},
+        {l:"Ablehnen", d:"Der Flugplan bleibt unangetastet.", f:()=>{}}]};}},
+
+ {id:"cyber", w:5, art:"stoerung", von:"legal",
+  gilt:()=>S.routes.length>4,
+  bau:()=>({subj:"Buchungssystem gestört", kurz:"Ausfall über Stunden", stufe:2,
+    body:`<p>Das Buchungssystem war einen halben Tag nicht erreichbar. Verkäufe sind ausgefallen, Umbuchungen mussten von Hand erledigt werden.</p>`,
+    wirkung:()=>{ S.cash-=Math.round(rnd(80,340))*1000; S.rep=clamp(S.rep-0.8,5,99); }})},
+
+ {id:"rueckruf", w:5, art:"behoerde", von:"tech",
+  gilt:()=>S.fleet.length>2,
+  bau:()=>{ const t=pick(Array.from(new Set(S.fleet.map(a=>a.type))));
+    const kosten=Math.round(rnd(0.3,1.4)*1e6);
+    return {subj:`Herstellerrückruf für ${ACT[t].name}`, kurz:"Nachrüstung nötig", stufe:3,
+      body:`<p>Der Hersteller ruft eine Baugruppe zurück. Betroffen sind alle ${S.fleet.filter(a=>a.type===t).length} Maschinen dieses Musters.</p>`,
+      optionen:[
+        {l:`Sofort nachrüsten (${chf(kosten)})`, d:"Kostet Geld, aber keine Standzeit.",
+         kosten, f:()=>{}},
+        {l:"Fristgerecht bei der nächsten Wartung", d:"Kostenlos, dafür höheres Ausfallrisiko bis dahin.",
+         f:()=>{ S.fleet.filter(a=>a.type===t).forEach(a=>a.hours=(a.hours||0)+1200); }}]};}},
+
+ {id:"presse", w:6, art:"markt", von:"sales",
+  gilt:()=>S.history.length>2,
+  bau:()=>{ const gut=S.rep>65;
+    return {subj:gut?"Gute Bewertung im Branchenblatt":"Verriss im Branchenblatt",
+      kurz:gut?"Ruf steigt":"Ruf sinkt", stufe:2,
+      body:gut
+        ? `<p>Ein Fachmagazin lobt Pünktlichkeit und Personal. Der Beitrag wird breit aufgenommen.</p>`
+        : `<p>Ein Fachmagazin nimmt uns auseinander: Verspätungen, mürrisches Personal, enge Sitze.</p>`,
+      wirkung:()=>{ S.rep=clamp(S.rep+(gut?2.5:-2.5),5,99); }};}}
+];
+/** Zieht höchstens alle paar Tage ein Ereignis, und nie dasselbe zweimal kurz
+    hintereinander. */
+function rollPoolEvent(){
+  const abstand = 6 + Math.floor(Math.random()*8);
+  if((S.clock-(S.lastPool||0)) < DAYMS*abstand) return;
+  const zuletzt=S.poolLast||[];
+  const moeglich=EVENT_POOL.filter(e=>{
+    if(zuletzt.includes(e.id)) return false;
+    try{ return e.gilt(); }catch(x){ return false; }
+  });
+  if(!moeglich.length) return;
+  let sum=moeglich.reduce((a,e)=>a+e.w,0), roll=Math.random()*sum, gewaehlt=moeglich[0];
+  for(const e of moeglich){ roll-=e.w; if(roll<=0){ gewaehlt=e; break; } }
+  let m;
+  try{ m=gewaehlt.bau(); }catch(x){ return; }
+  if(!m) return;
+  S.lastPool=S.clock;
+  S.poolLast=[gewaehlt.id].concat(zuletzt).slice(0,4);
+  const mail=mailAdd(Object.assign({kind:gewaehlt.art, von:gewaehlt.von}, m));
+  if(m.wirkung && !m.optionen){ try{ m.wirkung(); }catch(x){} }
+  stopForEvent(m.stufe||2);
+}
+
 /* ========================================================== Störungen ====
    Keine Würfelwürfe aus dem Nichts: Jede Störung hat einen Auslöser im
    Zustand der Gesellschaft. Alte Flotte bricht öfter, Crews ohne Reserve
@@ -8384,7 +8893,8 @@ function rollDisruptions(){
     if(blockActive("ac",ac.id)) return;
     const alter=ac.age/12, nutzung=(ac.hours||0)/BAL.heavyCheckHrs;
     const hangar=hasUpgrade(ac.base,"hangar")?0.6:1;
-    const pFail=(0.0011 + alter*0.00028 + nutzung*0.0022)*hangar*relRisk().airports;
+    const last=(ueberlastFaktor(ac)-1);
+    const pFail=(0.0011 + alter*0.00028 + nutzung*0.0022 + last*0.004)*hangar*relRisk().airports;
     if(Math.random()>pFail) return;
     const heute=(S.daySched||[]).filter(f=>f.ac===ac.id && !f.done);
     const ort = heute.length ? heute[0].from : ac.base;
@@ -8446,7 +8956,11 @@ function rollDisruptions(){
 
   /* 3 — Krankheitswelle, wenn keine Reserve da ist */
   const reserve=(S.crewFactor||1);
-  if(reserve<1.02 && Math.random()<0.02*relRisk().crew && !blockActive("crew","all")){
+  /* Eine Grippewelle ist ein seltenes Ereignis, kein Wochenrhythmus: nur bei
+     echter Unterdeckung, höchstens einmal im Quartal. */
+  const seuchePause = (S.clock - (S.lastSeuche||0)) > DAYMS*90;
+  if(reserve<0.99 && seuchePause && Math.random()<0.0022*relRisk().crew && !blockActive("crew","all")){
+    S.lastSeuche=S.clock;
     addBlock({art:"crew", wert:"all", bis:S.clock+DAYMS*3, grund:"Krankheitswelle"});
     const betroffen=aktiv.slice(0,Math.max(1,Math.round(aktiv.length*0.25)));
     let n=0; betroffen.forEach(ac=>{ n+=cancelToday(ac.id).n; });
@@ -8527,6 +9041,9 @@ function rollDisruptions(){
       stopForEvent(2);
     }
   }
+
+  /* Vielfalt aus dem Vorrat — höchstens alle paar Tage eines */
+  rollPoolEvent();
 
   /* 8 — Musterstilllegung: Klumpenrisiko der Einheitsflotte */
   if(Math.random()<0.0016){
@@ -8911,6 +9428,7 @@ function startDialog(){
         [{t:"Angehalten lassen",f:()=>$("#veil").classList.remove("on")},
          {t:"Uhr starten",p:true,f:()=>{$("#veil").classList.remove("on"); setSpeed(1);}}]),380);
     }}]);
+  $("#veil").dataset.fest="1";
   $("#mX").style.display="none";
   const upd=()=>{ const v=DIFFICULTY[$("#gl").value]; $("#gld").textContent=v?v.d:""; };
   $("#gl").onchange=upd; upd();
