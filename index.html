@@ -8018,56 +8018,69 @@ function showAirport(iata){
    Basen, Personal und ein funktionierendes Streckennetz sind vorhanden, dafür
    ist auch der Handlungsspielraum enger. Bewusst mittelgrosse Gesellschaften —
    ein Weltkonzern wäre als Ausgangslage reizlos. */
+
+const LAGE = {
+  laeuft:     {t:"läuft",        d:"Der Betrieb trägt sich vom ersten Monat an. Guter Einstieg.",
+               col:"var(--green)"},
+  angespannt: {t:"angespannt",   d:"Knapp defizitär. Streichen, umschichten und Kosten senken sind gefragt.",
+               col:"var(--amber)"},
+  sanierung:  {t:"Sanierungsfall", d:"Deutliche Verluste ab dem ersten Tag. Nur für erfahrene Spieler.",
+               col:"var(--red)"}
+};
 const LEGACY_AIRLINES = [
- {id:"helvetic", name:"Helvetic Airways", code:"2L", icao:"OAW", bases:["ZRH","BRN"],
+ {id:"helvetic", lage:"laeuft", name:"Helvetic Airways", code:"2L", icao:"OAW", bases:["ZRH","BRN"],
   cash:34, rep:66, liv:{c1:"#c8102e",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"linie",glyph:"kreuz"},
   fleet:[["e29e",3,0],["at72",2,1]],
   dests:["MUC","VIE","HAM","BER","PMI","OLB","IBZ","CTA","PRG","BRI","FLR","JMK"],
   txt:"Regionalairline im Wet-Lease-Geschäft. Kleine Flotte, kurze Strecken, wenig Puffer — der anspruchsvollste Einstieg."},
  {id:"edelweiss", name:"Edelweiss Air", code:"WK", icao:"EDW", bases:["ZRH"],
-  cash:62, rep:74, liv:{c1:"#e2453a",c2:"#ffffff",body:"weiss",tail:"bogen",stripe:"schwung",glyph:"gipfel"},
-  fleet:[["a20n",3],["a21n",1],["a339",1]],
-  dests:["PMI","HER","RHO","LCA","HRG","AGA","DJE","CPT","MRU","PUJ","VAR","FUE"],
-  txt:"Ferienflieger mit gemischter Flotte. Starke Saison im Sommer, schwacher Winter — Auslastung steuern ist alles."},
- {id:"luxair", name:"Luxair", code:"LG", icao:"LGL", bases:["LUX"],
+  cash:62, rep:74, difficulty:"normal", lage:"laeuft",
+  liv:{c1:"#e2453a",c2:"#ffffff",body:"weiss",tail:"bogen",stripe:"schwung",glyph:"gipfel"},
+  fleet:[["a20n",5],["a21n",2],["a21x",1]],
+  dests:["PMI","AYT","AGP","ALC","IBZ","CTA","NAP","PMO","LPA","TFS","OLB","HER","FAO","CAG",
+         "HRG","SSH","DBV","SPU","TIV","MLA","TUN"],
+  txt:"Ferienflieger mit gemischter Flotte. Starke Sommersaison, schwacher Winter — Auslastung steuern ist alles.",
+  hinweis:"Die Flotte ist auf Mittelstrecke ausgelegt. Fernziele lohnen sich erst, wenn genug Umsteiger aus dem eigenen Netz zufliegen."},
+ {id:"luxair", lage:"laeuft", name:"Luxair", code:"LG", icao:"LGL", bases:["LUX"],
   cash:48, rep:70, liv:{c1:"#0b3a8f",c2:"#f2c200",body:"weiss",tail:"diagonale",stripe:"linie",glyph:"raute"},
   fleet:[["dh8d",3],["e29e",2],["b38m",1]],
   dests:["CDG","FRA","MUC","LHR","BCN","FCO","MXP","LIS","PMI","DUB","VIE","HAM"],
   txt:"Nationale Airline eines kleinen Landes. Hohe Kaufkraft am Standort, aber ein winziger Heimatmarkt."},
- {id:"airbaltic", name:"airBaltic", code:"BT", icao:"BTI", bases:["RIX"],
+ {id:"airbaltic", lage:"laeuft", name:"airBaltic", code:"BT", icao:"BTI", bases:["RIX"],
   cash:56, rep:68, liv:{c1:"#8ac53f",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"schwung",glyph:"chevron"},
   fleet:[["bcs3",5]],
   dests:["TLL","VNO","HEL","ARN","CPH","OSL","BER","FRA","AMS","LGW","MUC","WAW","VIE","DUB"],
   txt:"Einheitsflotte im Baltikum. Wartung und Ausbildung sind günstig, weil alles dasselbe Muster ist."},
- {id:"croatia", name:"Croatia Airlines", code:"OU", icao:"CTN", bases:["ZAG"],
+ {id:"croatia", lage:"angespannt", name:"Croatia Airlines", code:"OU", icao:"CTN", bases:["ZAG"],
   cash:41, rep:64, liv:{c1:"#0b3d91",c2:"#d7192d",body:"weiss",tail:"diagonale",stripe:"linie",glyph:"raute"},
   fleet:[["dh8d",3],["a20n",2]],
   dests:["SPU","DBV","PUY","FRA","MUC","VIE","ZRH","CDG","AMS","LHR","BRU","CPH"],
   txt:"Zubringer für die grossen Netze, dazu Ferienverkehr an die Adria. Chronisch knapp bei Kasse."},
- {id:"aegean", name:"Aegean Airlines", code:"A3", icao:"AEE", bases:["ATH","SKG"],
+ {id:"aegean", lage:"laeuft", name:"Aegean Airlines", code:"A3", icao:"AEE", bases:["ATH","SKG"],
   cash:78, rep:76, liv:{c1:"#0a4fa0",c2:"#ffffff",body:"weiss",tail:"bogen",stripe:"schwung",glyph:"schwinge"},
   fleet:[["a20n",5],["a21n",2]],
   dests:["HER","RHO","JMK","JTR","CFU","LCA","FCO","MXP","MUC","FRA","CDG","LHR","VIE","TLV"],
   txt:"Solide aufgestellt, starke Sommersaison, gute Bewertungen. Der bequemste der bestehenden Betriebe."},
- {id:"icelandair", name:"Icelandair", code:"FI", icao:"ICE", bases:["KEF"],
+ {id:"icelandair", lage:"angespannt", name:"Icelandair", code:"FI", icao:"ICE", bases:["KEF"],
   cash:70, rep:72, liv:{c1:"#0d5fbf",c2:"#ffffff",body:"weiss",tail:"welle",stripe:"schwung",glyph:"welle"},
   fleet:[["b38m",3],["b763",1]],
   dests:["LHR","CPH","OSL","AMS","CDG","FRA","JFK","BOS","YYZ","SEA","MAD","MUC"],
   txt:"Drehscheibe zwischen Europa und Nordamerika. Das ganze Modell steht und fällt mit den Umsteigern."},
- {id:"brussels", name:"Brussels Airlines", code:"SN", icao:"BEL", bases:["BRU"],
+ {id:"brussels", lage:"laeuft", name:"Brussels Airlines", code:"SN", icao:"BEL", bases:["BRU"],
   cash:88, rep:71, liv:{c1:"#0b3a8f",c2:"#ffffff",body:"weiss",tail:"streifen",stripe:"linie",glyph:"scheibe"},
   fleet:[["a20n",4],["a21n",2],["a339",1]],
   dests:["LHR","CDG","FCO","MAD","LIS","VIE","CPH","ARN","JFK","ADD","NBO","DKR","LOS","CMN"],
   txt:"Europäisches Netz plus Afrika-Langstrecke. Grösser, aber mit teurer Kostenbasis."},
- {id:"finnair", name:"Finnair", code:"AY", icao:"FIN", bases:["HEL"],
+ {id:"finnair", lage:"laeuft", name:"Finnair", code:"AY", icao:"FIN", bases:["HEL"],
   cash:96, rep:78, liv:{c1:"#0b2b6b",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"linie",glyph:"raute"},
   fleet:[["a20n",4],["a21n",2],["a359",1]],
   dests:["ARN","CPH","OSL","LHR","CDG","AMS","FRA","MUC","RIX","TLL","BKK","HND","ICN","DEL"],
   txt:"Kurze Wege nach Asien über den Norden. Langstrecke trägt das Ergebnis, Europa füllt die Flieger."},
- {id:"transavia", name:"Transavia", code:"HV", icao:"TRA", bases:["AMS","RTM"],
+ {id:"transavia", lage:"angespannt", name:"Transavia", code:"HV", icao:"TRA", bases:["AMS","RTM"],
   cash:74, rep:60, liv:{c1:"#0d7a4a",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"band",glyph:"chevron"},
   fleet:[["b38m",5]],
-  dests:["PMI","ALC","AGP","FAO","IBZ","HER","AYT","TFS","LPA","NCE","BCN","LIS","RAK","HRG"],
+  dests:["PMI","ALC","AGP","FAO","IBZ","AYT","TFS","LPA","BCN","LIS","NAP","CTA","OPO","VLC",
+         "SVQ","BGY","PSA","MLA","SPU","DBV","TIA","KRK","BUD","OTP"],
   txt:"Billigflieger mit Einheitsflotte und Ferienzielen. Marge über Menge, Ruf ist zweitrangig."}
 ];
 
@@ -8398,6 +8411,8 @@ function startExisting(idx){
   S.cabin=Math.ceil(cabinNeed()*1.08);
   seedNetwork(dests);
   S.fleet.forEach(ac=>{ if(!scheduleOf(ac).flights) seedLongHaul(ac, dests); });
+  /* Letzter, sanfter Abgleich: nur die stärksten Überkapazitäten kappen */
+  seedBalance(0.48);
 
   /* Personal nach Bedarf, mit etwas Reserve */
   const need=pilotNeed(); S.pilots={};
@@ -8763,6 +8778,7 @@ function startScenario(id){
   for(const k in needV) S.pilots[k]=Math.ceil(needV[k]*1.05);
   S.cabin=Math.ceil(cabinNeed()*1.05);
   seedNetwork(dests);
+  seedBalance(0.48);
 
   /* Wer an einem Tag nicht hin und zurück kommt, fliegt über Nacht */
   S.fleet.forEach(ac=>{ if(!scheduleOf(ac).flights) seedLongHaul(ac, dests); });
@@ -8916,7 +8932,7 @@ function setTab(t){
 
 /* Fassungskennung — steht im Hauptmenü und unter Daten. So lässt sich auf
    einen Blick prüfen, welcher Stand tatsächlich auf dem Server liegt. */
-const APP_VERSION = "2026-08-30c · Flugplantafel";
+const APP_VERSION = "2026-08-31 · Startpaket & Ausgangslage";
 
 
 
@@ -10078,7 +10094,9 @@ function legacyDialog(){
         <div style="flex:1"><div class="t">${esc(A.name)}
           <span class="dim">${A.code}${A.icao?" · "+A.icao:""}</span></div>
           <div class="d">${esc(A.txt)}</div>
-          <div class="d" style="margin-top:3px">${A.bases.join(" · ")} · ${cnt} Flugzeuge · ${A.fleet.map(([t,n])=>n+"× "+esc(ACT[t].name.split(" (")[0])).join(", ")}</div></div>
+          <div class="d" style="margin-top:3px">${A.bases.join(" · ")} · ${cnt} Flugzeuge · ${A.fleet.map(([t,n])=>n+"× "+esc(ACT[t].name.split(" (")[0])).join(", ")}</div>
+          ${A.lage?`<div style="margin-top:4px"><span class="pill" style="border-color:${LAGE[A.lage].col};color:${LAGE[A.lage].col}">${LAGE[A.lage].t}</span>
+            <span class="dim" style="font-size:10px"> ${esc(LAGE[A.lage].d)}</span></div>`:""}</div>
         <div class="mono" style="text-align:right">${A.cash} Mio<br><span class="dim">Ruf ${A.rep}</span></div></div>`;}).join("")}</div>`,
     [{t:"Zurück",f:mainMenu}], true);
   $("#lgl").onclick=e=>{
@@ -10089,10 +10107,13 @@ function legacyDialog(){
         ? `<div style="padding:10px 0 12px"><img src="${esc(artFor(A.icao,"long"))}" alt=""
              style="height:34px;max-width:100%;object-fit:contain;display:block"></div>`:""}
        <p>${esc(A.txt)}</p>
+       ${A.hinweis?`<p class="dim">${esc(A.hinweis)}</p>`:""}
        <div class="card">
          <div class="kv"><span>Basen</span><span>${A.bases.map(b=>b+" — "+esc(AP[b].city)).join("<br>")}</span></div>
          <div class="kv"><span>Flotte</span><span>${A.fleet.map(([t,n])=>n+"× "+esc(ACT[t].name)).join("<br>")}</span></div>
          <div class="kv"><span>Startkapital · Ruf</span><span>${A.cash} Mio CHF · ${A.rep}</span></div>
+         ${A.lage?`<div class="kv"><span>Ausgangslage</span>
+           <span style="color:${LAGE[A.lage].col}">${LAGE[A.lage].t} — ${esc(LAGE[A.lage].d)}</span></div>`:""}
          <div class="kv"><span>Netz</span><span>${A.dests.slice(0,10).join(" ")}${A.dests.length>10?" …":""}</span></div>
        </div>
        <p class="dim">Name, Bemalung und Flugpläne lassen sich danach frei ändern. Die Gesellschaft verschwindet aus dem Wettbewerb.</p>`,
@@ -10114,6 +10135,72 @@ function legacyDialog(){
 }
 
 /* ========================================================== Startdialog */
+
+/* ========================================================= Startpaket ====
+   Ohne Flugzeug wartet man Monate auf die erste Auslieferung — für den
+   Einstieg der sicherste Weg, das Spiel wegzulegen. Deshalb steht bei der
+   Gründung eine gebrauchte Maschine bereit, sofort verfügbar, mit einer
+   ersten Strecke im Plan. Wer lieber selbst aufbaut, wählt das reine Kapital. */
+const PAKETE = {
+  regional:{n:"Zwei gebrauchte Regionalflugzeuge",
+    d:"Sofort verfügbar. Kleine Kabine, dafür füllen sich auch dünne Strecken. Zwei Ziele sind eingeplant.",
+    anzahl:2, cat:"Regional"},
+  schmal:{n:"Ein gebrauchter Schmalrumpf",
+    d:"Sofort verfügbar. Mehr Sitze je Flug, braucht aber einen Markt, der sie füllt. Ein Ziel ist eingeplant.",
+    anzahl:1, cat:"Schmalrumpf"},
+  kapital:{n:"Kein Flugzeug, dafür mehr Kapital",
+    d:"25% mehr Startkapital. Sie kaufen selbst — im Gebrauchtmarkt sofort, als Neubestellung mit Lieferzeit.",
+    anzahl:0}
+};
+/** Passendes Gebrauchtmuster für den gewählten Standort. */
+function paketMuster(home, cat){
+  const A=AP[home]; if(!A) return null;
+  const kand=ACTL.filter(t=>t.cat===cat && t.runway<=A.runway && t.price<160)
+    .sort((a,b)=>b.maxSeats-a.maxSeats);
+  if(!kand.length) return null;
+  /* Nicht das grösste nehmen, sondern eines, das der Markt auch füllt */
+  const markt=APL.filter(B=>B.iata!==home).map(B=>marketDemand(A,B,S?S.month:6).daily)
+    .sort((a,b)=>b-a);
+  const gross=markt.length?markt[0]:200;
+  return kand.find(t=>t.maxSeats<=gross*0.55) || kand[kand.length-1];
+}
+function paketVerfuegbar(home, key){
+  if(key==="kapital") return true;
+  return !!paketMuster(home, PAKETE[key].cat);
+}
+/** Baut das gewählte Paket auf: Maschinen, erste Strecken, Personal. */
+function paketAufbauen(key){
+  const P=PAKETE[key]; if(!P) return;
+  if(key==="kapital"){ S.cash=Math.round(S.cash*1.25); return; }
+  const t=paketMuster(S.bases[0], P.cat);
+  if(!t){ S.cash=Math.round(S.cash*1.25); return; }
+  const A=AP[S.bases[0]];
+  let ausgabe=0;
+  for(let i=0;i<P.anzahl;i++){
+    const alter=Math.round(rnd(96,168));
+    const ac=addAircraft(t.id,false,S.bases[0],alter);
+    ac.hours=Math.round(rnd(0.2,0.5)*BAL.heavyCheckHrs);
+    ausgabe += t.price*1e6*gebrauchtWert(alter);
+  }
+  S.cash-=Math.round(ausgabe);
+  /* Erste Ziele: die tragfähigsten, die dieses Muster erreicht */
+  const ziele=APL.filter(B=>B.iata!==A.iata && B.runway>=t.runway && distKm(A,B)<t.range*0.9)
+    .map(B=>({c:B.iata, m:marketDemand(A,B,S.month).daily}))
+    .filter(x=>x.m>40).sort((a,b)=>b.m-a.m).slice(0,6).map(x=>x.c);
+  const need=pilotNeed(); S.pilots={};
+  for(const k in need) S.pilots[k]=Math.max(2,need[k]);
+  S.cabin=Math.max(4,cabinNeed());
+  seedNetwork(ziele);
+  const n2=pilotNeed(); S.pilots={};
+  for(const k in n2) S.pilots[k]=Math.ceil(n2[k]*1.1);
+  S.cabin=Math.ceil(cabinNeed()*1.1);
+  recomputeWeek(); buildDaySchedule();
+}
+/** Restwert einer gebrauchten Maschine nach Alter in Monaten. */
+function gebrauchtWert(alterM){
+  return clamp(Math.pow(0.92, alterM/12), 0.18, 1);
+}
+
 function startDialog(){
   const suggest=["BSL","ZRH","GVA","VIE","CPH","DUB","LIS","BER","MAN","OSL","HEL","PRG","BUD",
                  "EDI","KEF","TLV","AKL","YVR","MDE","CMN","BLR","BRN","LUG"];
@@ -10133,6 +10220,9 @@ function startDialog(){
      <select id="gl">${Object.entries(DIFFICULTY).map(([k,v])=>
        `<option value="${k}" ${k==="normal"?"selected":""}>${v.n} — ${v.cash} Mio Startkapital, Elastizität ${v.elasticity}</option>`).join("")}</select>
      <p class="dim" id="gld" style="font-size:11px;margin-top:4px"></p>
+     <h3 class="sub">Startpaket</h3>
+     <p class="dim" style="font-size:11px;margin-top:0">Eine Neubestellung braucht Monate. Damit Sie nicht warten müssen, steht eine gebrauchte Maschine bereit — bezahlt aus dem Startkapital.</p>
+     <div id="gpk"></div>
      <h3 class="sub">Gestaltung</h3><div id="lvEd0"></div>`,
     [{t:"Zurück",f:mainMenu},
      {t:"Betrieb aufnehmen",p:true,f:()=>{
@@ -10141,6 +10231,7 @@ function startDialog(){
       L.code=code;
       const fs0=clamp(+$("#gf").value||100,10,8000);
       newGame({name,code,home:$("#gh").value,level:$("#gl").value,livery:L,flightStart:fs0});
+      paketAufbauen(paket);
       $("#veil").classList.remove("on"); $("#veil").dataset.fest="0"; $("#mX").style.display="";
       focusAirport(S.bases[0]);
       recomputeWeek(); buildDaySchedule(); render(); setSpeed(0);
@@ -10152,13 +10243,31 @@ function startDialog(){
           <li>Unter <b>Netz → Marktanalyse</b> sehen Sie, wie viele Passagiere pro Tag ein Städtepaar überhaupt hergibt.</li>
           <li>Oben rechts läuft die Uhr. Mit <b>❚❚</b> anhalten, mit <b>1×</b>, <b>5×</b> und <b>20×</b> beschleunigen — oder die Leertaste drücken.</li>
         </ol>
+        ${S.fleet.length?`<p class="pos">${S.fleet.length} Maschine${S.fleet.length>1?"n":""} steht bereit, ${S.routes.length} Strecke${S.routes.length>1?"n":""} ist eingeplant. Sie können sofort starten.</p>`:""}
         <p class="dim">Im Lagebild stehen die ersten vier Handgriffe. Die Simulation hält bei wichtigen Ereignissen von selbst an — und mit ▶▶ springen Sie gleich dorthin.</p>`,
         [{t:"Angehalten lassen",f:()=>$("#veil").classList.remove("on")},
          {t:"Uhr starten",p:true,f:()=>{$("#veil").classList.remove("on"); setSpeed(1);}}]),380);
     }}]);
   $("#veil").dataset.fest="1";
   $("#mX").style.display="none";
-  const upd=()=>{ const v=DIFFICULTY[$("#gl").value]; $("#gld").textContent=v?v.d:""; };
+  let paket="regional";
+  const updPaket=()=>{
+    const home=$("#gh").value;
+    $("#gpk").innerHTML=Object.entries(PAKETE).map(([k,P])=>{
+      const t=k==="kapital"?null:paketMuster(home,P.cat);
+      const geht=k==="kapital"||!!t;
+      if(!geht) return "";
+      const kosten=t?Math.round(t.price*1e6*gebrauchtWert(132))*P.anzahl:0;
+      return `<div class="choice ${paket===k?'on':''}" data-pk="${k}">
+        <div><div class="t">${P.n}</div><div class="d">${P.d}</div>
+          ${t?`<div class="d" style="margin-top:3px">${P.anzahl}× ${esc(t.name.split(" (")[0])} ·
+            ${t.maxSeats} Sitze · rund ${chf(kosten)}</div>`:""}</div>
+        <div class="mono amb">${paket===k?"✓":""}</div></div>`;}).join("");
+    $("#gpk").querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{ paket=b.dataset.pk; updPaket(); });
+    if(!paketVerfuegbar(home,paket)) { paket="kapital"; updPaket(); }
+  };
+  $("#gh").addEventListener("change", updPaket);
+  const upd=()=>{ const v=DIFFICULTY[$("#gl").value]; $("#gld").textContent=v?v.d:""; updPaket(); };
   $("#gl").onchange=upd; upd();
   liveryEditor($("#lvEd0"), L, ()=>{}, ()=>($("#gc").value||"XX").toUpperCase().slice(0,3));
 }
