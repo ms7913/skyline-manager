@@ -236,18 +236,38 @@ body.lightmap #mapinfo h4{color:#a8620d}
   border-radius:var(--r);padding:6px 9px;font-family:var(--mono);font-size:11px;display:none;z-index:5;
   white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,.6)}
 
-#tabs{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--line2);background:rgba(9,15,26,.55);
+#tabs{display:flex;flex-direction:column;border-bottom:1px solid var(--line2);background:rgba(9,15,26,.55);
   padding:2px 2px 0;gap:1px}
 #tabs button{border:none;border-radius:3px 3px 0 0;background:transparent;padding:8px 10px;font-family:var(--disp);
   font-size:13.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);flex:1 1 auto;
   border-bottom:2px solid transparent;white-space:nowrap;min-width:66px}
+.tabreihe{display:flex;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.tabreihe::-webkit-scrollbar{display:none}
+.tabreihe.zwei{border-top:1px solid var(--line)}
+.tabreihe.zwei button{font-size:10.5px;opacity:.85}
+.tabreihe.zwei button.on{opacity:1}
+@media(max-width:880px){
+  .tabreihe{flex-wrap:nowrap}
+  .tabreihe button{flex:1 1 0;min-width:0}
+  .tabreihe.zwei button{font-size:9px}
+}
 #tabs button .badge{display:inline-block;min-width:16px;height:16px;line-height:16px;
   padding:0 4px;margin-left:5px;border-radius:9px;background:var(--red);color:#fff;
   font-family:var(--mono);font-size:10px;font-weight:600;text-align:center;vertical-align:middle}
 #tabs button.on .badge{background:var(--red)}
 @media(max-width:880px){
   #tabs button .ic{position:relative}
-  #tabs button .badge{position:absolute;top:-5px;left:9px;margin:0;font-size:9px;
+  .tabreihe{display:flex;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.tabreihe::-webkit-scrollbar{display:none}
+.tabreihe.zwei{border-top:1px solid var(--line)}
+.tabreihe.zwei button{font-size:10.5px;opacity:.85}
+.tabreihe.zwei button.on{opacity:1}
+@media(max-width:880px){
+  .tabreihe{flex-wrap:nowrap}
+  .tabreihe button{flex:1 1 0;min-width:0}
+  .tabreihe.zwei button{font-size:9px}
+}
+#tabs button .badge{position:absolute;top:-5px;left:9px;margin:0;font-size:9px;
     min-width:14px;height:14px;line-height:14px}
 }
 .mailrow{display:flex;gap:9px;align-items:flex-start;padding:9px 10px;border-bottom:1px solid var(--line);
@@ -353,13 +373,19 @@ table.tbl th.r,table.tbl td.r{text-align:right}
 #veil{position:fixed;inset:0;background:rgba(3,7,14,.86);display:none;z-index:40;align-items:center;
   justify-content:center;padding:16px;backdrop-filter:blur(2px)}
 #veil.on{display:flex}
-#modal{background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);max-width:880px;width:100%;
-  max-height:92vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.7)}
+/* Fenster nehmen den grössten Teil des Bildschirms ein und stehen mittig —
+   was man anklickt, soll man auch lesen können. */
+#modal{background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);
+  width:min(1180px, 84vw); max-width:none;
+  max-height:88vh; display:flex; flex-direction:column;
+  box-shadow:0 24px 60px rgba(0,0,0,.7)}
+#modal .mb{flex:1 1 auto;overflow-y:auto;min-height:0}
+@media(min-width:1500px){ #modal{width:min(1320px, 76vw)} }
 #modal .mh{padding:13px 16px;border-bottom:1px solid var(--line2);display:flex;align-items:center;
   justify-content:space-between;position:sticky;top:0;background:var(--panel);z-index:1}
 #modal .mh h3{font-family:var(--disp);font-size:17px;letter-spacing:.13em;text-transform:uppercase;margin:0;
   color:var(--amber);font-weight:600}
-#modal .mb{padding:16px}
+#modal .mb{padding:18px 20px}
 #modal .mf{padding:12px 16px;border-top:1px solid var(--line2);display:flex;gap:8px;justify-content:flex-end;
   position:sticky;bottom:0;background:var(--panel);flex-wrap:wrap}
 .choice{border:1px solid var(--line2);border-radius:var(--r);padding:8px 10px;margin-bottom:6px;cursor:pointer;
@@ -424,6 +450,7 @@ table.tbl th.r,table.tbl td.r{text-align:right}
     <div id="ticker"><h5>Flugbetrieb</h5><div id="tkl"></div></div>
     <div id="mapsize"><button id="btnMapSize">Karte grösser</button></div>
     <button id="sideToggle" title="Bedienfeld ein- und ausblenden">⤢</button>
+    <div id="breitgriff" title="Ziehen: Bedienfeld breiter oder schmaler"></div>
     <button id="sideWide" title="Bedienfeld verbreitern">▭</button>
     <div id="legend">
       <div><i style="background:var(--green)"></i>Strecke rentabel</div>
@@ -2327,7 +2354,7 @@ function newGame(cfg){
     curfewHits:0, tutorial:{done:false, erledigt:{}}, jumpMode:"event",
     dayReport:null, lastStop:null, tarifGesehen:false,
     boardOn:true, board:null, boardTrust:50, crewRealism:true,
-    eventsOn:true, evtLast:{}, feeCut:{}, marketingDone:0,
+    eventsOn:true, evtLast:{}, feeCut:{}, marketingDone:0, lohn:"markt", gav:null,
     lastPool:0, poolLast:[], lastSeuche:0, sideWide:0,
     flightHistory:[], finTab:"gv",
     lastMonth:null, ownAirports:[] };
@@ -2869,6 +2896,113 @@ function todoPanel(){
         <span class="dim" style="font-size:10.5px">${esc(x.d)}</span></span>
       <button class="sm" data-todo="${i}">hin</button></div>`).join("")}
   </div>`;
+}
+
+
+/* ================================================== Lohnpolitik =========
+   Bisher blieben die Löhne fest, bis eine Forderung kam — man konnte nur
+   reagieren. Jetzt lässt sich das Niveau vorher wählen, und wer will,
+   schliesst einen Gesamtarbeitsvertrag ab: Ruhe für zwei Jahre, dafür
+   gebundene Hände. */
+const LOHN_STUFEN = [
+  {k:"knapp",  n:"Unter Branchenschnitt", f:0.88,
+   d:"Spart deutlich, kostet Stimmung. Abwerbungen und Forderungen häufen sich."},
+  {k:"markt",  n:"Branchenüblich",        f:1.00,
+   d:"Der Normalfall. Keine Vorteile, keine besonderen Probleme."},
+  {k:"gut",    n:"Über Branchenschnitt",  f:1.12,
+   d:"Kostet rund ein Achtel mehr, hebt die Stimmung spürbar und bindet Personal."},
+  {k:"spitze", n:"Spitzenlohn",           f:1.26,
+   d:"Teuer. Dafür kaum Abwerbungen, hohe Zufriedenheit und weniger krankheitsbedingte Ausfälle."}
+];
+function lohnStufe(){ return LOHN_STUFEN.find(x=>x.k===(S.lohn||"markt")) || LOHN_STUFEN[1]; }
+function pilotLohn(){ return Math.round(BAL.pilotPay*lohnStufe().f); }
+function cabinLohn(){ return Math.round(BAL.cabinPay*lohnStufe().f); }
+function lohnKosten(){
+  return Object.values(S.pilots||{}).reduce((a,v)=>a+v,0)*pilotLohn() + (S.cabin||0)*cabinLohn();
+}
+/** Läuft ein Gesamtarbeitsvertrag? */
+function gavAktiv(){ return S.gav && S.gav.bis>S.clock; }
+function gavRest(){ return gavAktiv() ? Math.max(0, Math.round((S.gav.bis-S.clock)/DAYMS/30.4)) : 0; }
+/** Wirkung der Lohnpolitik auf Stimmung, Abwerbung und Ausfälle. */
+function lohnWirkung(){
+  const f=lohnStufe().f;
+  return {
+    stimmung: (f-1)*22,                 /* Punkte je Monat auf die Belegschaft */
+    abwerbung: gavAktiv() ? 0 : clamp(1.6-(f-0.88)*3.2, 0.15, 1.6),
+    krankheit: clamp(1.5-(f-0.88)*2.4, 0.35, 1.5)
+  };
+}
+function lohnDialog(){
+  const zeichnen=()=>{
+    const st=lohnStufe(), W=lohnWirkung();
+    const pk=Object.values(S.pilots||{}).reduce((a,v)=>a+v,0);
+    $("#mBody").innerHTML=`
+      <p class="dim">Das Lohnniveau gilt für Cockpit und Kabine zusammen. Es wirkt auf die Stimmung, auf Abwerbungen durch die Konkurrenz und darauf, wie oft Personal ausfällt.</p>
+      <div id="lohnwahl">${LOHN_STUFEN.map(x=>{
+        const kosten=pk*Math.round(BAL.pilotPay*x.f)+(S.cabin||0)*Math.round(BAL.cabinPay*x.f);
+        return `<div class="choice ${S.lohn===x.k||(!S.lohn&&x.k==="markt")?'on':''}" data-lohn="${x.k}"
+          ${gavAktiv()&&x.k!==(S.lohn||"markt")?'style="opacity:.45"':''}>
+          <div style="flex:1"><div class="t">${x.n}</div><div class="d">${x.d}</div>
+            <div class="d" style="margin-top:3px">Cockpit ${chf(Math.round(BAL.pilotPay*x.f))} · Kabine ${chf(Math.round(BAL.cabinPay*x.f))} im Monat</div></div>
+          <div class="mono" style="text-align:right">${chf(kosten)}<br>
+            <span class="dim" style="font-size:10px">pro Monat</span></div></div>`;}).join("")}</div>
+      ${gavAktiv()?`<div class="pill warn" style="display:inline-block;margin-top:4px">
+        Während des Gesamtarbeitsvertrags nicht änderbar</div>`:""}
+      <div class="card" style="margin-top:10px">
+        <div class="kv"><span>Wirkung auf die Stimmung</span>
+          <span class="${W.stimmung>=0?'pos':'neg'}">${W.stimmung>=0?"+":""}${fmt(W.stimmung,1)} Punkte im Monat</span></div>
+        <div class="kv"><span>Abwerbungsrisiko</span>
+          <span class="${W.abwerbung<0.6?'pos':W.abwerbung>1.2?'neg':''}">${
+            W.abwerbung<0.2?"praktisch keines":W.abwerbung<0.6?"gering":W.abwerbung>1.2?"hoch":"mittel"}</span></div>
+        <div class="kv"><span>Krankheitsbedingte Ausfälle</span>
+          <span class="${W.krankheit<0.7?'pos':W.krankheit>1.2?'neg':''}">${
+            W.krankheit<0.7?"selten":W.krankheit>1.2?"häufig":"normal"}</span></div>
+      </div>
+      <h3 class="sub">Gesamtarbeitsvertrag</h3>
+      ${gavAktiv()
+        ? `<div class="card" style="border-color:var(--green)">
+             <b class="pos">Vertrag läuft</b><br>
+             <span class="dim" style="font-size:11px">Noch ${gavRest()} Monate. In dieser Zeit keine Lohnforderungen, keine Streiks und keine Abwerbungen — dafür ist auch das Lohnniveau festgeschrieben.</span>
+             <div class="kv" style="margin-top:6px"><span>Vereinbarter Aufschlag</span><span>${fmt((S.gav.f-1)*100,1)}%</span></div></div>`
+        : `<div class="card">
+             <p style="margin:0 0 7px;font-size:12px">Ein Abschluss über <b>24 Monate</b> beendet Forderungen, Streiks und Abwerbungen für diese Zeit. Der Preis richtet sich nach der Stimmung: Wer gut zahlt, kommt günstig davon.</p>
+             ${(()=>{
+               const stimmung=(S.rel||{}).crew||60;
+               const auf=clamp(0.13-(lohnStufe().f-1)*0.42-(stimmung-60)*0.0016, 0.02, 0.16);
+               const mehr=Math.round(lohnKosten()*auf);
+               return `<div class="kv"><span>Geforderter Aufschlag</span><span>${fmt(auf*100,1)}% auf alle Löhne</span></div>
+                 <div class="kv"><span>Mehrkosten</span><span class="neg">${chf(mehr)} im Monat</span></div>
+                 <div class="kv"><span>Stimmung der Belegschaft</span><span>${fmt(stimmung,0)} von 100</span></div>
+                 <div class="row" style="margin-top:8px"><button class="sm primary" id="gavBtn">Vertrag über 24 Monate schliessen</button></div>`;})()}
+           </div>`}
+      <p class="dim" style="font-size:11px">Während eines laufenden Vertrags bleibt die Lohnpolitik unverändert. Das ist der Preis für die Ruhe.</p>`;
+    $("#lohnwahl").querySelectorAll("[data-lohn]").forEach(b=>b.onclick=()=>{
+      if(gavAktiv()){ toast("Während des Gesamtarbeitsvertrags ist das Lohnniveau festgeschrieben."); return; }
+      S.lohn=b.dataset.lohn;
+      logg(`Lohnniveau auf «${lohnStufe().n}» gesetzt.`,"");
+      zeichnen(); });
+    const gb=$("#gavBtn");
+    if(gb) gb.onclick=()=>{
+      const stimmung=(S.rel||{}).crew||60;
+      const auf=clamp(0.13-(lohnStufe().f-1)*0.42-(stimmung-60)*0.0016, 0.02, 0.16);
+      S.gav={bis:S.clock+730*DAYMS, f:1+auf, start:S.clock};
+      BAL.pilotPay=Math.round(BAL.pilotPay*(1+auf));
+      BAL.cabinPay=Math.round(BAL.cabinPay*(1+auf));
+      S.rel.crew=clamp((S.rel.crew||60)+14,0,100);
+      S.streikPhase=0; S.strikeRisk=0;
+      chronikAdd("meilenstein", `Gesamtarbeitsvertrag über 24 Monate abgeschlossen, ${fmt(auf*100,1)}% mehr Lohn.`);
+      mailAdd({kind:"personal", von:"crew", subj:"Gesamtarbeitsvertrag unterzeichnet",
+        kurz:`24 Monate Ruhe, ${fmt(auf*100,1)}% mehr Lohn`, stufe:1,
+        body:`<p>Die Personalvertretung hat unterschrieben. Für <b>24 Monate</b> sind Löhne, Arbeitszeiten und Reserven geregelt.</p>
+          <p>In dieser Zeit gibt es keine Forderungen, keine Streiks und keine Abwerbungen durch andere Gesellschaften. Dafür ist das Lohnniveau festgeschrieben.</p>
+          <p class="dim">Aufschlag: ${fmt(auf*100,1)}% auf alle Löhne.</p>`});
+      logg(`Gesamtarbeitsvertrag über 24 Monate abgeschlossen (+${fmt(auf*100,1)}%).`,"good");
+      zeichnen(); render();
+    };
+  };
+  modal("Lohnpolitik", `<div></div>`,
+    [{t:"Fertig",p:true,f:()=>{$("#veil").classList.remove("on"); render();}}]);
+  zeichnen();
 }
 
 /* ================================================== Der Verwaltungsrat ===
@@ -4450,6 +4584,17 @@ function timeLabel(dep){
 let LEGSTATS = {};
 const legKey = (acId,d,i)=>acId+"#"+d+"#"+i;
 
+/** Wirkung der Kampagnen auf eine Strecke: Klassenanteil und Tourismusgrad
+    entscheiden mit, ob eine Aktion überhaupt greift. */
+function campaignBoost(r, A, B){
+  const tour=((A.tourism||1)+(B.tourism||1))/2;
+  const biz=((A.biz||1)+(B.biz||1))/2;
+  let f=1;
+  if(campaignOn(r.key,"bekanntheit")) f*=1.16;
+  if(campaignOn(r.key,"geschaeft"))  f*=1+clamp((biz-0.82)*0.55, 0.05, 0.24);
+  if(campaignOn(r.key,"ferien"))     f*=1+clamp((tour-0.82)*0.50, 0.05, 0.26);
+  return f;
+}
 /** Aktive Marketingaktion einer Strecke. */
 function campaignOn(key, kind){
   return (S.campaigns||[]).find(c=>c.route===key && c.kind===kind && c.left>0);
@@ -4498,8 +4643,9 @@ function simRoute(r, legList, monthIdx, ctx){
   const m=marketDemand(A,B,monthIdx), sh=classShares(m);
   const preis = campaignOn(r.key,"preis"), bekannt = campaignOn(r.key,"bekanntheit");
   const fareEff = r.fare * (preis?0.80:1);
+  const werbung = campaignBoost(r, A, B);
   const priceAdv=Math.pow(1/fareEff,1.3)*Math.pow(S.rep/62,0.55)*Math.pow(comfort,0.5)
-    *Math.pow(svcPull,0.6)*(bekannt?1.35:1);
+    *Math.pow(svcPull,0.6)*(bekannt?1.35:1)*werbung;
   const effF=flights*priceAdv*Math.pow(timeQual,0.8);
   const split = marketSplit(r, fareEff/(bekannt?1.18:1), effF, comfort*svcPull, loyaltyActive());
   const share = split.share;
@@ -4781,7 +4927,7 @@ function monthClose(){
   M.fuel=wF*scale; M.maint=wM*scale; M.crew=wC*scale; M.fees=wG*scale; M.svcTotal=wS*scale;
   M.block=wB*BAL.weeksPerMonth;
 
-  M.crew += Object.values(S.pilots).reduce((s,v)=>s+v,0)*BAL.pilotPay + S.cabin*BAL.cabinPay;
+  M.crew += lohnKosten();
   S.fleet.forEach(ac=>{
     const t=ACT[ac.type]; ac.age++;
     ac.hours += acWeeklyBlock(ac)*BAL.weeksPerMonth;
@@ -5473,8 +5619,8 @@ function renderHeader(){
 function renderPane(){
   if(!S) return;
   const p=$("#pane"); p.scrollTop=0;
-  ({ops:paneOps,net:paneNet,fleet:paneFleet,inbox:paneInbox,market:paneMarket,fin:paneFin,
-    staff:paneStaff,charter:paneCharter,guest:paneGuest,ach:paneAch,
+  ({ops:paneOps,net:paneNet,fleet:paneFleet,inbox:paneInbox,mkt:paneMkt,market:paneMarket,
+    fin:paneFin,staff:paneStaff,charter:paneCharter,guest:paneGuest,ach:paneAch,
     brand:paneBrand,data:paneData})[tab](p);
   buildTabs(true);
   /* Vorschläge im Zusammenhang — nur dort, wo es etwas zu empfehlen gibt */
@@ -5832,6 +5978,10 @@ const CAMPAIGNS = [
    desc:"Drei Monate lang 20% unter Tarif. Günstiger pro Monat, bindet aber länger."},
   {kind:"bekanntheit", name:"Bekanntheitskampagne", months:2, cost:135000,
    desc:"Zwei Monate lang deutlich mehr Aufmerksamkeit auf dieser Strecke, ohne den Preis zu senken."},
+  {kind:"geschaeft", name:"Geschäftsreiseoffensive", months:3, cost:180000,
+   desc:"Firmenkunden und Reisebüros gezielt bearbeiten. Wirkt vor allem in Business und Premium, kaum in der Economy."},
+  {kind:"ferien", name:"Ferienwerbung", months:2, cost:110000,
+   desc:"Anzeigen und Reisebüroaktionen für die Freizeitkundschaft. Wirkt stark auf Ferienstrecken, wenig im Geschäftsverkehr."},
   {kind:"marke", name:"Markenkampagne", months:3, cost:240000, global:true,
    desc:"Drei Monate Imagewerbung. Hebt den Ruf der ganzen Fluggesellschaft."}
 ];
@@ -7059,7 +7209,9 @@ function paneStaff(p){
     <div class="row" style="margin-top:7px"><input type="number" class="tiny" id="nc" value="${Math.max(2,cn-S.cabin-trC)}" min="1">
       <button class="sm" id="hc">Einstellen</button><button class="sm" id="fc">Abbauen</button></div></div>
   <div class="card"><div class="kv"><span>Cockpit gesamt</span><span>${Object.values(S.pilots).reduce((s,v)=>s+v,0)}</span></div>
-    <div class="kv"><span>Lohnkosten pro Monat</span><span>${chf(Object.values(S.pilots).reduce((s,v)=>s+v,0)*BAL.pilotPay+S.cabin*BAL.cabinPay)}</span></div>
+    <div class="kv"><span>Lohnkosten pro Monat</span><span>${chf(lohnKosten())}</span></div>
+    <div class="kv"><span>Lohnniveau</span><span>${lohnStufe().n}${gavAktiv()?` · Vertrag noch ${gavRest()} Mt`:""}</span></div>
+    <div class="row" style="margin-top:8px"><button class="sm primary" id="lohnBtn">Lohnpolitik und Vertrag</button></div>
     <div class="kv"><span>Neueinstellung Cockpit</span><span>${fmt(BAL.hireCost+BAL.ratingCost)} CHF, ${BAL.trainMonths} Mt</span></div>
     <div class="kv"><span>Umschulung</span><span>${fmt(BAL.ratingCost)} CHF, ${BAL.retrainMonths} Mt</span></div></div>`;
   p.innerHTML=h;
@@ -7072,14 +7224,14 @@ function paneStaff(p){
   p.querySelectorAll("[data-fire]").forEach(b=>b.onclick=()=>{
     const r=b.dataset.fire, nn=Math.min(S.pilots[r]||0,Math.max(1,+$("#hp_"+r).value||1));
     if(!nn){toast("Keine Crews auf diesem Muster.");return;}
-    S.pilots[r]-=nn; S.cash-=nn*BAL.pilotPay*2;
+    S.pilots[r]-=nn; S.cash-=nn*pilotLohn()*2;
     logg(`${nn} Cockpitstellen ${RATING_NAME[r]||r} abgebaut.`,"warn"); render();});
   $("#hc").onclick=()=>{const nn=Math.max(1,+$("#nc").value||1), c=nn*BAL.hireCost*0.4;
     if(S.cash<c){toast("Zu wenig Liquidität.");return;}
     S.cash-=c; S.cabinTrain.push({n:nn,m:BAL.trainMonths});
     logg(`${nn} Kabinenmitglieder eingestellt.`,""); render();};
   $("#fc").onclick=()=>{const nn=Math.min(S.cabin,Math.max(1,+$("#nc").value||1));
-    S.cabin-=nn; S.cash-=nn*BAL.cabinPay*2; logg(`${nn} Kabinenstellen abgebaut.`,"warn"); render();};
+    S.cabin-=nn; S.cash-=nn*cabinLohn()*2; logg(`${nn} Kabinenstellen abgebaut.`,"warn"); render();};
 }
 function retrainDialog(target){
   const src=Object.keys(S.pilots).filter(r=>r!==target&&S.pilots[r]>0);
@@ -7301,6 +7453,93 @@ function paneInbox(p){
   const r1=$("#ibRead"); if(r1) r1.onclick=()=>{ (S.inbox||[]).forEach(m=>m.read=true); render(); };
   const r2=$("#ibClear"); if(r2) r2.onclick=()=>{
     S.inbox=(S.inbox||[]).filter(m=>!m.read || (m.optionen&&m.entschieden==null)); render(); };
+}
+
+
+/* ------------------------------------------------------- Marketing ----- */
+function paneMkt(p){
+  S.mktTab=S.mktTab||"aktionen";
+  const laufend=(S.campaigns||[]).filter(c=>c.left>0);
+  let h=`<h2 class="sec">Marketing</h2>
+  <div class="segbar" id="mkseg">
+    <button class="${S.mktTab==="aktionen"?"on":""}" data-mt="aktionen">Aktionen${laufend.length?" ("+laufend.length+")":""}</button>
+    <button class="${S.mktTab==="gaeste"?"on":""}" data-mt="gaeste">Gäste</button>
+    <button class="${S.mktTab==="marke"?"on":""}" data-mt="marke">Marke</button></div>`;
+
+  /* Gäste und Marke bauen ihre Ansicht selbst in die Seite; die Segmentleiste
+     wird danach davorgesetzt, sonst verlieren sie ihre Verdrahtung. */
+  if(S.mktTab==="gaeste" || S.mktTab==="marke"){
+    (S.mktTab==="gaeste" ? paneGuest : paneBrand)(p);
+    const alt=p.querySelector("h2.sec"); if(alt) alt.remove();
+    p.insertAdjacentHTML("afterbegin", h);
+    verdrahteSeg(p);
+    return;
+  }
+
+  /* ---- Aktionen ---- */
+  h+=`<div class="card">
+    <div class="kv"><span>Laufende Aktionen</span><span>${laufend.length} von 3 möglich</span></div>
+    <div class="kv"><span>Ausgaben pro Monat</span><span>${chf(laufend.reduce((a,c)=>a+c.cost,0))}</span></div>
+    <div class="kv"><span>Ruf</span><span>${fmt(S.rep,0)} von 100</span></div></div>`;
+  if(laufend.length){
+    h+=`<h3 class="sub">Was gerade läuft</h3>`;
+    laufend.forEach(c=>{
+      h+=`<div class="card"><div class="row" style="justify-content:space-between">
+        <div style="flex:1"><b>${esc(c.name)}</b>
+          <span class="dim">${c.route?" · "+c.route:" · ganze Airline"}</span><br>
+          <span class="dim" style="font-size:10.5px">${esc(c.desc||"")}</span></div>
+        <div class="mono" style="text-align:right">${chf(c.cost)}/Mt<br>
+          <span class="dim" style="font-size:10px">noch ${c.left} Mt</span></div></div>
+        <div class="row" style="margin-top:6px"><button class="sm" data-stop="${c.kind}|${c.route||""}">Vorzeitig beenden</button></div></div>`;
+    });
+  }
+  h+=`<h3 class="sub">Neue Aktion</h3>
+    <p class="dim" style="font-size:11px;margin-top:0">Streckenbezogene Aktionen lassen sich auch direkt im Streckendetail starten. Höchstens drei laufen gleichzeitig.</p>`;
+  const ziele=S.routes.filter(r=>r.last&&r.last.ok)
+    .sort((a,b)=>(a.last.lf||0)-(b.last.lf||0)).slice(0,6);
+  CAMPAIGNS.forEach((c,i)=>{
+    const laeuft=laufend.some(a=>a.kind===c.kind && (c.global||!a.route===false));
+    h+=`<div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div style="flex:1"><b>${esc(c.name)}</b>${c.global?' <span class="pill">ganze Airline</span>':""}<br>
+          <span class="dim" style="font-size:11px">${esc(c.desc)}</span></div>
+        <div class="mono" style="text-align:right">${chf(c.cost)}/Mt<br>
+          <span class="dim" style="font-size:10px">${c.months} Monate</span></div></div>
+      ${c.global
+        ? `<div class="row" style="margin-top:7px"><button class="sm primary" data-glob="${i}">Starten</button></div>`
+        : (ziele.length
+            ? `<div class="row" style="margin-top:7px;flex-wrap:wrap">${ziele.map(r=>
+                `<button class="sm" data-camp="${i}|${r.key}">${r.from}–${r.to}
+                  <span class="dim">${fmt((r.last.lf||0)*100,0)}%</span></button>`).join("")}</div>`
+            : `<p class="dim" style="font-size:11px;margin:6px 0 0">Noch keine Strecke im Betrieb.</p>`)}
+    </div>`;
+  });
+  p.innerHTML=h;
+  verdrahteSeg(p);
+  p.querySelectorAll("[data-glob]").forEach(b=>b.onclick=()=>starteKampagne(+b.dataset.glob, null));
+  p.querySelectorAll("[data-camp]").forEach(b=>b.onclick=()=>{
+    const [i,key]=b.dataset.camp.split("|"); starteKampagne(+i, key); });
+  p.querySelectorAll("[data-stop]").forEach(b=>b.onclick=()=>{
+    const [kind,route]=b.dataset.stop.split("|");
+    S.campaigns=(S.campaigns||[]).filter(c=>!(c.kind===kind && (c.route||"")===route));
+    logg("Marketingaktion vorzeitig beendet.",""); render(); });
+  function verdrahteSeg(el){
+    el.querySelectorAll("[data-mt]").forEach(b=>b.onclick=()=>{S.mktTab=b.dataset.mt; renderPane();});
+  }
+}
+/** Startet eine Kampagne, mit denselben Prüfungen wie im Streckendetail. */
+function starteKampagne(i, routeKey){
+  const c=CAMPAIGNS[i]; if(!c) return;
+  if((S.campaigns||[]).filter(x=>x.left>0).length>=3){ toast("Bereits drei Aktionen aktiv."); return; }
+  if((S.campaigns||[]).some(a=>a.left>0 && a.kind===c.kind && (c.global||a.route===routeKey))){
+    toast("Diese Aktion läuft bereits."); return; }
+  if(S.cash<c.cost){ toast("Zu wenig Liquidität für den ersten Monat."); return; }
+  S.campaigns=S.campaigns||[];
+  S.marketingDone=(S.marketingDone||0)+1;
+  S.campaigns.push({kind:c.kind, name:c.name, desc:c.desc, cost:c.cost,
+    left:c.months, route:c.global?null:routeKey});
+  logg(`Marketingaktion «${c.name}»${c.global?"":" auf "+routeKey} gestartet.`,"good");
+  render();
 }
 
 /* ------------------------------------------------------------- Marke --- */
@@ -8005,6 +8244,7 @@ function paneData(p){
       :"Auswärtsübernachtungen zählen nicht mehr zum Personalbedarf.","");
     render();
   };
+  const lb=$("#lohnBtn"); if(lb) lb.onclick=lohnDialog;
   const bt=$("#boardTgl");
   if(bt) bt.onclick=()=>{
     S.boardOn=!S.boardOn;
@@ -8012,6 +8252,7 @@ function paneData(p){
     else { S.board=null; logg("Vorgaben des Verwaltungsrats abgeschaltet.",""); }
     render();
   };
+  const lb2=$("#lohnBtn"); if(lb2) lb2.onclick=lohnDialog;
   p.querySelectorAll("[data-df]").forEach(b=>b.onclick=()=>{
     applyDifficulty(b.dataset.df);
     logg(`Schwierigkeit auf ${diffCfg().n} gestellt.`,"warn"); render();});
@@ -8213,6 +8454,7 @@ function adoptSave(d){
   if(!S.chronik) S.chronik=[];
   if(S.crewRealism==null) S.crewRealism=true;
   if(S.eventsOn==null) S.eventsOn=true;
+  if(!S.lohn) S.lohn="markt";
   if(!S.evtLast) S.evtLast={};
   if(!S.feeCut) S.feeCut={};
   S.fleet.forEach(ac=>{ if(!ac.plan) ac.plan={start:390,dests:[],days:[1,1,1,1,1,1,1],nums:[]};
@@ -9154,15 +9396,18 @@ function animateNum(el, to, fmtFn){
 
 /* Am Telefon wandert die Navigation nach unten: vier feste Reiter mit Zeichen
    und ein Sammelknopf für alles Übrige — mit dem Daumen erreichbar. */
-const TAB_ICON = {ops:"◉", net:"⇄", fleet:"✈", inbox:"✉", fin:"💰", market:"🛒", staff:"👥",
-  charter:"📋", guest:"★", ach:"🏆", brand:"🎨", data:"⚙"};
+const TAB_ICON = {ops:"◉", net:"⇄", fleet:"✈", inbox:"✉", fin:"💰", mkt:"📣", market:"🛒",
+  staff:"👥", charter:"📋", ach:"🏆", data:"⚙", guest:"★", brand:"🎨"};
 /* Fünf Bereiche tragen eine normale Partie. Alles Übrige sind Nebenschauplätze
    und stehen unter «Mehr» — auch am Rechner, sonst sind zwölf Reiter zwölf
    Möglichkeiten, nichts zu tun. */
-const TAB_MAIN = ["ops","net","fleet","fin","inbox"];
+/* Zwölf Bereiche in zwei Reihen statt fünf plus Sammelknopf — sichtbar ist
+   besser als versteckt, solange die Zeilen kurz bleiben. */
+const TAB_MAIN = ["ops","net","fleet","fin","inbox","mkt"];
+const TAB_ZWEI = ["market","staff","charter","ach","data"];
 const TAB_NAME = {ops:"Lage", net:"Netz", fleet:"Flotte", fin:"Finanzen", inbox:"Postfach",
-  market:"Markt", staff:"Personal", charter:"Charter", guest:"Gäste", ach:"Erfolge",
-  brand:"Marke", data:"Einstellungen"};
+  mkt:"Marketing", market:"Markt", staff:"Personal", charter:"Charter", ach:"Erfolge",
+  data:"Einstell.", guest:"Gäste", brand:"Marke"};
 /* Kurzbeschreibung für das Mehr-Blatt */
 const TAB_HINT = {
   market:"Flugzeuge kaufen, leasen oder gebraucht übernehmen",
@@ -9194,19 +9439,14 @@ function buildTabs(force){
   if(!force && narrow===mobileNav && wrap.dataset.built) return;
   mobileNav=narrow; wrap.dataset.built="1";
   const bdg=k=>k==="inbox"&&S&&mailUnread()?`<span class="badge">${mailUnread()}</span>`:"";
-  const mehrOffen = !TAB_MAIN.includes(tab);
-  wrap.innerHTML=TAB_MAIN.map(k=>
-    `<button data-t="${k}" class="${tab===k?'on':''}">`
+  const knopf=k=>`<button data-t="${k}" class="${tab===k?'on':''}">`
     + (narrow?`<span class="ic">${TAB_ICON[k]}${bdg(k)}</span>`:"")
-    + TAB_NAME[k] + (narrow?"":bdg(k)) + `</button>`).join("")
-    + `<button data-more="1" class="${mehrOffen?'on':''}">`
-    + (narrow?`<span class="ic">☰</span>`:"")
-    + (mehrOffen?TAB_NAME[tab]:"Mehr") + `</button>`;
+    + TAB_NAME[k] + (narrow?"":bdg(k)) + `</button>`;
+  wrap.innerHTML=`<div class="tabreihe">${TAB_MAIN.map(knopf).join("")}</div>`
+    + `<div class="tabreihe zwei">${TAB_ZWEI.map(knopf).join("")}</div>`;
   wrap.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>setTab(b.dataset.t));
-  const mb=wrap.querySelector("[data-more]");
-  if(mb) mb.onclick=moreSheet;
 }
-function moreSheet(){
+function moreSheetUnbenutzt(){
   const rest=Object.keys(TAB_NAME).filter(k=>!TAB_MAIN.includes(k));
   modal("Weitere Bereiche",
     `<div id="sheetlist">${rest.map(k=>`<div class="choice ${tab===k?'on':''}" data-t="${k}">
@@ -9228,7 +9468,7 @@ function setTab(t){
 
 /* Fassungskennung — steht im Hauptmenü und unter Daten. So lässt sich auf
    einen Blick prüfen, welcher Stand tatsächlich auf dem Server liegt. */
-const APP_VERSION = "2026-09-02b · Concorde";
+const APP_VERSION = "2026-09-03b · Marketing & Breite";
 
 
 
@@ -9381,6 +9621,45 @@ function initBlattWisch(){
     const dy=parseFloat((md.style.transform.match(/([\d.]+)px/)||[0,0])[1])||0;
     md.style.transition=""; md.style.transform="";
     if(dy>90 && $("#veil").dataset.fest!=="1") veilClose(); });
+}
+
+
+/* Breite des Bedienfelds am Rechner frei ziehbar. Die Wahl bleibt im
+   Spielstand, damit sie eine Sitzung überdauert. */
+function initBreitgriff(){
+  const g=document.getElementById("breitgriff"), sd=document.getElementById("side");
+  if(!g||!sd) return;
+  const setzen=(px)=>{
+    const min=320, max=Math.min(window.innerWidth-260, 1100);
+    const b=clamp(px, min, max);
+    document.documentElement.style.setProperty("--sidew", b+"px");
+    g.style.right=(b+12)+"px";
+    if(S) S.sidePx=b;
+    return b;
+  };
+  const jetzt=()=> (S&&S.sidePx) || parseInt(getComputedStyle(document.documentElement)
+    .getPropertyValue("--sidew")) || 430;
+  setzen(jetzt());
+  let zieht=false;
+  const start=e=>{ if(istMobil()) return;
+    zieht=true; g.classList.add("zieht");
+    document.body.style.userSelect="none"; e.preventDefault(); };
+  const zug=e=>{ if(!zieht) return;
+    const x=(e.touches?e.touches[0]:e).clientX;
+    setzen(window.innerWidth-x-12);
+    e.preventDefault(); };
+  const ende=()=>{ if(!zieht) return; zieht=false;
+    g.classList.remove("zieht"); document.body.style.userSelect="";
+    if(typeof renderMap==="function" && S) renderMap(); };
+  g.addEventListener("mousedown",start);
+  document.addEventListener("mousemove",zug);
+  document.addEventListener("mouseup",ende);
+  g.addEventListener("touchstart",start,{passive:false});
+  g.addEventListener("touchmove",zug,{passive:false});
+  g.addEventListener("touchend",ende);
+  /* Doppelklick setzt zurück */
+  g.addEventListener("dblclick",()=>{ setzen(430); if(S) renderMap(); });
+  window.addEventListener("resize",()=>{ if(!istMobil()) setzen(jetzt()); });
 }
 
 /* Das Bedienfeld am Telefon: Griff zum Ziehen, Wischen für ganz auf und zu. */
@@ -9930,7 +10209,8 @@ function updateRelations(M){
   dc += reserve>1.12 ? 1.6 : reserve>1.03 ? 0.5 : -2.2;
   const stdProCrew = S.fleet.length ? S.fleet.reduce((a,x)=>a+acWeeklyBlock(x),0)/Math.max(S.cabin,1)*4.345 : 0;
   dc += stdProCrew>78 ? -1.8 : stdProCrew<58 ? 0.8 : 0;
-  dc += BAL.cabinPay>=6200 ? 1.0 : BAL.cabinPay<=5200 ? -1.2 : 0;
+  dc += lohnWirkung().stimmung;
+  if(gavAktiv()) dc += 0.8;
   dc -= (M.cancel||0)*7;
   if(S.rel.crew<50 && (S.acc||{}).cancel) dc-=0.6;
   R.crew=clamp(R.crew+dc, 0, 100);
@@ -10060,6 +10340,94 @@ function jumpReportHTML(){
    paar Tage eines gezogen, und was zuletzt kam, wird eine Weile gemieden.
    So wiederholt sich nichts, ohne dass der Spieler ständig gestört wird. */
 const EVENT_POOL = [
+ /* --- Erfreuliches. Die Auswahl greift höchstens alle sechs bis vierzehn
+    Tage; mehr Einträge heisst nicht mehr Ereignisse, sondern weniger
+    Wiederholung — und die Hälfte davon bringt etwas ein. --- */
+ {id:"rueckenwind", w:8, art:"chance", von:"ops",
+  gilt:()=>S.fleet.some(a=>scheduleOf(a).flights>0),
+  bau:()=>{ const spar=Math.round(rnd(60,260))*1000;
+    return {subj:"Günstige Höhenwinde über dem Atlantik", kurz:`${chf(spar)} weniger Treibstoff`, stufe:1,
+      body:`<p>Ein kräftiger Strahlstrom verkürzt die Flugzeiten nach Osten spürbar. Die Flugsicherung gibt die günstigeren Höhen frei.</p>
+        <p class="dim">Ersparnis diesen Monat rund ${chf(spar)}.</p>`,
+      wirkung:()=>{ S.cash+=spar; }};}},
+
+ {id:"filmcrew", w:6, art:"chance", von:"sales",
+  gilt:()=>S.fleet.length>=3,
+  bau:()=>{ const gage=Math.round(rnd(0.25,0.9)*1e6);
+    return {subj:"Eine Filmproduktion fragt nach Ihrer Flotte", kurz:`${chf(gage)} Gage`, stufe:3,
+      body:`<p>Ein Produktionsteam sucht eine Maschine für Aussenaufnahmen. Zwei Tage am Boden, dafür eine ordentliche Gage — und Bilder, die um die Welt gehen.</p>`,
+      optionen:[
+        {l:`Zusagen (${chf(gage)})`, d:"Eine Maschine steht zwei Tage still, der Ruf steigt.",
+         f:()=>{ S.cash+=gage; S.rep=clamp(S.rep+1.8,5,99);
+           const ac=pick(S.fleet.filter(a=>a.status==="aktiv"));
+           if(ac) addBlock({art:"ac", wert:ac.id, bis:S.clock+2*DAYMS, grund:"Filmaufnahmen"});
+           logg("Filmaufnahmen an Bord — gute Presse.","good"); }},
+        {l:"Ablehnen", d:"Der Flugplan bleibt unangetastet.", f:()=>{}}
+      ]};}},
+
+ {id:"slotfrei", w:7, art:"chance", von:"ops",
+  gilt:()=>S.bases.length>0,
+  bau:()=>{ const b=pick(S.bases);
+    return {subj:`Zeitnischen in ${b} werden frei`, kurz:"Bessere Abflugzeiten möglich", stufe:2,
+      body:`<p>Eine andere Gesellschaft gibt Zeitnischen in <b>${b}</b> zurück. Die Flughafenkoordination bietet sie uns zuerst an.</p>
+        <p class="dim">Die Pünktlichkeit steigt, weil sich die Umläufe entzerren lassen.</p>`,
+      wirkung:()=>{ S.punctuality=clamp((S.punctuality||0.88)+0.03,0,0.99);
+        S.rel.airports=clamp(S.rel.airports+4,0,100); }};}},
+
+ {id:"treuepreis", w:5, art:"chance", von:"sales",
+  gilt:()=>S.rep>60 && S.history.length>=4,
+  bau:()=>({subj:"Auszeichnung für den Bordservice", kurz:"+2 Ruf", stufe:1,
+    body:`<p>Ein Reisemagazin führt uns in der Kategorie Bordservice auf dem Podest. Die Jury lobt Aufmerksamkeit und Verlässlichkeit.</p>`,
+    wirkung:()=>{ S.rep=clamp(S.rep+2,5,99); }})},
+
+ {id:"technikpreis", w:5, art:"chance", von:"tech",
+  gilt:()=>S.fleet.length>=4 && S.fleet.reduce((a,x)=>a+x.age,0)/S.fleet.length/12 < 9,
+  bau:()=>{ const spar=Math.round(rnd(80,320))*1000;
+    return {subj:"Wartungsvertrag neu ausgehandelt", kurz:`${chf(spar)} weniger im Monat`, stufe:1,
+      body:`<p>Weil die Flotte jung und einheitlich ist, gewährt der Wartungsbetrieb bessere Konditionen.</p>
+        <p class="dim">Ersparnis rund ${chf(spar)} im Monat, solange die Flotte so bleibt.</p>`,
+      wirkung:()=>{ S.cash+=spar*3; S.rel.airports=clamp(S.rel.airports+2,0,100); }};}},
+
+ {id:"gruppenbuchung", w:7, art:"chance", von:"sales",
+  gilt:()=>S.routes.some(r=>r.last&&r.last.ok),
+  bau:()=>{ const r=pick(S.routes.filter(x=>x.last&&x.last.ok));
+    const pax=Math.round(rnd(60,220)), ertrag=Math.round(pax*rnd(180,420));
+    return {subj:`Grossbuchung auf ${r.from}–${r.to}`, kurz:`${pax} Reisende auf einmal`, stufe:1,
+      body:`<p>Ein Kongressveranstalter bucht <b>${pax} Plätze</b> auf ${r.from}–${r.to}, verteilt über zwei Wochen.</p>
+        <p class="dim">Zusatzerlös rund ${chf(ertrag)}.</p>`,
+      wirkung:()=>{ S.cash+=ertrag; }};}},
+
+ {id:"lieferfrueher", w:5, art:"chance", von:"tech",
+  gilt:()=>(S.orders||[]).length>0,
+  bau:()=>{ const o=pick(S.orders);
+    return {subj:`${ACT[o.type].name} wird früher fertig`, kurz:"Ein Monat gewonnen", stufe:2,
+      body:`<p>Beim Hersteller ist ein Auslieferungsplatz frei geworden. Ihre Bestellung rückt um einen Monat vor.</p>`,
+      wirkung:()=>{ o.left=Math.max(0,o.left-1); }};}},
+
+ {id:"kerosinrabatt", w:6, art:"chance", von:"fin",
+  gilt:()=>S.fleet.length>=3,
+  bau:()=>{ const proz=Math.round(rnd(4,11));
+    return {subj:"Besserer Kerosinvertrag ausgehandelt", kurz:`${proz}% günstiger für ein halbes Jahr`, stufe:1,
+      body:`<p>Ein Lieferant will Volumen und bietet einen Nachlass von <b>${proz}%</b> für sechs Monate.</p>
+        <p class="dim">Bei unserem Verbrauch spürbar in der Monatsrechnung.</p>`,
+      wirkung:()=>{ S.fuel=+(S.fuel*(1-proz/100)).toFixed(3); }};}},
+
+ {id:"nachwuchs", w:6, art:"chance", von:"crew",
+  gilt:()=>Object.values(S.pilots||{}).some(v=>v>0),
+  bau:()=>{ const n=Math.round(rnd(2,6));
+    return {subj:"Bewerberandrang in der Flugschule", kurz:`${n} ausgebildete Personen verfügbar`, stufe:2,
+      body:`<p>Eine benachbarte Gesellschaft baut ab. <b>${n} fertig ausgebildete Cockpitmitglieder</b> bewerben sich bei uns — ohne Ausbildungskosten.</p>
+        <p class="dim">${gavAktiv()?"Der Gesamtarbeitsvertrag macht uns zusätzlich attraktiv.":"Wer anständig zahlt, greift hier zu."}</p>`,
+      wirkung:()=>{ const r=pick(Object.keys(S.pilots||{}));
+        if(r){ S.pilots[r]+=n; S.rel.crew=clamp(S.rel.crew+2,0,100); } }};}},
+
+ {id:"pressereise", w:5, art:"chance", von:"sales",
+  gilt:()=>S.routes.length>=5,
+  bau:()=>({subj:"Fachpresse fliegt mit", kurz:"Gute Berichte erwartet", stufe:1,
+    body:`<p>Mehrere Redaktionen begleiten eine Woche lang unseren Betrieb. Bei ordentlicher Pünktlichkeit zahlt sich das aus.</p>`,
+    wirkung:()=>{ const gut=(S.punctuality||0.85)>0.86;
+      S.rep=clamp(S.rep+(gut?2.5:-1),5,99); }})},
+
  {id:"vogelschlag", w:8, art:"stoerung", von:"tech",
   gilt:()=>S.fleet.some(a=>a.status==="aktiv"),
   bau:()=>{ const ac=pick(S.fleet.filter(a=>a.status==="aktiv"));
@@ -10092,7 +10460,8 @@ const EVENT_POOL = [
         S.rel.airports=clamp(S.rel.airports-2,0,100); }};}},
 
  {id:"abwerbung", w:8, art:"personal", von:"crew",
-  gilt:()=>Object.values(S.pilots||{}).some(v=>v>4),
+  gilt:()=>Object.values(S.pilots||{}).some(v=>v>4)
+    && !gavAktiv() && Math.random()<lohnWirkung().abwerbung,
   bau:()=>{ const x=pick(S.rivals.filter(r=>r.model!=="regional"))||{name:"eine andere Gesellschaft"};
     const n=Math.round(rnd(3,9));
     return {subj:`${x.name} wirbt Cockpitpersonal ab`, kurz:`${n} Personen abgeworben`, stufe:3,
@@ -10336,7 +10705,7 @@ function rollDisruptions(){
   }
 
   /* 4 — Unmut der Belegschaft wächst zur Forderung */
-  if(S.rel.crew<42 && !S.streikPhase && Math.random()<0.05){
+  if(S.rel.crew<42 && !S.streikPhase && !gavAktiv() && Math.random()<0.05){
     S.streikPhase=1;
     const mehr=Math.round(BAL.cabinPay*0.08);
     mailAdd({kind:"personal", von:"crew", subj:"Personalvertretung stellt Forderungen",
@@ -11027,6 +11396,7 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
 }
 buildTabs();
 initGriff();
+initBreitgriff();
 initBlattWisch();
 applyBrand();
 renderMap();
