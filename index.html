@@ -93,9 +93,24 @@ input[type=color]{width:100%;height:32px;padding:2px;background:#0a1322;border:1
 #side{width:460px;flex:0 0 460px;border-left:1px solid var(--line2);background:var(--panel);display:flex;flex-direction:column}
 @media(max-width:1220px){#side{width:380px;flex-basis:380px}}
 @media(max-width:880px){
-  #stage{position:absolute;inset:0 0 var(--sideh,56%) 0;height:auto;min-height:140px}
+  /* Das Bedienfeld liegt als Blatt über der Karte und lässt sich mit einem
+     Griff oder einer Wischgeste über den ganzen Bildschirm ziehen — sonst
+     bleiben nach Kopfzeile und Navigation kaum fünf Zeilen Inhalt. */
+  #stage{position:absolute;inset:0;height:auto;min-height:140px}
   #side{position:absolute;left:0;right:0;bottom:0;top:auto;height:var(--sideh,56%);width:auto;
-    border-radius:14px 14px 0 0;padding-bottom:0}
+    border-radius:14px 14px 0 0;padding-bottom:0;
+    transition:height .26s cubic-bezier(.32,.72,0,1)}
+  #side.voll{height:calc(100% - 6px);border-radius:14px 14px 0 0}
+  #side.klein{height:26%}
+  #griff{display:flex;align-items:center;justify-content:center;gap:9px;
+    padding:7px 0 5px;cursor:grab;touch-action:none;flex:0 0 auto;
+    border-bottom:1px solid var(--line)}
+  #griff:active{cursor:grabbing}
+  #griffbalken{width:38px;height:4px;border-radius:3px;background:var(--line2)}
+  #griff .gt{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--dim2);
+    text-transform:uppercase}
+  #side.voll #griff .gt::after{content:"karte zeigen"}
+  #side:not(.voll) #griff .gt::after{content:"ganz aufziehen"}
   #sideToggle{display:none}
   #tabs{order:2;position:sticky;bottom:0;z-index:5;border-bottom:none;
     border-top:1px solid var(--line2);background:rgba(9,15,26,.94);
@@ -106,16 +121,64 @@ input[type=color]{width:100%;height:32px;padding:2px;background:#0a1322;border:1
   #tabs button.on{background:transparent;color:var(--amber);border-bottom:none}
   #tabs button.on .ic{transform:translateY(-1px)}
   #side{display:flex;flex-direction:column}
+  #griff{order:0}
   #pane{order:1;flex:1}
   .fleetgrid{grid-template-columns:1fr}
-  #brand h1{font-size:16px}
-  #top{height:auto;min-height:52px;flex-wrap:wrap;padding-top:env(safe-area-inset-top)}
-  .hstat{min-width:0;flex:1 1 22%;padding:2px 6px;border-right:1px solid var(--line);border-top:1px solid var(--line)}
-  .hstat b{font-size:12.5px} .hstat span{font-size:8px;letter-spacing:.1em}
-  #brand{flex:1 1 100%;border-right:none;padding:6px 12px}
-  #clockbox{flex:1 1 100%;justify-content:space-between;padding:4px 12px 6px}
+  #brand h1{font-size:14px}
+  #brand small{display:none}
+  #top{height:auto;min-height:44px;flex-wrap:wrap;padding-top:env(safe-area-inset-top)}
+  /* Kopfzeile auf zwei schmale Reihen statt drei: Marke und Uhr teilen sich
+     die erste, die Kennzahlen stehen darunter in einer Reihe. */
+  #brand{flex:1 1 auto;max-width:52%;border-right:none;padding:4px 10px}
+  #brand img{height:22px !important;max-width:130px !important}
+  #brandMark{display:none}
+  #clockbox{flex:0 0 auto;justify-content:flex-end;padding:4px 10px;gap:6px}
+  .hstat{min-width:0;flex:1 1 0;padding:2px 4px;border-right:1px solid var(--line);border-top:1px solid var(--line)}
+  .hstat b{font-size:12px} .hstat span{font-size:7.5px;letter-spacing:.08em}
+  .hstat:nth-of-type(n+5){display:none}
+  #speedctl select{min-width:0;width:74px;font-size:10px;padding:4px}
+  #speedctl button{padding:5px 7px;font-size:11px}
+  #nextEv{display:none}
   #ticker{display:none}
-  #sheetlist .choice{padding:11px 10px}
+  #sheetlist .choice{padding:13px 10px}
+  /* Fenster fahren von unten hoch und füllen den Bildschirm. Kopf und
+     Fussknöpfe bleiben stehen, gescrollt wird nur der Inhalt — statt drei
+     Scrollbereichen übereinander. */
+  #veil{padding:0;align-items:flex-end}
+  #modal{max-width:none;width:100%;max-height:94vh;height:auto;
+    border-radius:16px 16px 0 0;border-bottom:none;
+    display:flex;flex-direction:column;overflow:hidden;
+    animation:blattAuf .24s cubic-bezier(.32,.72,0,1)}
+  @keyframes blattAuf{from{transform:translateY(28px);opacity:.4}to{transform:none;opacity:1}}
+  #modal .mh{flex:0 0 auto;position:relative;padding:11px 14px 10px;
+    border-bottom:1px solid var(--line2)}
+  #modal .mh::before{content:"";position:absolute;top:5px;left:50%;transform:translateX(-50%);
+    width:34px;height:4px;border-radius:3px;background:var(--line2)}
+  #modal .mh h3{font-size:14.5px;letter-spacing:.09em;padding-top:3px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #modal .mh button{flex:0 0 auto;min-height:34px;padding:6px 11px;font-size:11px}
+  #modal .mb{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:14px 14px 18px;min-height:0}
+  #modal .mf{flex:0 0 auto;padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    justify-content:stretch;gap:7px}
+  #modal .mf button{flex:1 1 0;min-height:44px;font-size:12.5px}
+  #modal .mf button.primary{flex:1.4 1 0}
+  /* Tippflächen: alles unter 40 Pixel ist am Daumen Glückssache */
+  button, .choice{min-height:40px}
+  button.sm{min-height:36px;padding:8px 11px;font-size:11.5px}
+  .segbar{position:sticky;top:0;z-index:4;background:rgba(11,18,32,.96);
+    margin:-14px -16px 9px;padding:8px 16px}
+  .segbar button{min-height:38px}
+  .daysel button{min-width:38px;min-height:38px;font-size:11.5px}
+  input,select{min-height:40px;font-size:13px}
+  .kv{padding:5px 0}
+  .card{padding:10px 11px}
+  #pane{padding:14px 13px 26px}
+  .mailrow{padding:11px 9px}
+  .tzeile{padding:7px 8px}
+  .choice .t{font-size:13px}
+  .planebox{padding:4px 0}
+  h3.sub{margin-top:14px}
   #legend{font-size:9px;padding:6px 8px;max-width:44%}
   #maptools{gap:4px;left:8px;bottom:8px}
   #maptools button{padding:7px 9px;font-size:11px}
@@ -271,6 +334,12 @@ table.tbl th.r,table.tbl td.r{text-align:right}
 .wkrow:hover{background:#16243a}
 .wkrow.on{background:#1b2e4b;outline:1px solid var(--amber)}
 .wkd{font-family:var(--mono);font-size:10.5px;width:20px;color:var(--dim)}
+@media(max-width:880px){
+  .wkrow{gap:5px;padding:3px 2px}
+  .wkp{width:26px;font-size:9px}
+  .wkh{width:32px;font-size:9px}
+  .tl{height:18px !important}
+}
 .wkp{font-family:var(--mono);font-size:10px;width:30px;color:var(--dim2)}
 .wkh{font-family:var(--mono);font-size:10px;width:38px;text-align:right;color:var(--dim)}
 
@@ -365,6 +434,7 @@ table.tbl th.r,table.tbl td.r{text-align:right}
       <div style="margin-top:4px;color:var(--dim2)">Auf einen Flughafen zeigen hebt sein Netz hervor</div></div>
   </div>
   <div id="side">
+    <div id="griff"><span id="griffbalken"></span><span class="gt"></span></div>
     <div id="tabs">
       <button data-t="ops" class="on">Lage</button><button data-t="net">Netz</button>
       <button data-t="fleet">Flotte</button><button data-t="market">Markt</button>
@@ -401,14 +471,14 @@ table.tbl th.r,table.tbl td.r{text-align:right}
    ========================================================================== */
 
 const BAL = {
-  startCash: 120, demandK: 254, decay: 0.60, interReg: 0.88,
+  startCash: 120, demandK: 254, nahD: 650, nahP: 3.2, fernK: 0.22, fernE: 1.8, interReg: 0.72,
   fuelBase: 0.85, yieldBase: 0.105, yieldTaper: 0.30, fareFix: 28,
   mulPrem: 1.9, mulBiz: 3.4, mulFirst: 6.5,
   elasticity: 1.5, sCurve: 1.35, incumbent: 0.74,
   pilotPay: 11000, cabinPay: 5200, pilotHourly: 70, cabinHourly: 25,
   hireCost: 16000, ratingCost: 42000, trainMonths: 2, retrainMonths: 3,
   overhead: 0.115, baseSetup: 2.0, baseMonthly: 0.14,
-  depYears: 20, loanRate: 0.062, leaseRate: 0.0068,
+  depYears: 22, loanRate: 0.062, leaseRate: 0.0072,
   heavyCheckHrs: 7000, weeksPerMonth: 4.345, dutyPerCrewWeek: 13,
   taxiHours: 0.42, maxDuty: 14*60
 };
@@ -783,13 +853,16 @@ const AIRCRAFT_ROWS = [
 ["b77w","Boeing 777-300ER","Boeing",550,13600,900,7300,175,3100,3200,12,10,"Grossraum",13,105,"B777","wb",1.94],
 ["b779","Boeing 777-9","Boeing",550,15500,900,6900,300,3100,3000,12,36,"Grossraum",13.5,105,"B777","wb",2.04],
 ["a388","Airbus A380-800 (gebraucht)","Airbus",853,14800,900,11500,72,3000,4200,16,4,"Grossraum",13,120,"A380","dd",1.98],
+["conc","Concorde","Aérospatiale/BAC",100,6200,2150,20800,145,3200,7800,6,9,"Grossraum",9,60,"CONC","wb",1.72],
 ["at42","ATR 42-600","ATR",48,1300,490,420,18,1100,470,2,6,"Regional",8,20,"AT72","prop",0.6],
 ["sf34","Saab 340B (gebraucht)","Saab",34,1400,470,340,3,1200,420,1,2,"Regional",8,20,"SF34","prop",0.54],
+["sb20","Saab 2000","Saab",50,2870,665,430,9,1300,520,1,3,"Regional",8.5,20,"SF34","prop",0.66],
 ["d328","Dornier 328","Dornier",33,1300,620,380,6,1100,450,1,4,"Regional",8,20,"D328","prop",0.55],
 ["e145","Embraer ERJ-145","Embraer",50,2900,780,760,12,1700,620,1,4,"Regional",8.5,25,"E145","rjt",0.66],
 ["cr10","CRJ1000","Mitsubishi",104,2800,810,1220,46,2000,890,3,8,"Regional",8.5,30,"CRJ7","rjt",0.9],
 ["f100","Fokker 100 (gebraucht)","Fokker",109,3000,780,1450,7,1600,900,3,2,"Regional",9,30,"F100","rjt",0.86],
 ["rj85","Avro RJ85","BAe",100,2200,760,1500,9,1200,950,3,2,"Regional",9,30,"RJ85","rjt",0.78],
+["b462","BAe 146-200","BAe",96,2900,745,1560,11,1195,980,3,3,"Regional",9,30,"RJ85","rjt",0.76],
 ["md80","McDonnell Douglas MD-83 (gebraucht)","Boeing",155,4600,810,2400,5,2200,1400,4,2,"Schmalrumpf",10,40,"MD80","nb",1.1],
 ["md90","McDonnell Douglas MD-90 (gebraucht)","Boeing",158,3800,810,2350,7,2200,1350,4,2,"Schmalrumpf",10,40,"MD80","nb",1.12],
 ["a19n","Airbus A319neo","Airbus",160,6900,830,1950,101,2000,1100,4,18,"Schmalrumpf",10,40,"A320","nb",0.92],
@@ -850,7 +923,7 @@ function newRegistration(base){
   return pre+"-"+Date.now().toString(36).slice(-4).toUpperCase();
 }
 
-const RATING_NAME = {B747:"Boeing 747", DC10:"DC-10", A340:"Airbus A340", A310:"Airbus A310", MD80:"MD-80", RJ85:"Avro RJ", F100:"Fokker 100", E145:"Embraer ERJ-145", D328:"Dornier 328", SF34:"Saab 340", 
+const RATING_NAME = {CONC:"Concorde", B747:"Boeing 747", DC10:"DC-10", A340:"Airbus A340", A310:"Airbus A310", MD80:"MD-80", RJ85:"Avro RJ", F100:"Fokker 100", E145:"Embraer ERJ-145", D328:"Dornier 328", SF34:"Saab 340", 
   AT72:"ATR 72", DH8D:"Dash 8-Q400", CRJ7:"CRJ 700/900", E170:"Embraer E170/175",
   E190:"Embraer E190/195-E2", BCS:"Airbus A220", B737:"Boeing 737",
   A320:"Airbus A320-Familie", B757:"Boeing 757/767", A330:"Airbus A330/A350",
@@ -1277,6 +1350,8 @@ const ASSET_MAX_W = 1400;          // grössere Vorlagen werden verkleinert
    dargestellt wird und wo Rumpfmitte und Radius liegen. Freistellen und
    Masken erzeugt der Browser daraus selbst, einmal je Muster. */
 const PLANE_ART = {
+  b462:{f:"BAe_146-200_Avro_RJ85_white.jpg",sx:85,sy:329,sw:830,sh:201,w:830,h:201,x0:6,x1:825,y0:0,y1:194,yc:116,r:55},
+  sb20:{f:"Saab_340B_white.jpg",sx:65,sy:343,sw:872,sh:230,w:872,h:230,x0:6,x1:865,y0:0,y1:223,yc:117,r:51},
   a19n:{f:"A319_NEO_Pratt__Whitney_white_sm.jpg",sx:107,sy:348,sw:810,sh:214,w:810,h:214,x0:6,x1:803,y0:0,y1:207,yc:115,r:47},
   a20n:{f:"A320_NEO_Pratt__Whitney_white_sm.jpg",sx:57,sy:342,sw:910,sh:218,w:910,h:218,x0:6,x1:903,y0:0,y1:211,yc:116,r:49},
   a21n:{f:"A321_NEO_pratt__whitney_white_sm.jpg",sx:30,sy:310,sw:961,sh:200,w:961,h:200,x0:6,x1:954,y0:0,y1:193,yc:107,r:45},
@@ -1994,18 +2069,18 @@ function wxOnLeg(leg){
 
 /* ======================================================= Bordservice ==== */
 const SERVICE = {
-  eco:  [{n:"Basic",   cost:4,  pull:0.90, rep:-0.35},
-         {n:"Standard",cost:11, pull:1.00, rep:0},
-         {n:"Premium", cost:22, pull:1.10, rep:0.35}],
-  prem: [{n:"Basic",   cost:12, pull:0.88, rep:-0.25},
-         {n:"Standard",cost:26, pull:1.00, rep:0},
-         {n:"Premium", cost:48, pull:1.14, rep:0.30}],
-  biz:  [{n:"Basic",   cost:22, pull:0.78, rep:-0.55},
-         {n:"Standard",cost:58, pull:1.00, rep:0},
-         {n:"Premium", cost:115,pull:1.26, rep:0.65}],
-  first:[{n:"Basic",   cost:45, pull:0.72, rep:-0.60},
-         {n:"Standard",cost:120,pull:1.00, rep:0},
-         {n:"Premium", cost:260,pull:1.34, rep:0.80}]
+  eco:  [{n:"Basic",   cost:3,  pull:0.90, rep:-0.35},
+         {n:"Standard",cost:7, pull:1.00, rep:0},
+         {n:"Premium", cost:13, pull:1.10, rep:0.35}],
+  prem: [{n:"Basic",   cost:8, pull:0.88, rep:-0.25},
+         {n:"Standard",cost:16, pull:1.00, rep:0},
+         {n:"Premium", cost:29, pull:1.14, rep:0.30}],
+  biz:  [{n:"Basic",   cost:13, pull:0.78, rep:-0.55},
+         {n:"Standard",cost:34, pull:1.00, rep:0},
+         {n:"Premium", cost:66,pull:1.26, rep:0.65}],
+  first:[{n:"Basic",   cost:27, pull:0.72, rep:-0.60},
+         {n:"Standard",cost:70,pull:1.00, rep:0},
+         {n:"Premium", cost:150,pull:1.34, rep:0.80}]
 };
 function svcLevel(k){ const v=(S&&S.service)?S.service[k]:1; return v==null?1:clamp(v|0,0,2); }
 function svcOf(k){ return SERVICE[k][svcLevel(k)]; }
@@ -2038,6 +2113,85 @@ function transferBonus(map){
    Australien und Ozeanien, Karibik und Mittelamerika, USA im Inland,
    Afrika, Anden und Südasien. Felder wie oben. */
 const AIRPORT_EXTRA = [
+/* Zweite Erweiterung: die verkehrsreichsten noch fehlenden Plätze weltweit —
+   vor allem Asien, Nordamerika und Brasilien, dazu europäische Zweitflughäfen. */
+["DME","Moskau-Domodedowo","Russland",55.409,37.906,22,3800,0.85,0.8,0.85,1.1,"EU"],
+["LED","St. Petersburg","Russland",59.8,30.263,18,3780,0.85,0.75,1.35,0.95,"EU"],
+["LTN","London-Luton","Vereinigtes Königreich",51.874,-0.368,16,2160,0.95,1.15,1.15,0.95,"EU"],
+["BGY","Bergamo","Italien",45.674,9.704,13,2937,0.85,1.05,1.2,0.95,"EU"],
+["LIN","Mailand-Linate","Italien",45.445,9.277,9,2440,1.15,1.15,0.85,1.35,"EU"],
+["BVA","Paris-Beauvais","Frankreich",49.454,2.113,4,2430,0.8,1.05,1.15,0.8,"EU"],
+["PKX","Peking-Daxing","China",39.509,116.411,49,3800,0.95,0.95,0.9,1.2,"AS"],
+["CKG","Chongqing","China",29.719,106.642,45,3600,0.85,0.8,1.0,1.1,"AS"],
+["DMK","Bangkok-Don Mueang","Thailand",13.912,100.607,40,3700,0.8,0.75,1.55,0.9,"AS"],
+["HGH","Hangzhou","China",30.229,120.434,40,3600,0.9,0.95,1.1,1.15,"AS"],
+["CJU","Jeju","Südkorea",33.511,126.493,30,3180,0.9,1.0,1.75,0.75,"AS"],
+["NKG","Nanjing","China",31.742,118.862,30,3600,0.88,0.9,1.0,1.1,"AS"],
+["XMN","Xiamen","China",24.544,118.128,27,3400,0.9,0.95,1.25,1.1,"AS"],
+["CSX","Changsha","China",28.189,113.22,26,3800,0.85,0.8,0.95,1.05,"AS"],
+["CTS","Sapporo","Japan",42.775,141.692,25,3000,1.0,1.15,1.55,0.9,"AS"],
+["FUK","Fukuoka","Japan",33.586,130.451,25,2800,1.05,1.15,1.2,1.1,"AS"],
+["WUH","Wuhan","China",30.784,114.208,25,3600,0.85,0.85,0.95,1.1,"AS"],
+["GMP","Seoul-Gimpo","Südkorea",37.558,126.791,24,3600,1.05,1.15,0.95,1.25,"AS"],
+["TAO","Qingdao","China",36.362,120.086,24,3600,0.88,0.9,1.1,1.1,"AS"],
+["MAA","Chennai","Indien",12.994,80.18,22,3658,0.8,0.6,0.95,1.1,"AS"],
+["TSN","Tianjin","China",39.124,117.346,22,3600,0.85,0.9,0.85,1.1,"AS"],
+["URC","Urumqi","China",43.907,87.474,22,3600,0.85,0.7,1.05,0.95,"AS"],
+["HYD","Hyderabad","Indien",17.231,78.43,21,4260,0.8,0.65,0.95,1.2,"AS"],
+["SYX","Sanya","China",18.303,109.412,20,3400,0.9,0.85,1.9,0.7,"AS"],
+["HAK","Haikou","China",19.935,110.459,20,3600,0.88,0.85,1.55,0.9,"AS"],
+["CCU","Kalkutta","Indien",22.655,88.447,19,3627,0.78,0.55,0.9,1.05,"AS"],
+["HKT","Phuket","Thailand",8.113,98.317,18,3000,0.9,0.75,1.95,0.65,"AS"],
+["OKA","Okinawa","Japan",26.196,127.646,18,3000,0.95,1.05,1.7,0.8,"AS"],
+["DLC","Dalian","China",38.966,121.539,14,3300,0.88,0.9,1.1,1.05,"AS"],
+["CEB","Cebu","Philippinen",10.308,123.979,12,3300,0.85,0.6,1.65,0.9,"AS"],
+["NGO","Nagoya","Japan",34.858,136.805,12,3500,1.05,1.15,1.05,1.2,"AS"],
+["PUS","Busan","Südkorea",35.18,128.938,10,3200,0.95,1.05,1.3,1.05,"AS"],
+["SUB","Surabaya","Indonesien",-7.38,112.787,9,3000,0.85,0.6,0.95,1.05,"AS"],
+["DAD","Da Nang","Vietnam",16.044,108.199,9,3500,0.85,0.6,1.75,0.9,"AS"],
+["IKA","Teheran","Iran",35.416,51.152,8,4200,0.8,0.55,0.95,0.95,"ME"],
+["PEN","Penang","Malaysia",5.297,100.277,8,3352,0.85,0.85,1.45,1.0,"AS"],
+["NQZ","Astana","Kasachstan",51.022,71.467,8,3500,0.9,0.8,0.95,1.1,"AS"],
+["LHE","Lahore","Pakistan",31.522,74.404,7,3360,0.8,0.55,0.85,1.0,"AS"],
+["FLL","Fort Lauderdale","USA",26.072,-80.153,35,2743,0.9,1.05,1.75,0.9,"NA"],
+["LGA","New York-LaGuardia","USA",40.777,-73.872,31,2134,1.2,1.2,1.0,1.35,"NA"],
+["BWI","Baltimore","USA",39.176,-76.668,26,3200,0.9,1.1,0.95,1.1,"NA"],
+["IAD","Washington-Dulles","USA",38.945,-77.456,25,3505,1.05,1.2,1.0,1.3,"NA"],
+["DCA","Washington-Reagan","USA",38.852,-77.038,25,2093,1.15,1.25,0.95,1.4,"NA"],
+["BNA","Nashville","USA",36.126,-86.682,23,3362,0.9,1.1,1.45,1.05,"NA"],
+["MDW","Chicago-Midway","USA",41.786,-87.752,21,1191,0.95,1.1,0.95,1.1,"NA"],
+["YYC","Calgary","Kanada",51.114,-114.02,18,4267,0.95,1.15,1.2,1.15,"NA"],
+["GDL","Guadalajara","Mexiko",20.522,-103.311,16,4000,0.85,0.75,1.2,1.05,"NA"],
+["STL","St. Louis","USA",38.749,-90.37,15,3359,0.85,1.0,0.9,1.05,"NA"],
+["RDU","Raleigh","USA",35.878,-78.788,14,3048,0.9,1.15,0.95,1.2,"NA"],
+["MTY","Monterrey","Mexiko",25.778,-100.107,13,3000,0.9,0.85,0.85,1.25,"NA"],
+["SJC","San Jose","USA",37.363,-121.929,12,3353,1.05,1.3,0.9,1.3,"NA"],
+["MSY","New Orleans","USA",29.994,-90.258,12,3080,0.9,0.95,1.65,0.95,"NA"],
+["OAK","Oakland","USA",37.721,-122.221,11,3048,0.95,1.2,1.05,1.05,"NA"],
+["SAT","San Antonio","USA",29.534,-98.469,10,2591,0.85,1.0,1.2,1.0,"NA"],
+["TIJ","Tijuana","Mexiko",32.541,-116.97,9,2960,0.85,0.8,1.1,1.0,"NA"],
+["PIT","Pittsburgh","USA",40.491,-80.233,9,3505,0.85,1.0,0.9,1.05,"NA"],
+["CVG","Cincinnati","USA",39.049,-84.668,9,3353,0.85,1.05,0.85,1.1,"NA"],
+["BSB","Brasília","Brasilien",-15.869,-47.921,16,3300,0.85,0.85,0.95,1.2,"SA"],
+["VCP","Campinas","Brasilien",-23.007,-47.134,12,3240,0.85,0.9,0.9,1.1,"SA"],
+["AEP","Buenos Aires-Aeroparque","Argentinien",-34.559,-58.417,11,2100,0.9,0.85,1.1,1.2,"SA"],
+["CNF","Belo Horizonte","Brasilien",-19.634,-43.969,10,3000,0.85,0.85,0.9,1.1,"SA"],
+["REC","Recife","Brasilien",-8.126,-34.923,9,3007,0.85,0.75,1.55,0.95,"SA"],
+["SSA","Salvador","Brasilien",-12.911,-38.331,8,3003,0.85,0.75,1.65,0.9,"SA"],
+["POA","Porto Alegre","Brasilien",-29.994,-51.171,8,2280,0.85,0.9,0.95,1.05,"SA"],
+["FOR","Fortaleza","Brasilien",-3.776,-38.532,7,2750,0.85,0.7,1.6,0.9,"SA"],
+["CLO","Cali","Kolumbien",3.543,-76.382,6,3000,0.85,0.75,1.05,1.05,"SA"],
+["SHJ","Schardscha","Vereinigte Arabische Emirate",25.328,55.517,13,3760,0.8,0.95,1.05,0.95,"ME"],
+["DMM","Dammam","Saudi-Arabien",26.471,49.798,11,4000,0.9,1.05,0.8,1.2,"ME"],
+["MED","Medina","Saudi-Arabien",24.554,39.705,8,4260,0.9,0.9,1.6,0.85,"ME"],
+["BEY","Beirut","Libanon",33.821,35.488,7,3800,0.9,0.7,1.45,0.95,"ME"],
+["ABV","Abuja","Nigeria",9.007,7.263,5,3610,0.95,0.65,0.8,1.25,"AF"],
+["DUR","Durban","Südafrika",-29.615,31.12,5,3700,0.9,0.85,1.45,0.95,"AF"],
+["HBE","Alexandria","Ägypten",30.918,29.696,4,3300,0.85,0.6,1.35,0.9,"AF"],
+["DLA","Douala","Kamerun",4.006,9.719,2,2850,0.95,0.6,0.8,1.15,"AF"],
+["OGG","Maui","USA",20.899,-156.43,7,2103,1.0,1.1,1.95,0.7,"NA"],
+["CBR","Canberra","Australien",-35.307,149.195,3,3283,1.0,1.2,0.9,1.35,"OC"],
+
 ["ADL","Adelaide","Australien",-34.95,138.53,8.6,3100,1.00,1.20,1.05,1.00,"OC"],
 ["CNS","Cairns","Australien",-16.89,145.75,5.2,3200,0.95,1.15,1.55,0.80,"OC"],
 ["OOL","Gold Coast","Australien",-28.16,153.51,6.6,2500,0.92,1.10,1.60,0.75,"OC"],
@@ -2135,8 +2289,13 @@ const AIRPORT_EXTRA = [
 /* ========================================================== Datenaufbau */
 function buildAirport(r){ return {iata:r[0],city:r[1],country:r[2],lat:r[3],lon:r[4],pax:r[5],
   runway:r[6],fee:r[7],income:r[8],tourism:r[9],biz:r[10],region:r[11]}; }
+/* Die hinterlegten Preise sind Listenpreise. Gekauft wird in der Branche zu
+   deutlich weniger — das schlägt auf Kaufpreis, Leasingrate, Abschreibung und
+   Gebrauchtmarkt gleichermassen durch. */
+const PREIS_FAKTOR = 0.58;
 function buildAircraft(r){ return {id:r[0],name:r[1],maker:r[2],maxSeats:r[3],range:r[4],speed:r[5],
-  burn:r[6],price:r[7],runway:r[8],maint:r[9],cabin:r[10],lead:r[11],cat:r[12],block:r[13],
+  burn:r[6],price:+(r[7]*PREIS_FAKTOR).toFixed(1),listenpreis:r[7],
+  runway:r[8],maint:r[9],cabin:r[10],lead:r[11],cat:r[12],block:r[13],
   turn:r[14],rating:r[15],shape:r[16],len:r[17]}; }
 let AP={}, APL=[], ACT={}, ACTL=[];
 function loadStaticData(){
@@ -2162,12 +2321,13 @@ function newGame(cfg){
     service:{eco:1,prem:1,biz:1,first:1}, weather:[], reviews:[], punctuality:0.86,
     charters:[], charterJobs:[], achievements:{}, pending:null,
     hedges:[], holdings:{}, takeovers:[], loyalty:false, seatFee:false, mapStyle:"nacht",
-    inbox:[], mailSeq:0, rel:{crew:70, airports:70, partners:55}, blocks:[], sais:null, feud:{},
+    inbox:[], mailSeq:0, zeitung:[], rel:{crew:70, airports:70, partners:55}, blocks:[], sais:null, feud:{},
     chronik:[],
     staff:rollStaff(cfg.home),
     curfewHits:0, tutorial:{done:false, erledigt:{}}, jumpMode:"event",
     dayReport:null, lastStop:null, tarifGesehen:false,
     boardOn:true, board:null, boardTrust:50, crewRealism:true,
+    eventsOn:true, evtLast:{}, feeCut:{}, marketingDone:0,
     lastPool:0, poolLast:[], lastSeuche:0, sideWide:0,
     flightHistory:[], finTab:"gv",
     lastMonth:null, ownAirports:[] };
@@ -2229,16 +2389,33 @@ function railFactor(a,b,d){
   if(d>=1100) return 1;
   return 0.35 + 0.65*(d/1100);
 }
+/* ============================================= Nachfrage je Städtepaar ====
+   Ein Schwerkraftmodell allein verteilt zu viel auf die grössten Partner und
+   lässt die Summe eines Flughafens beliebig ausfallen. Deshalb sind die
+   Faktoren einmal so eingemessen, dass sich alle Strecken eines Flughafens zu
+   seinem tatsächlichen Quell- und Zielverkehr aufaddieren — bei grossen
+   Drehkreuzen abzüglich des Umsteigeanteils, den man dort nicht selbst
+   bedient. Dadurch ist der Markt endlich, und mehr Frequenz bringt
+   irgendwann nichts mehr. */
+const DEMAND_NORM = {AAL:5165,ABJ:423900,ABV:138700,ABZ:9001,ACC:150000,ACE:23640,ACH:1913,ADB:4587,ADD:76390,ADL:57220,AEP:47110,AGA:36930,AGP:3291,AHO:5587,AJA:4680,AKL:9606,ALA:83190,ALC:3957,ALG:18610,AMM:17770,AMS:278.2,ANC:316900,ANR:3138,AQP:127000,ARN:1288,ASP:749400,ASU:201400,ATH:1815,ATL:302.6,AUA:37560,AUH:2608,AUS:3029,AYT:1165,BAH:10900,BCN:572.9,BEG:4706,BER:1244,BEY:15550,BFS:9068,BGI:136200,BGO:5006,BGY:2907,BHX:3855,BIA:4742,BIO:6103,BIQ:5160,BJV:7525,BKK:652,BLL:3814,BLQ:3198,BLR:3643,BNA:1911,BNE:5980,BOD:3933,BOG:4538,BOJ:7147,BOM:1698,BOS:713.9,BRE:4713,BRI:6356,BRN:1616,BRQ:4484,BRS:4805,BRU:1194,BSB:16820,BSL:1090,BTS:3347,BUD:2239,BVA:5052,BWI:1889,CAG:6458,CAI:4072,CAN:502.4,CBR:34220,CCS:97690,CCU:10980,CDG:271.5,CEB:30010,CFU:5793,CGK:1414,CGN:2562,CHC:46570,CHQ:9343,CJU:1300,CKG:1123,CLJ:7280,CLO:32800,CLT:669.6,CMB:49860,CMF:2293,CMN:19700,CNF:21190,CNS:117400,CPH:928.5,CPT:66950,CRL:3794,CSX:2688,CTA:6068,CTG:30400,CTS:3014,CTU:917.9,CUN:4160,CUR:40770,CUZ:97870,CVG:6243,DAC:53570,DAD:15230,DAR:369400,DBV:3813,DCA:1574,DEL:970.9,DEN:553.2,DFW:476.4,DJE:32510,DKR:1281000,DLA:369400,DLC:5875,DLM:8109,DME:5452,DMK:1543,DMM:9689,DOH:1010,DPS:7380,DRS:4385,DRW:1485000,DTM:4837,DTW:1607,DUB:790.3,DUR:114300,DUS:1175,DXB:328.9,EBB:208700,EDI:4006,EIN:3370,ESB:7449,EVN:52310,EWR:648.4,EZE:38490,FAO:7348,FCO:699.9,FDH:2717,FLL:1319,FLR:3774,FMM:3802,FNC:20670,FOR:93580,FRA:306.1,FRU:116200,FUE:30710,FUK:1941,GDL:13250,GDN:6093,GIG:10760,GLA:6852,GMP:2350,GNB:2619,GOA:4058,GOT:3608,GRO:6836,GRQ:2915,GRU:3571,GRZ:3840,GUA:116100,GUM:1287000,GVA:1205,GYD:46480,GYE:111100,HAJ:3887,HAK:3419,HAM:1951,HAN:6212,HAV:25830,HBA:158700,HBE:27820,HEL:2356,HER:6664,HGH:954.6,HIR:4828000,HKG:319,HKT:6545,HND:324.7,HNL:7507,HRG:20720,HYD:7190,IAD:1642,IAH:961,IAS:12410,IBZ:6067,ICN:353.3,IKA:50280,INN:2691,ISB:93670,IST:555.9,JED:1874,JER:3890,JFK:379.4,JMK:5802,JNB:14190,JRO:85350,JTR:7348,KBP:6572,KEF:43510,KGL:285800,KGS:7299,KHI:128200,KIN:59940,KIV:16400,KIX:1408,KLU:2695,KMG:1236,KRK:4536,KTM:75910,KTW:6764,KUL:863.7,KWI:8341,LAD:1610000,LAS:677.5,LAX:301.9,LBA:8209,LCA:6686,LCY:4383,LED:4926,LEJ:4690,LGA:1354,LGG:3165,LGW:639.9,LHE:60500,LHR:269.2,LIL:4569,LIM:13600,LIN:3352,LIS:1604,LJU:2030,LNZ:3168,LOS:86080,LPA:10760,LPB:164400,LPL:8441,LTN:2683,LUG:2169,LUX:2704,LWO:8199,LYS:2381,MAA:7375,MAD:524.5,MAH:6516,MAN:1645,MBJ:40720,MCO:693.4,MCT:8057,MDE:20350,MDW:3309,MED:18890,MEL:2833,MEX:1498,MIA:810.9,MIR:19210,MLA:6379,MLE:181000,MMX:3315,MNL:1663,MPL:4574,MPM:155100,MRS:3126,MRU:736700,MSP:1622,MST:3092,MSY:7276,MTY:12630,MUC:464.1,MVD:50760,MXP:1059,NAN:2729000,NAP:4036,NAS:16480,NBO:70790,NCE:1984,NCL:6828,NGO:7828,NKG:1691,NOU:775300,NQZ:68960,NRT:952.9,NTE:4148,NUE:3648,OAK:14740,OGG:66920,OKA:4766,OLB:5418,OOL:37770,OPO:5305,ORD:360.9,ORK:5304,ORY:917.5,OSL:1070,OTP:4157,OUL:28060,PAD:3922,PDL:256500,PDX:4539,PEK:390.2,PEN:20500,PER:33140,PFO:8539,PHL:1713,PHX:986.9,PIT:5414,PKX:894.1,PMI:1545,PMO:7603,PNH:32610,POA:48580,POM:1654000,POS:148500,POZ:6977,PPT:19650000,PRG:2179,PSA:4052,PTY:13890,PUJ:23480,PUS:6854,PUY:1865,PVG:403.4,RAK:29640,RDU:3781,REC:46380,REP:27580,RGN:95660,RHO:7028,RIX:6460,RTM:3893,RUH:2879,RVN:32940,SAL:114900,SAN:2464,SAT:10810,SAW:1511,SCL:12320,SCN:3194,SCQ:12650,SDQ:46810,SEA:698.1,SEZ:2158000,SFO:508.2,SGN:2280,SHA:904.6,SHJ:10620,SIN:409.9,SIR:1213,SJC:11080,SJJ:4509,SJO:57420,SJU:19220,SKG:5353,SKP:7008,SLC:2528,SNN:5789,SOF:5388,SPU:3029,SSA:53200,SSH:29200,STL:5894,STN:1289,STR:2032,SUB:59460,SVG:4342,SVO:1310,SVQ:8240,SXB:3212,SXM:56170,SYD:1750,SYX:3414,SZG:3063,SZX:787.8,TAO:2264,TAS:128500,TBS:43880,TFN:57660,TFS:15810,TIA:6212,TIJ:18450,TIP:13710,TIV:4298,TKU:7710,TLL:10450,TLS:3746,TLV:2361,TNG:21950,TNR:1761000,TOS:76830,TPA:2472,TPE:677.3,TRD:12480,TRN:3845,TRS:3645,TSN:3492,TSR:5647,TSV:113900,TUN:17780,UIO:72810,ULN:519400,URC:7524,VAR:7839,VCE:2238,VCP:24330,VIE:860.4,VLC:6336,VNO:7969,VRN:3738,VTE:37830,VVI:351200,WAW:3063,WDH:1087000,WLG:46770,WRO:6020,WUH:2667,XIY:1257,XMN:1928,YUL:3277,YVR:2642,YYC:6520,YYZ:588,ZAG:3003,ZNZ:434500,ZQN:89320,ZRH:721,ZTH:6940};
 function marketDemand(a,b,monthIdx){
   const d=distKm(a,b);
-  let base = BAL.demandK*Math.pow(a.pax,0.62)*Math.pow(b.pax,0.62)/(1+Math.pow(d/1000,BAL.decay));
+  const nf=Math.sqrt((DEMAND_NORM[a.iata]||1)*(DEMAND_NORM[b.iata]||1));
+  const mn=Math.min(a.pax,b.pax);
+  /* Nahverkehr fällt steil ab; der lange Schwanz für Interkontinentales wächst
+     mit der Grösse des kleineren Partners — Fernflüge gibt es zwischen zwei
+     grossen Flughäfen, nicht ab jedem Regionalplatz. */
+  const c=BAL.fernK*Math.pow(Math.min(mn,90)/25, BAL.fernE);
+  const det=1/(1+Math.pow(d/BAL.nahD,BAL.nahP)) + c/(1+Math.pow(d/9000,1.3));
+  let base = Math.pow(a.pax*b.pax,0.9)*det*nf;
   const inc=(a.income+b.income)/2, tour=(a.tourism+b.tourism)/2, biz=(a.biz+b.biz)/2;
   let f = Math.pow(inc,0.9)*(0.55*tour+0.45*biz)*railFactor(a,b,d);
   if(a.region!==b.region) f*=BAL.interReg;
-  if(d>13000) f*=0.85;
+  if(d<90) f=0;
   const seas = 1+(SEASON[monthIdx==null?0:monthIdx]-1)*(0.4+0.75*tour);
-  const flat = base*f;
-  return {d, weekly: flat*seas*(S?S.economy:1), daily: flat*seas*(S?S.economy:1)/7, base:flat, inc, tour, biz};
+  const flat = base*f/365;                       /* die Einmessung liefert Jahreswerte */
+  const wo = flat*7*seas*(S?S.economy:1);
+  return {d, weekly: wo, daily: wo/7, base:flat*7, inc, tour, biz};
 }
 /* Nachfrage je Buchungsklasse. Innereuropäisch ist der Business-Anteil klein
    und Premium Economy gibt es praktisch nicht — beides erst ab der Mittelstrecke. */
@@ -2699,6 +2876,25 @@ function todoPanel(){
    nah genug, um daran zu arbeiten, weit genug, um eine Strategie zu brauchen.
    Erfüllt bringt Kapital und Vertrauen, verfehlt kostet Spielraum.
    Abschaltbar unter Einstellungen. */
+/* Vorgaben, die auch ohne Flugzeuge zu erfüllen sind — solange die
+   Bestellung läuft, kann der Rat keinen Gewinn verlangen. */
+const BOARD_AUFBAU = [
+  {art:"crewAus", t:v=>`${fmt(v,0)} Cockpitmitglieder in Ausbildung oder bereit`,
+   wert:()=>Math.max(4, Object.values(pilotNeed()).reduce((a,x)=>a+x,0)||6),
+   lies:()=>Object.values(S.pilots||{}).reduce((a,x)=>a+x,0)
+     +(S.pilotsTrain||[]).reduce((a,x)=>a+x.n,0), einheit:""},
+  {art:"kabineAus", t:v=>`${fmt(v,0)} Kabinenmitglieder eingestellt`,
+   wert:()=>Math.max(8, cabinNeed()||12), lies:()=>S.cabin||0, einheit:""},
+  {art:"marketing", t:v=>`${fmt(v,0)} Marketingaktionen anstossen`,
+   wert:()=>1+((S.campaigns||[]).length), lies:()=>(S.campaigns||[]).length
+     +((S.marketingDone||0)), einheit:""},
+  {art:"ruf", t:v=>`Ruf über ${fmt(v,0)}`,
+   wert:()=>clamp(Math.round(S.rep+3), 40, 92), lies:()=>S.rep, einheit:""},
+  {art:"stationen", t:v=>`${fmt(v,0)} Stationen betreiben`,
+   wert:()=>S.bases.length+1, lies:()=>S.bases.length, einheit:""},
+  {art:"liquid", t:v=>`Mindestens ${chf(v)} in der Kasse halten`,
+   wert:()=>Math.round(S.cash*0.75/1e6)*1e6, lies:()=>S.cash, einheit:"chf"}
+];
 const BOARD_KINDS = [
   {art:"lf", t:v=>`Sitzladefaktor über ${fmt(v,0)}%`,
    wert:()=>{ const L=S.lastMonth; return clamp((L?L.lf*100:70)+6, 62, 88); },
@@ -2722,14 +2918,15 @@ const BOARD_KINDS = [
    wert:()=>{ const L=S.lastMonth; const c=L&&L.ask?L.cost/L.ask*100:8; return Math.round(c*0.94*100)/100; },
    lies:()=>{ const L=S.lastMonth; return L&&L.ask?L.cost/L.ask*100:99; }, einheit:"rp", kleiner:true}
 ];
-function boardText(b){ const K=BOARD_KINDS.find(x=>x.art===b.art); return K?K.t(b.wert):""; }
-function boardValue(b){ const K=BOARD_KINDS.find(x=>x.art===b.art); return K?K.lies():0; }
+const ALLE_ZIELE = () => BOARD_KINDS.concat(BOARD_AUFBAU);
+function boardText(b){ const K=ALLE_ZIELE().find(x=>x.art===b.art); return K?K.t(b.wert):""; }
+function boardValue(b){ const K=ALLE_ZIELE().find(x=>x.art===b.art); return K?K.lies():0; }
 function boardDone(b){
-  const K=BOARD_KINDS.find(x=>x.art===b.art); if(!K) return false;
+  const K=ALLE_ZIELE().find(x=>x.art===b.art); if(!K) return false;
   return K.kleiner ? boardValue(b)<=b.wert : boardValue(b)>=b.wert;
 }
 function boardFormat(b, v){
-  const K=BOARD_KINDS.find(x=>x.art===b.art);
+  const K=ALLE_ZIELE().find(x=>x.art===b.art);
   if(!K) return fmt(v,0);
   if(K.einheit==="chf") return chf(v);
   if(K.einheit==="rp") return fmt(v,2)+" Rp.";
@@ -2739,12 +2936,18 @@ function boardFormat(b, v){
 /** Neue Vorgabe stellen. */
 function boardNewGoal(){
   if(!S.boardOn) return;
-  const moeglich=BOARD_KINDS.filter(k=>{
-    if(k.art==="kosten"||k.art==="lf"||k.art==="gewinn") return S.history.length>=1;
-    if(k.art==="pax") return S.history.length>=2;
-    return true;
-  });
-  const K=pick(moeglich.length?moeglich:BOARD_KINDS);
+  /* Ohne fliegende Flotte lässt sich kein Ergebnis verlangen — dann geht es
+     um Aufbau: Personal, Marketing, Stationen, Liquidität. */
+  const fliegt=S.fleet.some(a=>a.status==="aktiv" && scheduleOf(a).flights>0);
+  const wartet=(S.orders||[]).length>0;
+  const moeglich = !fliegt
+    ? BOARD_AUFBAU.filter(k=>k.art!=="stationen" || S.cash>25e6)
+    : BOARD_KINDS.filter(k=>{
+        if(k.art==="kosten"||k.art==="lf"||k.art==="gewinn") return S.history.length>=1;
+        if(k.art==="pax") return S.history.length>=2;
+        return true;
+      });
+  const K=pick(moeglich.length?moeglich:BOARD_AUFBAU);
   const d=clockDate();
   const bis=Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+3, 1, 5, 0);
   S.board={art:K.art, wert:K.wert(), gestellt:S.clock, bis, erfuellt:null,
@@ -2756,6 +2959,8 @@ function boardNewGoal(){
       <div class="card"><b class="amb">${boardText(b)}</b><br>
         <span class="dim">Frist: ${new Date(bis).toLocaleDateString("de-CH")} · aktuell ${boardFormat(b, boardValue(b))}</span></div>
       <p>Wird sie erreicht, stellt der Rat <b>${chf(b.lohn)} CHF</b> zusätzliches Kapital bereit und spricht Ihnen das Vertrauen aus.</p>
+      ${!S.fleet.some(a=>a.status==="aktiv"&&scheduleOf(a).flights>0)
+        ? `<p class="dim">Solange noch keine Maschine fliegt, verlangt der Rat kein Ergebnis, sondern Vorbereitung.</p>`:""}
       <p class="dim">Wird sie verfehlt, kürzt der Rat den Kreditrahmen und die Geduld. Wer die Vorgaben grundsätzlich nicht will, schaltet sie unter «Einstellungen» ab.</p>`});
   stopForEvent(2);
 }
@@ -3289,7 +3494,20 @@ const ACHIEVEMENTS = [
   {id:"puenkt", t:"Uhrwerk", d:"Pünktlichkeit über 92% in einem Monat.",
    f:()=>S.punctuality>0.92, r:null},
   {id:"charter5", t:"Auf Bestellung", d:"Fünf Charteraufträge geflogen.",
-   f:()=>(S.charterDone||0)>=5, r:"vip"}
+   f:()=>(S.charterDone||0)>=5, r:"vip"},
+  /* Zwei Auszeichnungen rund um die Concorde: erst das Modell fürs Büro,
+     viel später die Maschine selbst. */
+  {id:"concModell", t:"Modell fürs Büro",
+   d:"Eine Million Sitzkilometer angeboten — der Verwaltungsrat schenkt Ihnen eine Concorde für die Vitrine.",
+   f:()=>S.history.reduce((a,h)=>a+(h.ask||0),0)>=1e6, r:null, deko:"concorde"},
+  {id:"concKauf", t:"Schallmauer",
+   d:"Zwölf Monate Gewinn in Folge und fünf Strecken über 5000 km — die Concorde steht Ihnen zum Kauf offen.",
+   f:()=>{
+     const h=S.history.slice(-12);
+     if(h.length<12 || !h.every(x=>x.profit>0)) return false;
+     const lang=S.routes.filter(r=>r.last&&r.last.ok && distKm(AP[r.from],AP[r.to])>5000).length;
+     return lang>=5;
+   }, r:null, frei:"conc"}
 ];
 const UNLOCK_NAME = {gold:"Goldakzent", retro:"Retro-Streifen", vip:"VIP-Emblem"};
 function checkAchievements(){
@@ -3305,13 +3523,81 @@ function checkAchievements(){
     neu.forEach(a=>logg(`Meilenstein erreicht: ${a.t}${a.r?` — Sonderbemalung «${UNLOCK_NAME[a.r]}» freigeschaltet`:""}.`,"good"));
     setTimeout(()=>modal("Meilenstein erreicht",
       neu.map(a=>`<div class="card"><b class="amb">${esc(a.t)}</b><br><span class="dim">${esc(a.d)}</span>
-        ${a.r?`<div class="pill ok" style="margin-top:6px;display:inline-block">Sonderbemalung «${UNLOCK_NAME[a.r]}» freigeschaltet</div>`:""}</div>`).join("")),120);
+        ${a.r?`<div class="pill ok" style="margin-top:6px;display:inline-block">Sonderbemalung «${UNLOCK_NAME[a.r]}» freigeschaltet</div>`:""}
+        ${a.frei?`<div class="pill ok" style="margin-top:6px;display:inline-block">${esc(ACT[a.frei]?ACT[a.frei].name:a.frei)} im Markt freigeschaltet</div>`:""}
+        ${a.deko==="concorde"?`<div style="margin-top:8px">${concordeModell()}</div>
+          <p class="dim" style="font-size:11px;margin-top:5px">Steht ab sofort in Ihrem Büro. Zu sehen unter «Erfolge».</p>`:""}</div>`).join("")),120);
   }
 }
 function unlocked(kind){
   return ACHIEVEMENTS.some(a=>a.r===kind && (S.achievements||{})[a.id]);
 }
+/** Erklärt, warum ein Muster noch nicht zu haben ist. */
+function nichtVerfuegbar(typeId){
+  modal("Noch nicht verfügbar",
+    `<p>Die <b>${esc(ACT[typeId].name)}</b> steht erst zur Verfügung, wenn Sie sich dafür qualifiziert haben.</p>
+     <div class="card"><b class="amb">Voraussetzung</b><br>
+       <span class="dim">${esc(musterSperrgrund(typeId))}</span></div>
+     <p class="dim">Bis dahin bleibt sie im Markt sichtbar — als Ziel, auf das man hinarbeitet.</p>`);
+}
+/** Muster, die erst durch einen Meilenstein kaufbar werden. */
+const GESPERRT = {
+  conc:{ach:"concKauf", t:"Concorde",
+    d:"Zwölf Monate Gewinn in Folge und fünf Strecken über 5000 km."}
+};
+function musterFrei(id){
+  const g=GESPERRT[id];
+  if(!g) return true;
+  return !!(S.achievements||{})[g.ach];
+}
+function musterSperrgrund(id){
+  const g=GESPERRT[id];
+  return g ? g.d : "";
+}
+/** Deko im Verwaltungsbüro. */
+function dekoHat(k){
+  return ACHIEVEMENTS.some(a=>a.deko===k && (S.achievements||{})[a.id]);
+}
 
+
+
+/* Das Modell fürs Büro: eine kleine Concorde auf Sockel, gezeichnet.
+   Reine Zierde — aber die erste Auszeichnung, die man vorzeigen kann. */
+function concordeModell(gross){
+  const W=gross?420:300, H=gross?150:108;
+  return `<svg viewBox="0 0 420 150" width="${W}" height="${H}" style="display:block;max-width:100%">
+    <defs>
+      <linearGradient id="cmRumpf" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#ffffff"/><stop offset="55%" stop-color="#eef1f5"/>
+        <stop offset="100%" stop-color="#b9c2cd"/></linearGradient>
+      <linearGradient id="cmSockel" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#3b2b1c"/><stop offset="100%" stop-color="#20160e"/></linearGradient>
+    </defs>
+    <g transform="translate(6,4)">
+      <!-- Delta-Tragfläche -->
+      <path d="M96 74 L250 62 L322 66 L318 76 L250 82 L120 92 Z" fill="#dfe5ec"/>
+      <path d="M150 78 L300 70 L318 74 L300 79 L160 88 Z" fill="#c7d0da" opacity=".7"/>
+      <!-- Rumpf mit abgesenkter Nase -->
+      <path d="M14 70 C34 62, 60 58, 96 57 L300 55 C334 55, 356 60, 372 66
+               C356 72, 334 76, 300 76 L96 78 C60 78, 34 76, 14 70 Z" fill="url(#cmRumpf)"/>
+      <path d="M14 70 C26 66, 40 62, 58 60 L40 70 Z" fill="#c3ccd7"/>
+      <!-- Seitenleitwerk -->
+      <path d="M330 58 L352 18 L366 20 L358 60 Z" fill="#e6ebf1"/>
+      <path d="M334 56 L352 22 L360 23 L353 57 Z" fill="${S&&S.livery?S.livery.c1:"#c8102e"}"/>
+      <!-- Triebwerksgondeln -->
+      <rect x="176" y="80" width="62" height="9" rx="4" fill="#98a3b0"/>
+      <rect x="248" y="78" width="58" height="8" rx="4" fill="#98a3b0"/>
+      <!-- Cockpitfenster -->
+      <path d="M40 66 L62 63 L62 68 L40 70 Z" fill="#2a3646"/>
+      <!-- Sockelstütze und Platte -->
+      <path d="M196 90 L200 118 L214 118 L210 90 Z" fill="#8e9aa7"/>
+      <rect x="120" y="116" width="180" height="16" rx="3" fill="url(#cmSockel)"/>
+      <rect x="120" y="116" width="180" height="4" rx="2" fill="#54402b"/>
+      <rect x="150" y="122" width="120" height="7" rx="2" fill="#c9a227"/>
+      <text x="210" y="128" text-anchor="middle" font-family="IBM Plex Mono,monospace"
+        font-size="5.2" letter-spacing="1.6" fill="#2b1f14">${esc((S&&S.name?S.name:"").toUpperCase().slice(0,24))}</text>
+    </g></svg>`;
+}
 
 /* ==================================================== Passagierstimmen ==*/
 const VORNAMEN=["Andrea","Marc","Sofia","Luca","Nadine","Thomas","Elena","Pascal","Judith","Rico",
@@ -3363,18 +3649,41 @@ const starsHTML = n => `<span class="amb">${"★".repeat(n)}</span><span class="
 
 
 
+
+/* ========================================== Was hier überhaupt fliegen kann
+   Ein Muster, das an keiner der eigenen Stationen starten kann, gehört nicht
+   in die Auslage — sonst kauft man aus Unkenntnis eine Maschine, die am
+   Heimatflughafen nie abhebt. */
+const passtZurBasis = t => typeFitsHome(t);
+function basisHinweis(t){
+  if(passtZurBasis(t)) return "";
+  const kuerzeste=Math.min(...S.bases.map(b=>AP[b]?AP[b].runway:9999));
+  return `braucht ${fmt(t.runway)} m Piste, längste eigene Station hat ${fmt(kuerzeste)} m`;
+}
+
 /* ================================================ Gebrauchtmaschinen ====
    Jeden Monat drei Angebote: älter, mit Stunden auf der Uhr, dafür deutlich
    günstiger und sofort verfügbar. */
-function rollUsed(){
+/** Kann dieses Muster an der Heimatbasis betrieben werden? Kürzere Pisten
+    schliessen grosse Muster aus — das soll man sehen, nicht erraten müssen. */
+/* Betreibbar heisst: mindestens eine eigene Station hat eine lange genug
+   Piste. Alles andere gehört nicht in die Auslage. */
+function typeFitsHome(t){
+  if(!S || !S.bases.length) return true;
+  return S.bases.some(b=>AP[b] && t.runway<=AP[b].runway);
+}
+function rollUsed(erst){
   S.usedMarket=[];
-  const pool=ACTL.filter(t=>t.price<400);
-  for(let i=0;i<3;i++){
+  const pool=ACTL.filter(t=>t.price<400 && typeFitsHome(t));
+  if(!pool.length) return;
+  const n = erst ? 12 : 5;
+  for(let i=0;i<n;i++){
     const t=pick(pool);
     const ageY=rnd(8,22), hours=BAL.heavyCheckHrs*rnd(0.6,0.98);
     const disc=rnd(0.35,0.60);
     const price=Math.round(t.price*1e6*(1-disc)*Math.pow(0.965,ageY)/1000)*1000;
-    S.usedMarket.push({id:"U"+Date.now().toString(36)+i, type:t.id, ageM:Math.round(ageY*12),
+    S.usedMarket.push({id:"U"+Date.now().toString(36)+i+Math.floor(Math.random()*999),
+      type:t.id, ageM:Math.round(ageY*12), left:2+Math.floor(rnd(0,3)),
       hours:Math.round(hours), price:Math.max(price, t.price*1e6*0.10),
       seller:pick(["Leasinggesellschaft","Nachlassverwertung","Flottenerneuerung",
         "Rückläufer aus Leasing","Insolvenzverwertung","Betreiberwechsel"])});
@@ -3647,6 +3956,10 @@ function marketSplit(r, myFare, myFreq, myComfort, loyal){
 
 /** Wöchentliche Reaktion der Konkurrenz auf das Verhalten des Spielers. */
 function competitorTurn(){
+  /* Die Konkurrenz handelt sichtbar: jede Bewegung wird festgehalten und im
+     Postfach gemeldet. Ein Gegner, den man nicht handeln sieht, fühlt sich
+     nicht wie ein Gegner an. */
+  const zuege=[];
   S.routes.forEach(r=>{
     const list=rivalsOn(r), L=r.last;
     if(!L||!L.ok) return;
@@ -3654,6 +3967,7 @@ function competitorTurn(){
       const x=rivalById(rv.id); if(!x) return;
       x.aggroEff=(x.aggro||0.5)*(BAL.aggroMult||1);
       const meFare=r.fare;
+      const f0=rv.flights, p0=rv.fare;
       if(x.model==="lcc" && meFare < rv.fare*0.96){
         rv.fare=Math.max(0.58, rv.fare - 0.035*x.aggroEff);
         if(Math.random()<x.aggroEff*0.35) rv.flights*=1.07;
@@ -3662,9 +3976,19 @@ function competitorTurn(){
       if(L.share<0.14 && x.model!=="lcc" && Math.random()<0.25) rv.flights*=0.95;
       if(x.model==="legacy" && L.share>0.55 && rv.flights<3 && Math.random()<0.22){
         rv.flights=0;
+        zuege.push({art:"raus", x, r});
         logg(`${x.name} zieht sich von ${r.from}–${r.to} zurück.`,"good");
       }
       rv.flights=Math.max(0, rv.flights);
+      /* nennenswerte Änderungen merken */
+      if(rv.flights>0.05){
+        if(rv.flights > f0*1.10 && f0>0.2)
+          zuege.push({art:"mehr", x, r, von:f0/7, nach:rv.flights/7});
+        else if(rv.flights < f0*0.90 && rv.flights>0.2)
+          zuege.push({art:"weniger", x, r, von:f0/7, nach:rv.flights/7});
+        if(rv.fare < p0-0.02)
+          zuege.push({art:"preis", x, r, von:p0, nach:rv.fare});
+      }
     });
     r.rivals=list.filter(v=>v.flights>0.05);
     r.comp=Math.max(1, r.rivals.reduce((a,v)=>a+v.flights,0));
@@ -3673,10 +3997,66 @@ function competitorTurn(){
       const cand=pick((S.rivals||[]).filter(x=>x.hubs.some(h=>h===r.from||h===r.to)&&d<=x.reach));
       if(cand){ r.rivals=[{id:cand.id, flights:competitorBase(A,B)*0.35, fare:cand.fareMod}];
         r.comp=r.rivals[0].flights;
+        zuege.push({art:"neu", x:cand, r});
         logg(`${cand.name} nimmt ${r.from}–${r.to} neu auf.`,"warn"); }
     }
+    /* Anteilsverlauf für die Kurve im Streckendetail */
+    r.verlauf=r.verlauf||[];
+    r.verlauf.push(+(L.share*100).toFixed(1));
+    if(r.verlauf.length>24) r.verlauf.shift();
   });
+  meldeZuege(zuege);
 }
+/** Fasst die Bewegungen der Konkurrenz zu einer Nachricht zusammen. */
+function meldeZuege(zuege){
+  if(!zuege.length || S.eventsOn===false) return;
+  const rang={neu:4, raus:3, mehr:2, preis:1, weniger:0};
+  zuege.sort((a,b)=>rang[b.art]-rang[a.art]);
+  const wichtig=zuege.slice(0,5);
+  const text = x => {
+    const st=`${x.r.from}–${x.r.to}`;
+    switch(x.art){
+      case "neu":     return `<b>${esc(x.x.name)}</b> nimmt <b>${st}</b> neu auf.`;
+      case "raus":    return `<b>${esc(x.x.name)}</b> gibt <b>${st}</b> auf.`;
+      case "mehr":    return `<b>${esc(x.x.name)}</b> erhöht auf <b>${st}</b> von ${fmt(x.von,1)} auf ${fmt(x.nach,1)} Flüge am Tag.`;
+      case "weniger": return `<b>${esc(x.x.name)}</b> dünnt <b>${st}</b> von ${fmt(x.von,1)} auf ${fmt(x.nach,1)} Flüge am Tag aus.`;
+      default:        return `<b>${esc(x.x.name)}</b> senkt den Tarif auf <b>${st}</b> um ${fmt((1-x.nach/x.von)*100,0)}%.`;
+    }
+  };
+  const angriff=wichtig.filter(x=>x.art==="neu"||x.art==="mehr"||x.art==="preis").length;
+  mailAdd({kind:"markt", von:"sales",
+    subj: angriff>=3 ? "Die Konkurrenz greift an mehreren Stellen an"
+        : angriff ? "Bewegung im Wettbewerb" : "Die Konkurrenz zieht sich zurück",
+    kurz: `${zuege.length} Änderung${zuege.length>1?"en":""} auf Ihren Strecken`,
+    stufe: angriff>=3 ? 2 : 1,
+    body:`<p>Seit der letzten Übersicht hat sich auf Ihren Strecken Folgendes getan:</p>
+      <ul style="padding-left:18px;line-height:1.9">${wichtig.map(x=>`<li>${text(x)}</li>`).join("")}</ul>
+      ${zuege.length>wichtig.length?`<p class="dim">Dazu ${zuege.length-wichtig.length} kleinere Anpassungen.</p>`:""}
+      <p class="dim">Im Streckendetail zeigt die Kurve, wie sich Ihr Anteil entwickelt.</p>`});
+  if(angriff>=3) stopForEvent(2);
+}
+/** Kleine Verlaufskurve des eigenen Marktanteils. */
+function shareSpark(r){
+  const v=r.verlauf||[];
+  if(v.length<3) return "";
+  const W=300,H=44,pad=4;
+  const mx=Math.max(60, ...v), mn=0;
+  const X=i=>pad+i*(W-2*pad)/(v.length-1);
+  const Y=x=>H-pad-((x-mn)/(mx-mn||1))*(H-2*pad);
+  const line="M"+v.map((x,i)=>X(i).toFixed(1)+","+Y(x).toFixed(1)).join("L");
+  const jetzt=v[v.length-1], vorher=v[0];
+  const col=jetzt>=vorher?"#5fcf95":"#e2695f";
+  return `<label class="f">Ihr Marktanteil über ${v.length} Runden</label>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" style="display:block">
+      <path d="${line}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="${X(v.length-1).toFixed(1)}" cy="${Y(jetzt).toFixed(1)}" r="3" fill="${col}"/>
+    </svg>
+    <div class="row" style="justify-content:space-between;font-size:10px;color:var(--dim)">
+      <span>${fmt(vorher,1)}%</span>
+      <span class="${jetzt>=vorher?'pos':'neg'}">${jetzt>=vorher?"+":"−"}${fmt(Math.abs(jetzt-vorher),1)} Punkte</span>
+      <span>${fmt(jetzt,1)}%</span></div>`;
+}
+
 
 
 /* ============================================ Umsteigeverkehr über Hubs ==
@@ -3754,6 +4134,8 @@ function applyHubTransfers(){
    Beiladefracht im Unterdeck. Grossraumflugzeuge tragen ein Vielfaches
    dessen, was ein Schmalrumpf mitnehmen kann. */
 const CARGO_T = {
+  conc:1.2,
+  sb20:0.5, b462:1.3,
   b74f:112, b77f:102, dc10:30, b744:28, a346:24, a333:22, a332:20, a338:19, b764:18, b778:26, b78x:24, a310:14, b39m:3.0, a19n:2.2, a320:2.4, a321:3.0, md80:2.0, md90:2.0, f100:1.4, rj85:1.2, cr10:0.9, e145:0.5, d328:0.35, sf34:0.3, at42:0.3,
   
   at72:0.4, dh8d:0.5, cr9:0.6, e175:0.7, e29e:1.2, bcs1:1.6, bcs3:2.0,
@@ -4151,7 +4533,9 @@ function simRoute(r, legList, monthIdx, ctx){
   if(wxAvg>0){ const cut=1-clamp(wxAvg*0.05,0,0.05);
     pax*=cut; rev*=cut;
     for(const k of ["eco","prem","biz","first"]) out.detail[k].pax*=cut; }
-  const avgFee=(A.fee+B.fee)/2;
+  /* Anschubhilfe eines Flughafens senkt die Gebühren für zwei Jahre */
+  const cut = x => (S.feeCut && S.feeCut[x.iata] && S.feeCut[x.iata]>S.clock) ? 0.55 : 1;
+  const avgFee=(A.fee*cut(A)+B.fee*cut(B))/2;
   const fees = pax*14*avgFee + flights*avgSeats*6*avgFee;
   const svcMix = parts.reduce((a,x)=>a+x.fl,0)||1;
   const svcCost = ["eco","prem","biz","first"].reduce((a,k)=>{
@@ -4377,6 +4761,7 @@ function newDay(){
   recomputeWeek();
   buildDaySchedule();
   rollDisruptions();
+  rollDisruptionsExtra();
   renderMap();
 }
 
@@ -4405,13 +4790,9 @@ function monthClose(){
     if(ac.status==="wartung"){ ac.checkLeft--;
       if(ac.checkLeft<=0){ ac.status="aktiv"; ac.hours=0; logg(`${ac.reg} nach Grosscheck zurück im Einsatz.`,"good"); }
     } else if(ac.hours>BAL.heavyCheckHrs){
-      ac.status="wartung";
-      ac.checkLeft = hasUpgrade(ac.base,"hangar") ? 1 : 2;
-      if(hasUpgrade(ac.base,"hangar")) ac.hours*=0;
-      const c=t.price*1e6*0.03*(hasUpgrade(ac.base,"hangar")?0.68:1)*(BAL.aogMult||1); S.cash-=c;
-      if((BAL.aogMult||1)>2) S.rep=clamp(S.rep-1.5,5,99);
-      logg(`${ac.reg} zum Grosscheck am Boden, ${chf(c)} CHF.`,"warn");
-      interrupt("Flugzeug am Boden", `<p><b>${ac.reg}</b> muss zum Grosscheck. Die Maschine fehlt ${ac.checkLeft} Monat${ac.checkLeft>1?"e":""} im Flugplan.</p>`);
+      checkStarten(ac, false);
+      interrupt("Flugzeug am Boden", `<p><b>${ac.reg}</b> muss zum Grosscheck. Die Maschine fehlt ${ac.checkLeft} Monat${ac.checkLeft>1?"e":""} im Flugplan.</p>
+        <p class="dim">Wer den Check vorzieht, kann ihn in den Winter legen — dort fehlt die Maschine weniger.</p>`);
     }
   });
   S.campaigns=(S.campaigns||[]).filter(c=>{
@@ -4556,6 +4937,7 @@ function monthClose(){
   S.acc=emptyAcc();
 
   cloudAuto();
+  if(S.month%2===1) aeroNews();
   if(S.boardOn && !S.board && S.history.length>=1) boardNewGoal();
   boardCheck();
   checkScenario();
@@ -4961,6 +5343,7 @@ function applyCam(){ const c=document.getElementById("cam");
   const MAPH_STEPS=["34%","52%","68%"]; let mapStep=0;
   const bms=$("#btnMapSize");
   if(bms) bms.addEventListener("click",()=>{
+    if(istMobil()){ if(typeof panelKarte==="function") panelKarte(); return; }
     mapStep=(mapStep+1)%MAPH_STEPS.length;
     document.documentElement.style.setProperty("--maph", MAPH_STEPS[mapStep]);
     bms.textContent = mapStep===2 ? "Karte kleiner" : "Karte grösser";
@@ -5038,6 +5421,7 @@ function modal(title,html,btns,fest){
     const el=document.createElement("button"); el.textContent=b.t;
     if(b.p) el.className="primary"; el.addEventListener("click",b.f); f.appendChild(el);});
   $("#veil").classList.add("on");
+  const mb=$("#mBody"); if(mb) mb.scrollTop=0;
   $("#mX").style.display = fest ? "none" : "";
 }
 function syncMapStyle(){
@@ -5174,6 +5558,8 @@ function paneOps(p){
     <span class="neg">${esc(arch.name)} · ${(S.feud[arch.id]||{}).verloren||0} verlorene Auseinandersetzungen</span></div>`;
   h+=relPanel();
   h+=`<h3 class="sub">Stationen</h3>`;
+  h+=`<div class="row" style="margin-bottom:7px">${S.bases.map(b=>
+    `<button class="sm" data-tafel="${b}">Flugplantafel ${b}</button>`).join("")}</div>`;
   const mv=airportMovements();
   S.bases.forEach(b=>{
     const a=AP[b], used=mv[b]||0, tot=slotsTotal(a);
@@ -5194,6 +5580,7 @@ function paneOps(p){
   p.querySelectorAll("[data-focus]").forEach(b=>b.onclick=()=>focusAirport(b.dataset.focus));
   p.querySelectorAll("[data-closebase]").forEach(b=>b.onclick=()=>closeBase(b.dataset.closebase));
   p.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>upgradeDialog(b.dataset.up));
+  p.querySelectorAll("[data-tafel]").forEach(b=>b.onclick=()=>tafelDialog(b.dataset.tafel));
   p.querySelectorAll("[data-tut]").forEach(b=>b.onclick=()=>setTab(b.dataset.tut));
   const tl=todoList();
   p.querySelectorAll("[data-todo]").forEach(b=>b.onclick=()=>{
@@ -5250,6 +5637,9 @@ function baseDialog(){
 function paneNet(p){
   const map=syncRoutes();
   let h=`<h2 class="sec">Streckennetz</h2>
+  <div class="row" style="margin-bottom:9px">${S.bases.map(b=>
+    `<button class="sm primary" data-assi="${b}">Strecke planen ab ${b}</button>`).join("")}</div>`;
+  h+=`
   <div class="row" style="margin-bottom:10px">
     <button id="analyse" class="primary">Marktanalyse</button>
     <button id="goFleet">Tagespläne bearbeiten</button>
@@ -5291,6 +5681,7 @@ function paneNet(p){
   $("#rivalBtn").onclick=rivalDialog;
   $("#fhAll").onclick=()=>flightHistoryDialog(null);
   $("#goFleet").onclick=()=>setTab("fleet");
+  p.querySelectorAll("[data-assi]").forEach(b=>b.onclick=()=>assistDialog(b.dataset.assi));
   p.querySelectorAll(".strip").forEach(el=>{
     el.onclick=()=>routeDetail(el.dataset.r);
     el.addEventListener("mouseenter",()=>{ el.classList.add("hot"); glowRoute(el.dataset.r,true); });
@@ -5356,6 +5747,7 @@ function routeDetail(key){
         <button class="hlp" data-hlp="freq">?</button></span>
         <span>${e.f} Flüge pro Tag mit ${esc(ACT[tid].name)} · ${e.flz} Flugzeug${e.flz>1?"e":""} gebunden${
           jetzt?` · zurzeit ${fmt(jetzt,1)}`:""}</span></div>`;})()}
+    ${shareSpark(r)}
     <div class="kv"><span>Wettbewerb gesamt</span><span>${fmt(r.comp/7,1)} Flüge pro Tag</span></div>
     <div class="kv"><span>Wettbewerber auf der Strecke</span><span>${
       rivalsOn(r).length ? rivalsOn(r).map(v=>{const x=rivalById(v.id);
@@ -5464,7 +5856,8 @@ function campaignDialog(routeKey){
           toast("Diese Aktion läuft bereits."); return; }
         if(S.cash<c.cost){ toast("Zu wenig Liquidität für den ersten Monat."); return; }
         S.campaigns=S.campaigns||[];
-        S.campaigns.push({kind:c.kind, name:c.name, desc:c.desc, cost:c.cost,
+        S.marketingDone=(S.marketingDone||0)+1;
+  S.campaigns.push({kind:c.kind, name:c.name, desc:c.desc, cost:c.cost,
           left:c.months, route:c.global?null:routeKey});
         logg(`Marketingaktion «${c.name}»${c.global?"":" auf "+routeKey} gestartet.`,"good");
         $("#veil").classList.remove("on"); render();
@@ -5643,11 +6036,23 @@ function paneFleet(p){
   ensureArt(Array.from(new Set(S.fleet.map(a=>a.type))));
   let h=`<h2 class="sec">Flotte — ${SEASON_NAME[currentSeason()]}</h2>
   <p class="dim" style="font-size:11px;margin:-4px 0 9px">Gilt bis ${currentSeason()==="sommer"?"Ende Oktober":"Ende März"}. Der andere Flugplan wird getrennt geführt.</p>
-  <div class="row" style="margin-bottom:9px"><button class="sm" id="posterBtn">Flottenposter</button>
+  <div class="row" style="margin-bottom:9px">
+    <button class="sm primary" id="cabFleetBtn">Kabine und Sitzaufteilung</button>
+    <button class="sm" id="posterBtn">Flottenposter</button>
     <button class="sm" data-hlp2="block">Was heisst Auslastung?</button>
     <button class="sm" data-hlp2="duty">Was heisst Dienstzeit?</button>
     ${crewRealism()?`<button class="sm" data-hlp2="layover">Auswärtsübernachtung</button>`:""}</div>
-  <div class="fleetgrid">`;
+  ${istMobil()?"":`<div class="fleetgrid">`}`;
+  if(istMobil()){
+    h+=fleetKompakt();
+    h+=`<p class="dim" style="font-size:10.5px;margin-top:8px">Tippen öffnet die Maschine mit allen Handgriffen. Der schmale Balken zeigt, wie weit es bis zum Grosscheck ist.</p>`;
+    p.innerHTML=h;
+    p.querySelectorAll("[data-acopen]").forEach(el=>el.onclick=()=>acSheet(el.dataset.acopen));
+    const cf0=$("#cabFleetBtn"); if(cf0) cf0.onclick=cabinFleetDialog;
+    const pb0=$("#posterBtn"); if(pb0) pb0.onclick=posterDialog;
+    p.querySelectorAll("[data-hlp2]").forEach(b=>b.onclick=()=>erklaerung(b.dataset.hlp2));
+    return;
+  }
   if(S.orders.length){
     h+=`<h3 class="sub">Auftragsbuch</h3>`;
     S.orders.forEach(o=>h+=`<div class="card"><div class="planebox">${planeSVG(o.type,S.livery,{gear:false})}</div>
@@ -5680,9 +6085,15 @@ function paneFleet(p){
           <span class="dim">${esc(t.name)}</span><br>
           <span class="dim" style="font-size:10.5px;margin-left:15px">${dotTxt}</span></div>${st}</div>
       <div class="kv"><span>Basis · Alter</span><span>${ac.base} · ${fmt(ac.age/12,1)} J</span></div>
+      ${ac.status==="wartung"
+        ? `<div class="kv"><span>Grosscheck</span><span class="warn2">noch ${ac.checkLeft} Monat${ac.checkLeft>1?"e":""} am Boden</span></div>`
+        : `<div class="kv"><span>Bis zum Grosscheck</span>
+             <span>${fmt(checkRest(ac))} h${checkMonate(ac)!=null?` · rund ${fmt(checkMonate(ac),1)} Monate`:""}</span></div>
+           <div class="bar"><i style="width:${(checkAnteil(ac)*100).toFixed(0)}%;
+             background:${checkAnteil(ac)>0.85?"var(--red)":checkAnteil(ac)>0.6?"var(--amber)":"var(--green)"}"></i></div>`}
       <div class="kv"><span>Fracht · Ausstattung</span><span>${fmt(cargoCap(ac),1)} t${ac.wifi?" · WLAN":""}${ac.combi?" · Combi "+ac.combi:""}</span></div>
       <div class="kv"><span>Bordservice · Zustand</span><span>${svcOfAc(ac).n} · ${acWear(ac)>0.75?"stark abgenutzt":acWear(ac)>0.4?"gebraucht":"gepflegt"}</span></div>
-      <div class="kv"><span>Kabine</span><span>${s.eco} Eco${s.prem?" · "+s.prem+" Prem":""}${s.biz?" · "+s.biz+" Biz":""}${s.first?" · "+s.first+" First":""} = ${s.total}</span></div>
+      <div class="kv"><span>Kabine</span><span class="mono">${s.eco} Eco${s.prem?" · "+s.prem+" Prem":""}${s.biz?" · "+s.biz+" Biz":""}${s.first?" · "+s.first+" First":""} = ${s.total}</span></div>
       ${weekTimelineHTML(ac, -1)}
       <div style="margin-top:6px">`;
     if(sch.flights){
@@ -5705,6 +6116,7 @@ function paneFleet(p){
         <button class="sm" data-trim="${ac.id}">Schwache Flüge streichen</button>
         <button class="sm" data-svc="${ac.id}">Service: ${svcOfAc(ac).n}</button>
         <button class="sm" data-fh="${ac.id}">Letzte Flüge</button>
+        ${ac.status==="wartung"?"":`<button class="sm" data-chk="${ac.id}">Grosscheck</button>`}
         <button class="sm" data-cab="${ac.id}">Kabine</button>
         <button class="sm" data-base="${ac.id}">Verlegen</button>
         ${ac.lease?`<button class="sm" data-ret="${ac.id}">Zurückgeben</button>`:`<button class="sm" data-sell="${ac.id}">Verkaufen</button>`}
@@ -5712,8 +6124,10 @@ function paneFleet(p){
   });
   h+=`</div>`;
   p.innerHTML=h;
+  const cf=$("#cabFleetBtn"); if(cf) cf.onclick=cabinFleetDialog;
   const pb2=$("#posterBtn"); if(pb2) pb2.onclick=posterDialog;
   p.querySelectorAll("[data-hlp2]").forEach(b=>b.onclick=()=>erklaerung(b.dataset.hlp2));
+  p.querySelectorAll("[data-chk]").forEach(b=>b.onclick=()=>checkDialog(b.dataset.chk));
   p.querySelectorAll("[data-plan]").forEach(b=>b.onclick=()=>planDialog(b.dataset.plan));
   p.querySelectorAll("[data-trim]").forEach(b=>b.onclick=()=>trimPlan(b.dataset.trim));
   p.querySelectorAll("[data-svc]").forEach(b=>b.onclick=()=>serviceDialog(b.dataset.svc));
@@ -5750,11 +6164,12 @@ function trimPlan(id){
   logg(`${ac.reg}: ${dropped} Flüge aus dem Wochenplan gestrichen.`,"warn");
   render();
 }
-let PLAN_DAY=0;
+let PLAN_DAY=0, PLAN_MEHR=false;
 function planDialog(id){
   const ac=S.fleet.find(x=>x.id===id); if(!ac) return;
   const t=ACT[ac.type]; const p=ensurePlan(ac);
   const backup=JSON.parse(JSON.stringify(p));
+  PLAN_MEHR=false;
   modal(`Wochenplan ${ac.reg} — ${SEASON_NAME[currentSeason()]}`, `<div id="pw"></div>`, [
     {t:"Verwerfen",f:()=>{ ac.plan=backup; $("#veil").classList.remove("on"); render(); }},
     {t:"Übernehmen",p:true,f:()=>{ $("#veil").classList.remove("on"); render(); }}]);
@@ -5894,7 +6309,9 @@ function planDialog(id){
     }
     const fillList=()=>{
       const q=($("#pq").value||"").toLowerCase();
-      const cand=opts.filter(x=>!q||(x.B.iata+x.B.city+x.B.country).toLowerCase().includes(q)).slice(0,70);
+      const grenze = istMobil() ? (PLAN_MEHR?60:12) : 70;
+      const treffer=opts.filter(x=>!q||(x.B.iata+x.B.city+x.B.country).toLowerCase().includes(q));
+      const cand=treffer.slice(0,grenze);
       $("#plist").innerHTML=cand.map(x=>{
         const A=AP[last], bm=blockMinutes(t,x.m.d);
         const dep = dayS.legs.length ? dayS.legs[dayS.legs.length-1].arr + turnAt(t,last) : w.start;
@@ -5906,6 +6323,10 @@ function planDialog(id){
               ${bad?` · <span class="neg">Sperrzeit</span>`:""} · Markt ${fmt(x.m.daily,0)} Pax/Tag</div></div>
           <div class="mono">${fmt(x.m.daily,0)}</div></div>`;}).join("")
         || `<div class="dim" style="padding:8px">Keine erreichbaren Ziele.</div>`;
+      if(treffer.length>cand.length)
+        $("#plist").innerHTML+=`<div class="row" style="margin-top:6px"><button class="sm" id="pmehr">
+          Weitere ${treffer.length-cand.length} Ziele zeigen</button></div>`;
+      const pm=$("#pmehr"); if(pm) pm.onclick=()=>{ PLAN_MEHR=true; fillList(); };
       $("#plist").querySelectorAll(".choice").forEach(c=>c.onclick=()=>{
         w.dests.push(c.dataset.i); ensurePlan(ac); draw(); });
     };
@@ -5947,6 +6368,96 @@ function planDialog(id){
   }
   draw();
 }
+
+/* ====================================== Kabine für die ganze Flotte ======
+   Bisher liess sich die Sitzaufteilung nur je Maschine über die Flottenkarte
+   ändern — schwer zu finden und mühsam bei zehn Flugzeugen. Hier wird sie je
+   Muster festgelegt und auf alle Maschinen dieses Musters übertragen. */
+function cabinFleetDialog(){
+  const muster=Array.from(new Set(S.fleet.map(a=>a.type)))
+    .map(id=>ACT[id]).sort((a,b)=>b.maxSeats-a.maxSeats);
+  if(!muster.length){ modal("Kabine","<p>Noch keine Flugzeuge in der Flotte.</p>"); return; }
+  let sel=muster[0].id;
+  const body=()=>{
+    const t=ACT[sel], U=seatUnits(t), wide=t.cat==="Grossraum";
+    const flotte=S.fleet.filter(a=>a.type===sel);
+    const cab=Object.assign({biz:0,prem:0,first:0}, cabinOf(flotte[0]));
+    const s2=seatsOf({type:sel, cab});
+    const gleich=flotte.every(a=>JSON.stringify(Object.assign({biz:0,prem:0,first:0},cabinOf(a)))===JSON.stringify(cab));
+    return `<div class="segbar" id="cfm">${muster.map(m=>
+        `<button class="${sel===m.id?'on':''}" data-cm="${m.id}">${esc(m.name.split(" ").slice(0,2).join(" "))}
+          <span class="dim">${S.fleet.filter(a=>a.type===m.id).length}</span></button>`).join("")}</div>
+      <p class="dim">${esc(t.name)} · ${flotte.length} Maschine${flotte.length>1?"n":""} · höchstens ${t.maxSeats} Sitze in reiner Economy.
+        ${gleich?"":'<span class="warn2">Die Maschinen dieses Musters sind zurzeit unterschiedlich bestuhlt.</span>'}</p>
+      <div class="card">
+        <div class="kv"><span>Gesamtsitze</span><span><b>${s2.total}</b></span></div>
+        <div class="kv"><span>Komfortwert</span><span>${fmt(comfortOf({type:sel, cab})*100,0)}</span></div>
+        <div style="margin:6px 0">${seatMapSVG(s2)}</div>
+        <div class="row" style="font-size:10.5px;gap:12px;flex-wrap:wrap">
+          <span><span style="color:${CLASS_COL.eco}">■</span> Economy ${s2.eco}</span>
+          ${s2.prem?`<span><span style="color:${CLASS_COL.prem}">■</span> Premium ${s2.prem}</span>`:""}
+          ${s2.biz?`<span><span style="color:${CLASS_COL.biz}">■</span> Business ${s2.biz}</span>`:""}
+          ${s2.first?`<span><span style="color:${CLASS_COL.first}">■</span> First ${s2.first}</span>`:""}
+        </div>
+      </div>
+      ${[["biz","Business",U.biz],["prem","Premium Economy",U.prem],["first","First",U.first]]
+        .filter(([k])=>wide||k==="biz").map(([k,n,u])=>`
+        <div class="row" style="justify-content:space-between;align-items:center;margin-top:7px">
+          <div style="flex:1"><b>${n}</b><br><span class="dim" style="font-size:10.5px">
+            ein Sitz belegt den Platz von ${u} Economy-Sitzen</span></div>
+          <div class="row" style="gap:5px">
+            <button class="sm" data-cd="${k}">−</button>
+            <span class="mono" style="min-width:34px;text-align:center">${cab[k]||0}</span>
+            <button class="sm" data-ci="${k}">+</button></div></div>`).join("")}
+      <div class="row" style="margin-top:10px">
+        <button class="sm" data-vor="eco">Nur Economy</button>
+        <button class="sm" data-vor="mix">Übliche Mischung</button>
+        <button class="sm" data-vor="prem">Betont hochwertig</button></div>
+      <p class="dim" style="font-size:11px;margin-top:8px">Mehr Komfort bedeutet höhere Erträge je Sitz, aber weniger Sitze. Auf kurzen Strecken lohnt sich Dichte, auf langen der Komfort. Änderungen gelten für alle ${flotte.length} Maschinen dieses Musters.</p>`;
+  };
+  const setzen=(fn)=>{
+    S.fleet.filter(a=>a.type===sel).forEach(a=>{
+      const t=ACT[sel], U=seatUnits(t);
+      const cab=Object.assign({biz:0,prem:0,first:0}, cabinOf(a));
+      fn(cab, t, U);
+      /* nie mehr Plätze verplanen, als der Rumpf hergibt */
+      let belegt=cab.biz*U.biz+cab.prem*U.prem+cab.first*U.first;
+      while(belegt>t.maxSeats-10){
+        if(cab.first>0) cab.first--; else if(cab.prem>0) cab.prem--; else if(cab.biz>0) cab.biz--; else break;
+        belegt=cab.biz*U.biz+cab.prem*U.prem+cab.first*U.first;
+      }
+      a.cab=cab;
+    });
+  };
+  const zeichnen=()=>{
+    $("#mBody").innerHTML=body();
+    $("#mBody").querySelectorAll("[data-cm]").forEach(b=>b.onclick=()=>{sel=b.dataset.cm; zeichnen();});
+    $("#mBody").querySelectorAll("[data-ci]").forEach(b=>b.onclick=()=>{
+      setzen(c=>{ c[b.dataset.ci]=(c[b.dataset.ci]||0)+1; }); zeichnen(); });
+    $("#mBody").querySelectorAll("[data-cd]").forEach(b=>b.onclick=()=>{
+      setzen(c=>{ c[b.dataset.cd]=Math.max(0,(c[b.dataset.cd]||0)-1); }); zeichnen(); });
+    $("#mBody").querySelectorAll("[data-vor]").forEach(b=>b.onclick=()=>{
+      const art=b.dataset.vor;
+      setzen((c,t,U)=>{
+        const wide=t.cat==="Grossraum";
+        if(art==="eco"){ c.biz=0; c.prem=0; c.first=0; }
+        else if(art==="mix"){
+          c.biz=Math.round(t.maxSeats*(wide?0.07:0.05)/U.biz);
+          c.prem=wide?Math.round(t.maxSeats*0.09/U.prem):0; c.first=0;
+        } else {
+          c.biz=Math.round(t.maxSeats*(wide?0.13:0.10)/U.biz);
+          c.prem=wide?Math.round(t.maxSeats*0.14/U.prem):0;
+          c.first=wide?Math.max(1,Math.round(t.maxSeats*0.03/U.first)):0;
+        }
+      });
+      zeichnen();
+    });
+  };
+  modal("Kabine der Flotte", `<div></div>`,
+    [{t:"Fertig",p:true,f:()=>{$("#veil").classList.remove("on"); recomputeWeek(); render();}}]);
+  zeichnen();
+}
+
 function cabinDialog(id){
   const ac=S.fleet.find(x=>x.id===id), t=ACT[ac.type], U=seatUnits(t);
   const wide = t.cat==="Grossraum";
@@ -6070,16 +6581,48 @@ function paneMarket(p){
       <div class="kv"><span>Sitze · Reichweite</span><span>${t.maxSeats} · ${fmt(t.range)} km</span></div>
       <div class="kv"><span>Ersparnis gegenüber Neupreis</span><span class="pos">${fmt((1-u.price/(t.price*1e6))*100,0)}%</span></div>
       <div class="kv"><span>Musterberechtigung</span><span>${RATING_NAME[t.rating]}</span></div>
+      <div class="kv"><span>Piste nötig</span><span>${fmt(t.runway)} m${
+        typeFitsHome(t)?"":' · <span class="neg">an keiner eigenen Station möglich</span>'}</span></div>
       <div class="row" style="margin-top:7px"><button class="sm primary" data-used="${u.id}">Sofort kaufen</button></div></div>`;
   });
   if(!(S.usedMarket||[]).length) h+=`<div class="empty"><b>Zurzeit keine Angebote</b>Neue Maschinen kommen zum Monatswechsel auf den Markt.</div>`;
   } else {
-  h+=`<p class="dim">Kauf bindet Kapital und wird über ${BAL.depYears} Jahre abgeschrieben. Leasing kostet ${fmt(BAL.leaseRate*100,2)}% des Listenpreises im Monat. Jedes neue Muster braucht eigens ausgebildete Cockpitcrews.</p>`;
+  S.mktSort=S.mktSort||"preis";
+  h+=`<div class="row" style="margin-bottom:8px;gap:6px;align-items:center">
+      <label class="f" style="margin:0">Sortieren</label>
+      <select id="mktSort" style="width:auto;flex:1">
+        ${[["preis","Preis"],["hersteller","Hersteller"],["sitze","Sitzplätze"],
+           ["reichweite","Reichweite"],["piste","Pistenbedarf"],
+           ["verbrauch","Verbrauch je Stunde"],["effizienz","Verbrauch je Sitz"],
+           ["lieferzeit","Lieferzeit"]]
+          .map(([k,n])=>`<option value="${k}" ${S.mktSort===k?"selected":""}>${n}</option>`).join("")}</select>
+      <button class="sm ${S.mktAll?'':'primary'}" id="mktFit">${S.mktAll?"alle Muster":"nur betreibbare"}</button></div>
+    <p class="dim">Kauf bindet Kapital und wird über ${BAL.depYears} Jahre abgeschrieben. Leasing kostet ${fmt(BAL.leaseRate*100,2)}% des Listenpreises im Monat. Jedes neue Muster braucht eigens ausgebildete Cockpitcrews.</p>`;
+  const sortiert=(liste)=>{
+    const k=S.mktSort||"preis";
+    return [...liste].sort((a,b)=>
+      k==="hersteller" ? a.maker.localeCompare(b.maker)||a.maxSeats-b.maxSeats
+      : k==="sitze" ? b.maxSeats-a.maxSeats
+      : k==="reichweite" ? b.range-a.range
+      : k==="piste" ? a.runway-b.runway
+      : k==="verbrauch" ? a.burn-b.burn
+      : k==="effizienz" ? (a.burn/a.maxSeats)-(b.burn/b.maxSeats)
+      : k==="lieferzeit" ? a.lead-b.lead
+      : a.price-b.price);
+  };
+  /* Gesperrte Muster bleiben immer sichtbar — sie sind das Ziel, nicht die Ware. */
+  const sichtbar=ACTL.filter(t=>S.mktAll||typeFitsHome(t)||!musterFrei(t.id));
+  if(!S.mktAll && sichtbar.length<ACTL.length)
+    h+=`<p class="dim" style="font-size:11px">${ACTL.length-sichtbar.length} Muster sind ausgeblendet, weil keine Ihrer Stationen eine lange genug Piste hat — die längste misst ${fmt(Math.max(...S.bases.map(b=>AP[b]?AP[b].runway:0)))} m.</p>`;
   ["Regional","Schmalrumpf","Grossraum"].forEach(cat=>{
+    const teil=sortiert(sichtbar.filter(t=>t.cat===cat));
+    if(!teil.length) return;
     h+=`<h3 class="sub">${cat}</h3>`;
-    ACTL.filter(t=>t.cat===cat).forEach(t=>{
+    teil.forEach(t=>{
       const have=S.fleet.some(a=>ACT[a.type].rating===t.rating);
-      h+=`<div class="card"><div class="planebox">${planeSVG(t.id,S.livery,{gear:false})}</div>
+      const frei=musterFrei(t.id);
+      h+=`<div class="card${frei?"":" gesperrt"}">
+        <div class="planebox">${planeSVG(t.id,S.livery,{gear:false})}</div>
         <div class="row" style="justify-content:space-between">
           <div><b class="mono">${esc(t.name)}</b><br><span class="dim">${t.maker}</span></div>
           <div class="mono amb">${fmt(t.price,0)} Mio</div></div>
@@ -6091,17 +6634,25 @@ function paneMarket(p){
         <div class="kv"><span>Frachtkapazität</span><span>${fmt(CARGO_T[t.id]||0,1)} t im Unterdeck</span></div>
         <div class="kv"><span>Musterberechtigung</span><span class="${have?'pos':''}">${RATING_NAME[t.rating]}${have?" — vorhanden":""}</span></div>
         <div class="kv"><span>Lieferzeit</span><span>${t.lead} Monate</span></div>
-        <div class="row" style="margin-top:7px"><button class="sm" data-buy="${t.id}">Kaufen</button>
-          <button class="sm" data-lease="${t.id}">Leasen</button></div></div>`;});
+        ${frei
+          ? `<div class="row" style="margin-top:7px"><button class="sm" data-buy="${t.id}">Kaufen</button>
+              <button class="sm" data-lease="${t.id}">Leasen</button></div>`
+          : `<div class="sperrhinweis"><b>🔒 Noch nicht verfügbar</b><br>
+              <span>${esc(musterSperrgrund(t.id))}</span></div>`}
+        </div>`;});
   });
   }
   p.innerHTML=h;
   p.querySelectorAll("[data-mk]").forEach(b=>b.onclick=()=>{S.marketTab=b.dataset.mk; renderPane();});
+
+  const ms=$("#mktSort"); if(ms) ms.onchange=()=>{S.mktSort=ms.value; renderPane();};
+  const mf=$("#mktFit"); if(mf) mf.onclick=()=>{S.mktAll=!S.mktAll; renderPane();};
   p.querySelectorAll("[data-used]").forEach(b=>b.onclick=()=>buyUsed(b.dataset.used));
   p.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>orderDialog(b.dataset.buy,false));
   p.querySelectorAll("[data-lease]").forEach(b=>b.onclick=()=>orderDialog(b.dataset.lease,true));
 }
 function orderDialog(typeId,lease){
+  if(!musterFrei(typeId)){ nichtVerfuegbar(typeId); return; }
   const t=ACT[typeId], crewPer=Math.ceil(t.block*7/BAL.dutyPerCrewWeek);
   modal(`${lease?"Leasen":"Kaufen"} — ${t.name}`,
     `<div class="planebox">${planeSVG(typeId,S.livery,{})}</div>
@@ -6674,6 +7225,14 @@ function paneAch(p){
     <button data-at="chronik">Chronik</button></div>
   <div class="card"><div class="kv"><span>Erreicht</span><span>${n} von ${ACHIEVEMENTS.length}</span></div>
     <div class="bar"><i style="width:${(n/ACHIEVEMENTS.length*100).toFixed(0)}%"></i></div></div>`;
+  if(dekoHat("concorde")){
+    h+=`<div class="card" style="background:linear-gradient(180deg,#16243a,#111a29)">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div><b class="amb">Ihr Verwaltungsbüro</b><br>
+          <span class="dim" style="font-size:10.5px">Ein Geschenk des Verwaltungsrats. Reine Zierde — aber sie steht da.</span></div>
+        <span class="pill ok">Modell</span></div>
+      <div style="display:flex;justify-content:center;margin-top:8px">${concordeModell()}</div></div>`;
+  }
   ACHIEVEMENTS.forEach(a=>{
     const g=got[a.id];
     h+=`<div class="card" style="${g?'':'opacity:.55'}">
@@ -6700,7 +7259,8 @@ function paneInbox(p){
   let h=`<h2 class="sec">Postfach</h2>
   <div class="segbar" id="ibseg">
     <button class="${S.inboxTab==="post"?"on":""}" data-ib="post">Posteingang${un?" ("+un+")":""}</button>
-    <button class="${S.inboxTab==="log"?"on":""}" data-ib="log">Ereignisprotokoll</button></div>`;
+    <button class="${S.inboxTab==="log"?"on":""}" data-ib="log">Ereignisprotokoll</button>
+    <button class="${S.inboxTab==="news"?"on":""}" data-ib="news">AeroNews</button></div>`;
   if(S.inboxTab==="post"){
     if(offen) h+=`<div class="card" style="border-color:var(--amber)">
       <b class="amb">${offen} offene Entscheidung${offen>1?"en":""}</b><br>
@@ -6722,6 +7282,15 @@ function paneInbox(p){
           <div class="mp"><b style="color:${P.col}">${esc(P.n)}</b> · ${esc(m.kurz||K.n)}</div></div>
         <span class="md">${mailDate(m).slice(0,9)}</span></div>`;
     });
+  } else if(S.inboxTab==="news"){
+    const z=S.zeitung||[];
+    h+= z.length
+      ? z.map(a=>`<div class="news" style="margin-bottom:12px">
+          <div class="newskopf">AeroNews</div>
+          <div class="newsdatum">${MONTHS[a.m]} ${a.y} · Fachzeitung für den Luftverkehr</div>
+          ${a.kopf.map(x=>`<div class="newsart"><h4>${esc(x.t)}</h4><p>${x.b}</p></div>`).join("")}
+        </div>`).join("")
+      : `<div class="empty"><b>Noch keine Ausgabe</b>AeroNews erscheint alle zwei Monate und greift auf, was in Ihrem Markt geschehen ist.</div>`;
   } else {
     h+=`<div class="log">${S.log.map(l=>`<div class="li ${l.k}">
       <span class="t">${esc(l.d)}</span> ${esc(l.t)}</div>`).join("")}</div>`;
@@ -7376,6 +7945,12 @@ function paneData(p){
       <div style="flex:1"><b>Besatzungen übernachten auswärts</b><br>
         <span class="dim" style="font-size:10.5px">Bleibt ein Flugzeug über Nacht ausserhalb der Basis, bleibt die Besatzung dort und fehlt zu Hause. Das kostet zusätzliches Personal, ist aber realitätsnah. Ausgeschaltet zählt nur die reine Flugzeit.</span></div>
       <button class="sm ${crewRealism()?'primary':''}" id="crewTgl">${crewRealism()?"an":"aus"}</button></div>
+    <div class="row" style="justify-content:space-between;margin-top:10px;padding-top:9px;border-top:1px solid var(--line)">
+      <div style="flex:1"><b>Störungen und Ereignisse</b><br>
+        <span class="dim" style="font-size:10.5px">Technische Ausfälle, Wetter, Streiks, Behörden, Angebote und Gelegenheiten. Abgeschaltet läuft der Betrieb ungestört — dafür fehlen auch die Chancen.</span></div>
+      <button class="sm ${S.eventsOn!==false?'primary':''}" id="evtTgl">${S.eventsOn!==false?"an":"aus"}</button></div>
+    ${S.eventsOn!==false?`<div class="kv" style="margin-top:7px"><span>Bisher eingetreten</span>
+      <span>${(S.inbox||[]).filter(m=>["stoerung","behoerde","markt","chance","personal"].includes(m.kind)).length} Ereignisse</span></div>`:""}
     ${crewRealism()&&S.fleet.length?`<div class="kv" style="margin-top:7px"><span>Auswärtsnächte pro Woche</span>
       <span>${layoverTotal()} · dafür ${S.fleet.reduce((n,a)=>n+layoverCrews(a),0)} zusätzliche Besatzungen</span></div>`:""}
     ${S.boardOn?`<div class="kv" style="margin-top:7px"><span>Vertrauen des Rats</span>
@@ -7417,6 +7992,12 @@ function paneData(p){
     <div class="kv"><span>Höchstdienstzeit der Besatzung</span><span>${BAL.maxDuty/60} h je Tag</span></div>
     <div class="kv"><span>Zeitfluss</span><span>1 Realsekunde = 1 Spielstunde bei 1×</span></div>
     <div class="kv"><span>Wettbewerb</span><span>${(S.rivals||[]).length} benannte Gesellschaften, wöchentliche Reaktion</span></div></div>`;
+  const et=$("#evtTgl");
+  if(et) et.onclick=()=>{
+    S.eventsOn = S.eventsOn===false;
+    logg(S.eventsOn?"Störungen und Ereignisse eingeschaltet.":"Störungen und Ereignisse abgeschaltet.","");
+    render();
+  };
   const ct=$("#crewTgl");
   if(ct) ct.onclick=()=>{
     S.crewRealism = !crewRealism();
@@ -7628,8 +8209,12 @@ function adoptSave(d){
   if(S.boardTrust==null) S.boardTrust=50;
   if(!S.staff) S.staff=rollStaff(S.bases[0]);
   if(!S.feud) S.feud={};
+  if(!S.zeitung) S.zeitung=[];
   if(!S.chronik) S.chronik=[];
   if(S.crewRealism==null) S.crewRealism=true;
+  if(S.eventsOn==null) S.eventsOn=true;
+  if(!S.evtLast) S.evtLast={};
+  if(!S.feeCut) S.feeCut={};
   S.fleet.forEach(ac=>{ if(!ac.plan) ac.plan={start:390,dests:[],days:[1,1,1,1,1,1,1],nums:[]};
     if(!ac.plan) ac.plan={};
     if(!ac.cab) ac.cab=CABIN_PRESETS[ACT[ac.type].cat==="Grossraum"?"standard":"europa"].f(ACT[ac.type]);
@@ -7669,12 +8254,16 @@ function showAirport(iata){
     <div class="kv"><span>Kaufkraft · Tourismus · Geschäft</span><span>${fmt(a.income*100,0)} · ${fmt(a.tourism*100,0)} · ${fmt(a.biz*100,0)}</span></div>
     <div class="kv"><span>Bewegungen pro Woche</span><span>${fmt(mv,0)} von ${tot}</span></div>
     <label class="f">Längste Piste</label>${runwaySVG(a.runway)}</div>
-  <div class="row" style="margin:8px 0"><button class="sm primary" id="planFrom">Strecke ab ${iata} planen</button></div>
+  <div class="row" style="margin:8px 0"><button class="sm primary" id="planFrom">Strecke ab ${iata} planen</button>
+    <button class="sm" id="tafelBtn">Flugplantafel</button>
+    ${S.bases.includes(iata)?`<button class="sm" id="assiBtn">Strecke planen</button>`:""}</div>
   <div class="planebox" style="padding:0">${MISC.airports&&MISC.airports[iata]
     ? `<img src="${esc(MISC.airports[iata])}" style="width:100%;display:block;aspect-ratio:16/9;object-fit:cover" alt="">`
     : airportChartSVG(a)}</div>`;
   setTimeout(()=>{ const pf=$("#planFrom");
-    if(pf) pf.onclick=()=>{ $("#veil").classList.remove("on"); mapPlanStart(iata); }; },0);
+    if(pf) pf.onclick=()=>{ $("#veil").classList.remove("on"); mapPlanStart(iata); };
+    const tb=$("#tafelBtn"); if(tb) tb.onclick=()=>tafelDialog(iata);
+    const ab=$("#assiBtn"); if(ab) ab.onclick=()=>{ $("#veil").classList.remove("on"); assistDialog(iata); }; },0);
   const hc=hubCarriers(iata);
   if(hc.length){
     h+=`<h3 class="sub">Gesellschaften mit Drehkreuz hier</h3>`;
@@ -7711,56 +8300,69 @@ function showAirport(iata){
    Basen, Personal und ein funktionierendes Streckennetz sind vorhanden, dafür
    ist auch der Handlungsspielraum enger. Bewusst mittelgrosse Gesellschaften —
    ein Weltkonzern wäre als Ausgangslage reizlos. */
+
+const LAGE = {
+  laeuft:     {t:"läuft",        d:"Der Betrieb trägt sich vom ersten Monat an. Guter Einstieg.",
+               col:"var(--green)"},
+  angespannt: {t:"angespannt",   d:"Knapp defizitär. Streichen, umschichten und Kosten senken sind gefragt.",
+               col:"var(--amber)"},
+  sanierung:  {t:"Sanierungsfall", d:"Deutliche Verluste ab dem ersten Tag. Nur für erfahrene Spieler.",
+               col:"var(--red)"}
+};
 const LEGACY_AIRLINES = [
- {id:"helvetic", name:"Helvetic Airways", code:"2L", icao:"OAW", bases:["ZRH","BRN"],
+ {id:"helvetic", lage:"laeuft", name:"Helvetic Airways", code:"2L", icao:"OAW", bases:["ZRH","BRN"],
   cash:34, rep:66, liv:{c1:"#c8102e",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"linie",glyph:"kreuz"},
-  fleet:[["e29e",5,0],["at72",2,1]],
+  fleet:[["e29e",3,0],["at72",2,1]],
   dests:["MUC","VIE","HAM","BER","PMI","OLB","IBZ","CTA","PRG","BRI","FLR","JMK"],
   txt:"Regionalairline im Wet-Lease-Geschäft. Kleine Flotte, kurze Strecken, wenig Puffer — der anspruchsvollste Einstieg."},
  {id:"edelweiss", name:"Edelweiss Air", code:"WK", icao:"EDW", bases:["ZRH"],
-  cash:62, rep:74, liv:{c1:"#e2453a",c2:"#ffffff",body:"weiss",tail:"bogen",stripe:"schwung",glyph:"gipfel"},
-  fleet:[["a20n",4],["a21n",2],["a339",2]],
-  dests:["PMI","HER","RHO","LCA","HRG","AGA","DJE","CPT","MRU","PUJ","VAR","FUE"],
-  txt:"Ferienflieger mit gemischter Flotte. Starke Saison im Sommer, schwacher Winter — Auslastung steuern ist alles."},
- {id:"luxair", name:"Luxair", code:"LG", icao:"LGL", bases:["LUX"],
+  cash:62, rep:74, difficulty:"normal", lage:"laeuft",
+  liv:{c1:"#e2453a",c2:"#ffffff",body:"weiss",tail:"bogen",stripe:"schwung",glyph:"gipfel"},
+  fleet:[["a20n",5],["a21n",2],["a21x",1]],
+  dests:["PMI","AYT","AGP","ALC","IBZ","CTA","NAP","PMO","LPA","TFS","OLB","HER","FAO","CAG",
+         "HRG","SSH","DBV","SPU","TIV","MLA","TUN"],
+  txt:"Ferienflieger mit gemischter Flotte. Starke Sommersaison, schwacher Winter — Auslastung steuern ist alles.",
+  hinweis:"Die Flotte ist auf Mittelstrecke ausgelegt. Fernziele lohnen sich erst, wenn genug Umsteiger aus dem eigenen Netz zufliegen."},
+ {id:"luxair", lage:"laeuft", name:"Luxair", code:"LG", icao:"LGL", bases:["LUX"],
   cash:48, rep:70, liv:{c1:"#0b3a8f",c2:"#f2c200",body:"weiss",tail:"diagonale",stripe:"linie",glyph:"raute"},
-  fleet:[["dh8d",4],["e29e",3],["b38m",2]],
+  fleet:[["dh8d",3],["e29e",2],["b38m",1]],
   dests:["CDG","FRA","MUC","LHR","BCN","FCO","MXP","LIS","PMI","DUB","VIE","HAM"],
   txt:"Nationale Airline eines kleinen Landes. Hohe Kaufkraft am Standort, aber ein winziger Heimatmarkt."},
- {id:"airbaltic", name:"airBaltic", code:"BT", icao:"BTI", bases:["RIX"],
+ {id:"airbaltic", lage:"laeuft", name:"airBaltic", code:"BT", icao:"BTI", bases:["RIX"],
   cash:56, rep:68, liv:{c1:"#8ac53f",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"schwung",glyph:"chevron"},
-  fleet:[["bcs3",8]],
+  fleet:[["bcs3",5]],
   dests:["TLL","VNO","HEL","ARN","CPH","OSL","BER","FRA","AMS","LGW","MUC","WAW","VIE","DUB"],
   txt:"Einheitsflotte im Baltikum. Wartung und Ausbildung sind günstig, weil alles dasselbe Muster ist."},
- {id:"croatia", name:"Croatia Airlines", code:"OU", icao:"CTN", bases:["ZAG"],
+ {id:"croatia", lage:"angespannt", name:"Croatia Airlines", code:"OU", icao:"CTN", bases:["ZAG"],
   cash:41, rep:64, liv:{c1:"#0b3d91",c2:"#d7192d",body:"weiss",tail:"diagonale",stripe:"linie",glyph:"raute"},
-  fleet:[["dh8d",5],["a20n",3]],
+  fleet:[["dh8d",3],["a20n",2]],
   dests:["SPU","DBV","PUY","FRA","MUC","VIE","ZRH","CDG","AMS","LHR","BRU","CPH"],
   txt:"Zubringer für die grossen Netze, dazu Ferienverkehr an die Adria. Chronisch knapp bei Kasse."},
- {id:"aegean", name:"Aegean Airlines", code:"A3", icao:"AEE", bases:["ATH","SKG"],
+ {id:"aegean", lage:"laeuft", name:"Aegean Airlines", code:"A3", icao:"AEE", bases:["ATH","SKG"],
   cash:78, rep:76, liv:{c1:"#0a4fa0",c2:"#ffffff",body:"weiss",tail:"bogen",stripe:"schwung",glyph:"schwinge"},
-  fleet:[["a20n",7],["a21n",3]],
+  fleet:[["a20n",5],["a21n",2]],
   dests:["HER","RHO","JMK","JTR","CFU","LCA","FCO","MXP","MUC","FRA","CDG","LHR","VIE","TLV"],
   txt:"Solide aufgestellt, starke Sommersaison, gute Bewertungen. Der bequemste der bestehenden Betriebe."},
- {id:"icelandair", name:"Icelandair", code:"FI", icao:"ICE", bases:["KEF"],
+ {id:"icelandair", lage:"angespannt", name:"Icelandair", code:"FI", icao:"ICE", bases:["KEF"],
   cash:70, rep:72, liv:{c1:"#0d5fbf",c2:"#ffffff",body:"weiss",tail:"welle",stripe:"schwung",glyph:"welle"},
-  fleet:[["b38m",5],["b763",2]],
+  fleet:[["b38m",3],["b763",1]],
   dests:["LHR","CPH","OSL","AMS","CDG","FRA","JFK","BOS","YYZ","SEA","MAD","MUC"],
   txt:"Drehscheibe zwischen Europa und Nordamerika. Das ganze Modell steht und fällt mit den Umsteigern."},
- {id:"brussels", name:"Brussels Airlines", code:"SN", icao:"BEL", bases:["BRU"],
+ {id:"brussels", lage:"laeuft", name:"Brussels Airlines", code:"SN", icao:"BEL", bases:["BRU"],
   cash:88, rep:71, liv:{c1:"#0b3a8f",c2:"#ffffff",body:"weiss",tail:"streifen",stripe:"linie",glyph:"scheibe"},
-  fleet:[["a20n",6],["a21n",2],["a339",3]],
+  fleet:[["a20n",4],["a21n",2],["a339",1]],
   dests:["LHR","CDG","FCO","MAD","LIS","VIE","CPH","ARN","JFK","ADD","NBO","DKR","LOS","CMN"],
   txt:"Europäisches Netz plus Afrika-Langstrecke. Grösser, aber mit teurer Kostenbasis."},
- {id:"finnair", name:"Finnair", code:"AY", icao:"FIN", bases:["HEL"],
+ {id:"finnair", lage:"laeuft", name:"Finnair", code:"AY", icao:"FIN", bases:["HEL"],
   cash:96, rep:78, liv:{c1:"#0b2b6b",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"linie",glyph:"raute"},
-  fleet:[["a20n",6],["a21n",2],["a359",3]],
+  fleet:[["a20n",4],["a21n",2],["a359",1]],
   dests:["ARN","CPH","OSL","LHR","CDG","AMS","FRA","MUC","RIX","TLL","BKK","HND","ICN","DEL"],
   txt:"Kurze Wege nach Asien über den Norden. Langstrecke trägt das Ergebnis, Europa füllt die Flieger."},
- {id:"transavia", name:"Transavia", code:"HV", icao:"TRA", bases:["AMS","RTM"],
+ {id:"transavia", lage:"angespannt", name:"Transavia", code:"HV", icao:"TRA", bases:["AMS","RTM"],
   cash:74, rep:60, liv:{c1:"#0d7a4a",c2:"#ffffff",body:"weiss",tail:"vollton",stripe:"band",glyph:"chevron"},
-  fleet:[["b38m",8]],
-  dests:["PMI","ALC","AGP","FAO","IBZ","HER","AYT","TFS","LPA","NCE","BCN","LIS","RAK","HRG"],
+  fleet:[["b38m",5]],
+  dests:["PMI","ALC","AGP","FAO","IBZ","AYT","TFS","LPA","BCN","LIS","NAP","CTA","OPO","VLC",
+         "SVQ","BGY","PSA","MLA","SPU","DBV","TIA","KRK","BUD","OTP"],
   txt:"Billigflieger mit Einheitsflotte und Ferienzielen. Marge über Menge, Ruf ist zweitrangig."}
 ];
 
@@ -7802,12 +8404,245 @@ function seedTrim(passes){
   recomputeWeek();
 }
 
+
+/** Dünnt ein frisch erzeugtes Netz aus, bis die Auslastung stimmt. Ein
+    Markt, der nur 500 Reisende am Tag hergibt, trägt keine vier Umläufe. */
+function seedThin(passes){
+  for(let p=0;p<(passes||6);p++){
+    recomputeWeek();
+    const schwach=S.routes.filter(r=>r.last&&r.last.ok&&r.last.lf<0.58&&r.last.flights>1)
+      .sort((a,b)=>a.last.lf-b.last.lf);
+    if(!schwach.length) break;
+    let geaendert=false;
+    schwach.slice(0,4).forEach(r=>{
+      /* Einen Tag dieser Strecke streichen — bevorzugt bei der Maschine mit
+         den meisten Umläufen darauf. */
+      let bestAc=null, bestTag=-1, bestIdx=-1, meiste=0;
+      S.fleet.forEach(ac=>{
+        const W=planWeek(ac);
+        let zahl=0;
+        for(let d=0;d<7;d++) W[d].dests.forEach(x=>{ if(x===r.from||x===r.to) zahl++; });
+        if(zahl<=meiste) return;
+        for(let d=0;d<7;d++){
+          const idx=W[d].dests.findIndex((x,i)=>
+            (x===r.to && (i===0 || W[d].dests[i-1]===r.from)) ||
+            (x===r.from && (i===0 || W[d].dests[i-1]===r.to)));
+          if(idx>=0){ bestAc=ac; bestTag=d; bestIdx=idx; meiste=zahl; break; }
+        }
+      });
+      if(!bestAc) return;
+      const W=planWeek(bestAc), w=W[bestTag];
+      /* Ziel und den zugehörigen Rückflug entfernen */
+      const weg=(w.dests[bestIdx+1]===bestAc.base) ? 2 : 1;
+      w.dests.splice(bestIdx, weg);
+      w.nums.splice(bestIdx, weg);
+      w.holds.splice(bestIdx, weg);
+      ensurePlan(bestAc);
+      geaendert=true;
+    });
+    if(!geaendert) break;
+  }
+  recomputeWeek();
+}
+
+
+
+
+
+/** Netzaufbau nach verfügbarer Nachfrage.
+    Statt jede Maschine auf die stärkste Strecke zu setzen, wird die erfassbare
+    Nachfrage einmal verteilt: das grösste Flugzeug bekommt den grössten Markt,
+    und jede vergebene Frequenz verringert, was dort noch zu holen ist. So
+    entsteht ein Netz, das zum Markt passt, statt halbleer zu fliegen. */
+function seedNetwork(dests){
+  const rest={}, ziele={};
+  const kapa=(A,B)=>{
+    const k=routeKey(A.iata,B.iata);
+    if(rest[k]==null){
+      /* Nicht der ganze Markt ist zu holen — die Konkurrenz fliegt auch. */
+      const m=marketDemand(A,B,S.month).daily;
+      const konk=competitorBase(A,B)/7;
+      rest[k]=m*clamp(0.62-0.045*konk, 0.22, 0.62);
+    }
+    return rest[k];
+  };
+  /* grosse Maschinen zuerst — sie brauchen die dicken Märkte */
+  const flotte=[...S.fleet].filter(a=>a.status==="aktiv")
+    .sort((a,b)=>seatsOf(b).total-seatsOf(a).total);
+  flotte.forEach(ac=>{
+    const A=AP[ac.base], t=ACT[ac.type], sitze=seatsOf(ac).total;
+    ensurePlan(ac);
+    for(let d=0;d<7;d++) planWeek(ac)[d]=emptyDay();
+    let blockRest=t.block*60*6;          // sechs Betriebstage als Rahmen
+    const auftrag=[];
+    for(let versuch=0; versuch<3; versuch++){
+      const kand=(dests||[]).map(code=>{
+        const B=AP[code];
+        if(!B||B.iata===A.iata||acCanFly(ac,A,B)) return null;
+        const frei=kapa(A,B);
+        if(frei < sitze*0.28) return null;
+        const bm=blockMinutes(t, distKm(A,B))*2 + turnAt(t,B.iata) + turnAt(t,A.iata);
+        return {code, frei, bm};
+      }).filter(Boolean).filter(x=>!auftrag.some(y=>y.code===x.code))
+        .sort((x,y)=>y.frei-x.frei);
+      if(!kand.length) break;
+      const w=kand[0];
+      /* Wie viele Umläufe pro Woche trägt der Markt — und die Maschine? */
+      let proWoche=Math.floor(w.frei/sitze*7);
+      proWoche=clamp(proWoche, 2, 14);
+      proWoche=Math.min(proWoche, Math.floor(blockRest/w.bm));
+      if(proWoche<2) break;
+      auftrag.push({code:w.code, proWoche, bm:w.bm});
+      rest[routeKey(A.iata,w.code)] -= sitze*proWoche/7;
+      blockRest -= w.bm*proWoche;
+      if(blockRest < w.bm*2) break;
+    }
+    if(!auftrag.length) return;
+    /* Umläufe auf die Wochentage verteilen */
+    const W=planWeek(ac);
+    let tag=0;
+    auftrag.forEach(o=>{
+      for(let k=0;k<o.proWoche;k++){
+        let versuche=0;
+        while(versuche<7){
+          const d=(tag+versuche)%7;
+          const belegt=(W[d].dests.length/2);
+          if(belegt<3){
+            W[d].dests.push(o.code, ac.base);
+            tag=(d+1)%7;
+            break;
+          }
+          versuche++;
+        }
+        if(versuche>=7) break;
+      }
+    });
+    for(let d=0;d<7;d++) if(W[d].dests.length) W[d].start=6*60+((ziele[ac.base]=(ziele[ac.base]||0)+1)%5)*22;
+    ensurePlan(ac);
+    /* Tage kürzen, die Blockzeit oder Dienstzeit sprengen */
+    let g=0;
+    while(g++<10){
+      const sch=scheduleOf(ac);
+      const schlimm=sch.week.findIndex(x=>x.duty>BAL.maxDuty || x.blockSum>ACT[ac.type].block*60*1.1
+        || x.legs.some(l=>l.issues.length));
+      if(schlimm<0) break;
+      const w2=planWeek(ac)[schlimm];
+      w2.dests.splice(-2,2); w2.nums.splice(-2,2); w2.holds.splice(-2,2);
+      ensurePlan(ac);
+      if(!w2.dests.length) break;
+    }
+  });
+  recomputeWeek();
+}
+
+/** Letzter Abgleich beim Aufbau: Solange eine Strecke unter der Marke bleibt,
+    fällt dort eine Frequenz weg — das Paar Hin- und Rückflug wird aus dem
+    schwächsten Wochentag genommen, damit der Umlauf geschlossen bleibt. */
+function seedBalance(ziel){
+  ziel=ziel||0.58;
+  for(let runde=0; runde<24; runde++){
+    recomputeWeek();
+    const schwach=S.routes.filter(r=>r.last&&r.last.ok && r.last.lf<ziel && r.last.flights>1)
+      .sort((a,b)=>a.last.lf-b.last.lf);
+    if(!schwach.length) break;
+    const r=schwach[0];
+    /* Wo wird diese Strecke geflogen? Schwächsten Tag suchen. */
+    let best=null, wert=Infinity;
+    S.fleet.forEach(ac=>{
+      const sch=scheduleOf(ac);
+      sch.week.forEach((dd,d)=>{
+        const treffer=dd.legs.filter(l=>routeKey(l.from,l.to)===r.key);
+        if(!treffer.length) return;
+        let g=0;
+        treffer.forEach(l=>{ const st=LEGSTATS[legKey(ac.id,d,l.i)]; if(st) g+=st.profit; });
+        if(g<wert){ wert=g; best={ac, d, idx:treffer.map(l=>l.i)}; }
+      });
+    });
+    if(!best) break;
+    const W=planWeek(best.ac), w=W[best.d];
+    /* Ziel und zugehörigen Rückflug aus der Kette nehmen */
+    const weg=new Set(best.idx);
+    best.idx.forEach(i=>{ if(i+1<w.dests.length) weg.add(i+1); });
+    const dests=[], nums=[], holds=[];
+    w.dests.forEach((x,i)=>{ if(!weg.has(i)){ dests.push(x); nums.push(w.nums[i]); holds.push(w.holds[i]); } });
+    while(dests.length && dests[dests.length-1]!==best.ac.base) dests.pop();
+    w.dests=dests; w.nums=nums.slice(0,dests.length); w.holds=holds.slice(0,dests.length);
+    ensurePlan(best.ac);
+  }
+  recomputeWeek();
+}
+
+/** Wählt Ziele nach der noch freien Nachfrage. Ohne das stapeln sich alle
+    Maschinen auf denselben zwei Strecken, und die Auslastung bricht ein. */
+function seedPickDests(ac, base, dests, belegt, anzahl){
+  const A=AP[base]; if(!A) return [];
+  const s=seatsOf(ac).total;
+  const kand=dests.map(code=>{
+    const B=AP[code];
+    if(!B || acCanFly(ac,A,B)) return null;
+    const m=marketDemand(A,B,S.month);
+    const key=routeKey(base,code);
+    const schon=belegt[key]||0;
+    /* Wie viele Sitze kann ich hier noch mit Aussicht auf Füllung anbieten? */
+    const frei=m.daily*0.55-schon;
+    return {code, frei, markt:m.daily};
+  }).filter(Boolean).filter(x=>x.frei > s*0.55)
+    .sort((a,b)=>b.frei-a.frei);
+  return kand.slice(0, anzahl).map(x=>x.code);
+}
+function seedBelegen(belegt, base, code, sitzeProTag){
+  const k=routeKey(base,code);
+  belegt[k]=(belegt[k]||0)+sitzeProTag;
+}
+
+/** Dünne Märkte trägt kein Tagesflug. Solange die Auslastung einer Maschine
+    im Keller ist, fällt der jeweils schwächste Wochentag weg — genau das tut
+    ein Streckenplaner auch, statt halbleer zu fliegen. */
+function seedThinDays(){
+  for(let runde=0; runde<6; runde++){
+    recomputeWeek();
+    let geaendert=false;
+    S.fleet.forEach(ac=>{
+      const sch=scheduleOf(ac);
+      const tage=sch.week.filter(x=>x.legs.length).length;
+      if(tage<=2) return;
+      let pax=0, sitze=0;
+      sch.legs.forEach(l=>{
+        const st=LEGSTATS[legKey(ac.id,l.day,l.i)];
+        if(st){ pax+=st.pax; sitze+=st.seats; }
+      });
+      const lf = sitze ? pax/sitze : 0;
+      if(lf>=0.62 || !sitze) return;
+      /* schwächsten Tag suchen */
+      let schwach=-1, wert=Infinity;
+      sch.week.forEach((dd,d)=>{
+        if(!dd.legs.length) return;
+        let g=0;
+        dd.legs.forEach(l=>{ const st=LEGSTATS[legKey(ac.id,d,l.i)]; if(st) g+=st.profit; });
+        if(g<wert){ wert=g; schwach=d; }
+      });
+      if(schwach<0) return;
+      const W=planWeek(ac);
+      W[schwach]=emptyDay();
+      ensurePlan(ac);
+      geaendert=true;
+    });
+    if(!geaendert) break;
+  }
+  recomputeWeek();
+}
+
 /** Verteilt eine Langstrecke auf zwei Tage: Hinflug, Übernachtung, Rückflug.
     Wird gebraucht, weil ein Umlauf über 6000 km nicht an einem Tag zu schaffen ist. */
 function seedLongHaul(ac, dests){
   const t=ACT[ac.type];
+  const sitze=seatsOf(ac).total;
   const far=(dests||[]).filter(dd=>AP[dd] && !acCanFly(ac, AP[ac.base], AP[dd]))
-    .sort((x,y)=>distKm(AP[ac.base],AP[y])-distKm(AP[ac.base],AP[x]));
+    .map(dd=>({dd, m:marketDemand(AP[ac.base],AP[dd],S.month).daily,
+               d:distKm(AP[ac.base],AP[dd])}))
+    /* Drei Wochenfrequenzen entsprechen rund 0.43 Umläufen je Tag */
+    .filter(x=>x.m*0.55 > sitze*0.43*0.55)
+    .sort((x,y)=>y.d-x.d).map(x=>x.dd);
   if(!far.length) return false;
   for(const target of far.slice(0,4)){
     ensurePlan(ac);
@@ -7844,64 +8679,22 @@ function startExisting(idx){
   if(twin) S.rivals=S.rivals.filter(x=>x!==twin);
 
   const dests=A.dests.filter(d=>AP[d]);
-  let n=0;
+  /* Flotte anlegen, dann das Netz an der Nachfrage ausrichten */
   A.fleet.forEach(([type,cnt,bIdx])=>{
     for(let i=0;i<cnt;i++){
-      const base=A.bases[bIdx!=null ? Math.min(bIdx,A.bases.length-1) : (n % A.bases.length)];
+      const base=A.bases[bIdx!=null ? Math.min(bIdx,A.bases.length-1) : (i % A.bases.length)];
       const ac=addAircraft(type,false,base, Math.round(rnd(24,120)));
       ac.hours=Math.round(rnd(500, BAL.heavyCheckHrs*0.7));
-      const t=ACT[type];
-      /* Tagesplan: zwei bis drei Ziele, gestaffelte Abflugzeiten */
-      const startMin = 6*60 + (n%7)*28;
-      const pick2=[];
-      for(let k=0;k<dests.length && pick2.length<3;k++){
-        const dd=dests[(n*3+k) % dests.length];
-        if(pick2.includes(dd)) continue;
-        if(acCanFly(ac, AP[base], AP[dd])) continue;
-        pick2.push(dd);
-      }
-      const chain=[]; pick2.forEach(dd=>chain.push(dd, base));
       ensurePlan(ac);
-      for(let d=0;d<7;d++){
-        ac.plan.week[d]={start:startMin, dests:chain.slice(), nums:[]};
-        ac.plan.winter[d]={start:startMin, dests:chain.slice(), nums:[]};
-      }
-      ensurePlan(ac);
-      /* zu lange Umläufe kürzen, bis der Tag passt */
-      let guard=0;
-      while(guard++<8){
-        const sch=scheduleOf(ac);
-        const bad = sch.week.some(x=>x.blockSum>t.block*60*1.05 || x.duty>BAL.maxDuty
-          || x.legs.some(l=>l.issues.length));
-        if(!bad) break;
-        for(let d=0;d<7;d++){ planWeek(ac)[d].dests.splice(-2,2); planWeek(ac)[d].nums.splice(-2,2); }
-        ensurePlan(ac);
-        if(!planWeek(ac)[0].dests.length) break;
-      }
-      /* Kam nichts zustande, an der Hauptbasis mit einem Ziel neu ansetzen */
-      if(!planWeek(ac)[0].dests.length){
-        ac.base=A.bases[0];
-        ac.reg=newRegistration(ac.base);
-        for(const dd of dests){
-          if(acCanFly(ac, AP[ac.base], AP[dd])) continue;
-          for(let d=0;d<7;d++) planWeek(ac)[d]={start:startMin, dests:[dd, ac.base], nums:[]};
-          ensurePlan(ac);
-          const sch=scheduleOf(ac);
-          if(!sch.week.some(x=>x.blockSum>t.block*60 || x.legs.some(l=>l.issues.length))) break;
-          for(let d=0;d<7;d++) planWeek(ac)[d]=emptyDay();
-          ensurePlan(ac);
-        }
-      }
-      n++;
     }
   });
-  /* Langstrecken über Nacht auf zwei Tage verteilen, statt sie zu streichen */
-  S.fleet.forEach(ac=>{ if(!scheduleOf(ac).flights) seedLongHaul(ac, A.dests); });
   const need0=pilotNeed(); S.pilots={};
   for(const k in need0) S.pilots[k]=Math.ceil(need0[k]*1.08);
   S.cabin=Math.ceil(cabinNeed()*1.08);
-  seedTrim(2);
-  S.fleet.forEach(ac=>{ if(!scheduleOf(ac).flights) seedLongHaul(ac, A.dests); });
+  seedNetwork(dests);
+  S.fleet.forEach(ac=>{ if(!scheduleOf(ac).flights) seedLongHaul(ac, dests); });
+  /* Letzter, sanfter Abgleich: nur die stärksten Überkapazitäten kappen */
+  seedBalance(0.48);
 
   /* Personal nach Bedarf, mit etwas Reserve */
   const need=pilotNeed(); S.pilots={};
@@ -8085,7 +8878,7 @@ const SCENARIOS = [
   hinweis:"Der lokale Markt gibt wenig her. Alles hängt am Umsteigefenster: Die Maschinen aus Amerika müssen morgens landen, die Europaflüge kurz danach abgehen. Der Wochenplan ist hier die halbe Miete.",
   airline:{name:"Saga Atlantic", code:"SA", liv:{c1:"#0d5fbf",c2:"#ffffff",body:"weiss",tail:"bogen",stripe:"schwung",glyph:"welle"}},
   bases:["KEF"], cash:76, rep:56, difficulty:"normal",
-  fleet:[["b38m",5],["b763",2]],
+  fleet:[["b38m",3],["b763",1]],
   dests:["LHR","CPH","OSL","ARN","AMS","CDG","FRA","MUC","MAD","JFK","BOS","YYZ","EWR","SEA","MSP","ORD"],
   regeln:{homeDamp:0.45},
   ziele:[{art:"transferAnteil", wert:70, text:"70% des Umsatzes aus Umsteigern"},
@@ -8252,44 +9045,30 @@ function startScenario(id){
   if(R.noLCC) S.rivals=S.rivals.filter(x=>x.model!=="lcc");
   if(sc.bal) Object.keys(sc.bal).forEach(k=>{ if(k in BAL) BAL[k]=sc.bal[k]; else S[k]=sc.bal[k]; });
   const dests=(sc.dests||[]).filter(d=>AP[d]);
-  let n=0;
   (sc.fleet||[]).forEach(([type,cnt,bIdx])=>{
     for(let i=0;i<cnt;i++){
-      const base=sc.bases[bIdx!=null?Math.min(bIdx,sc.bases.length-1):(n%sc.bases.length)];
+      const base=sc.bases[bIdx!=null?Math.min(bIdx,sc.bases.length-1):(i%sc.bases.length)];
       const R2=sc.regeln||{};
       const ac=addAircraft(type,false,base,
         Math.round(R2.alterMin!=null ? rnd(R2.alterMin, R2.alterMax||R2.alterMin+60) : rnd(12,90)));
       if(R2.alterMin) ac.hours=Math.round(rnd(0.5,0.95)*BAL.heavyCheckHrs);
       if(R2.noLowCost) ac.svc="premium";
-      const chain=[];
-      for(let k=0;k<dests.length && chain.length<4;k++){
-        const dd=dests[(n*3+k)%dests.length];
-        if(chain.includes(dd)) continue;
-        if(acCanFly(ac,AP[base],AP[dd])) continue;
-        chain.push(dd, base);
-      }
       ensurePlan(ac);
-      for(let d=0;d<7;d++){
-        ac.plan.week[d]={start:6*60+(n%7)*26, dests:chain.slice(), nums:[]};
-        ac.plan.winter[d]={start:6*60+(n%7)*26, dests:chain.slice(), nums:[]};
-      }
-      ensurePlan(ac);
-      let g=0;
-      while(g++<8 && scheduleOf(ac).week.some(x=>x.blockSum>ACT[type].block*60
-          || x.duty>BAL.maxDuty || x.legs.some(l=>l.issues.length))){
-        for(let d=0;d<7;d++){ planWeek(ac)[d].dests.splice(-2,2); planWeek(ac)[d].nums.splice(-2,2); }
-        ensurePlan(ac);
-        if(!planWeek(ac)[0].dests.length) break;
-      }
-      n++;
     }
   });
+  const needV=pilotNeed(); S.pilots={};
+  for(const k in needV) S.pilots[k]=Math.ceil(needV[k]*1.05);
+  S.cabin=Math.ceil(cabinNeed()*1.05);
+  seedNetwork(dests);
+  seedBalance(0.48);
+
   /* Wer an einem Tag nicht hin und zurück kommt, fliegt über Nacht */
   S.fleet.forEach(ac=>{ if(!scheduleOf(ac).flights) seedLongHaul(ac, dests); });
   const need0=pilotNeed(); S.pilots={};
   for(const k in need0) S.pilots[k]=Math.ceil(need0[k]*1.05);
   S.cabin=Math.ceil(cabinNeed()*1.05);
   seedTrim(2);
+  seedThin(8);
   S.fleet.forEach(ac=>{ if(!scheduleOf(ac).flights) seedLongHaul(ac, dests); });
   const need=pilotNeed(); S.pilots={};
   for(const k in need) S.pilots[k]=Math.ceil(need[k]*1.05);
@@ -8375,26 +9154,39 @@ function animateNum(el, to, fmtFn){
 
 /* Am Telefon wandert die Navigation nach unten: vier feste Reiter mit Zeichen
    und ein Sammelknopf für alles Übrige — mit dem Daumen erreichbar. */
-const TAB_ICON = {ops:"◉", net:"⇄", fleet:"✈", inbox:"✉", market:"🛒", fin:"💰", staff:"👥",
+const TAB_ICON = {ops:"◉", net:"⇄", fleet:"✈", inbox:"✉", fin:"💰", market:"🛒", staff:"👥",
   charter:"📋", guest:"★", ach:"🏆", brand:"🎨", data:"⚙"};
-const TAB_MAIN = ["ops","net","fleet","inbox"];
-const TAB_NAME = {ops:"Lage", net:"Netz", fleet:"Flotte", inbox:"Postfach", market:"Markt",
-  fin:"Finanzen", staff:"Personal", charter:"Charter", guest:"Gäste", ach:"Erfolge",
+/* Fünf Bereiche tragen eine normale Partie. Alles Übrige sind Nebenschauplätze
+   und stehen unter «Mehr» — auch am Rechner, sonst sind zwölf Reiter zwölf
+   Möglichkeiten, nichts zu tun. */
+const TAB_MAIN = ["ops","net","fleet","fin","inbox"];
+const TAB_NAME = {ops:"Lage", net:"Netz", fleet:"Flotte", fin:"Finanzen", inbox:"Postfach",
+  market:"Markt", staff:"Personal", charter:"Charter", guest:"Gäste", ach:"Erfolge",
   brand:"Marke", data:"Einstellungen"};
+/* Kurzbeschreibung für das Mehr-Blatt */
+const TAB_HINT = {
+  market:"Flugzeuge kaufen, leasen oder gebraucht übernehmen",
+  staff:"Cockpit, Kabine, Löhne und Ausbildung",
+  charter:"Einzelaufträge gegen Festpreis",
+  guest:"Bordservice, Vielfliegerprogramm, Bewertungen",
+  ach:"Meilensteine und die Chronik Ihrer Airline",
+  brand:"Bemalung, Signet und Schriftzug",
+  data:"Spielweise, Spielstand, Fassung"
+};
 var mobileNav=null;
 /** Nur die Zähler auffrischen — die Reiter selbst bleiben stehen. */
 function updateBadges(){
-  const b=document.querySelector('#tabs [data-t="inbox"]');
-  if(!b || !S) return;
+  if(!S) return;
   const n=mailUnread();
-  let el=b.querySelector(".badge");
-  if(!n){ if(el) el.remove(); return; }
-  if(!el){
-    el=document.createElement("span"); el.className="badge";
-    const ic=b.querySelector(".ic");
-    (ic||b).appendChild(el);
-  }
-  el.textContent=n>99?"99+":String(n);
+  [document.querySelector('#tabs [data-t="inbox"]'),
+   TAB_MAIN.includes("inbox")?null:document.querySelector('#tabs [data-more]')].forEach(b=>{
+    if(!b) return;
+    let el=b.querySelector(".badge");
+    if(!n){ if(el) el.remove(); return; }
+    if(!el){ el=document.createElement("span"); el.className="badge";
+      (b.querySelector(".ic")||b).appendChild(el); }
+    el.textContent=n>99?"99+":String(n);
+  });
 }
 function buildTabs(force){
   const wrap=$("#tabs");
@@ -8402,14 +9194,14 @@ function buildTabs(force){
   if(!force && narrow===mobileNav && wrap.dataset.built) return;
   mobileNav=narrow; wrap.dataset.built="1";
   const bdg=k=>k==="inbox"&&S&&mailUnread()?`<span class="badge">${mailUnread()}</span>`:"";
-  if(!narrow){
-    wrap.innerHTML=Object.keys(TAB_NAME).map(k=>
-      `<button data-t="${k}" class="${tab===k?'on':''}">${TAB_NAME[k]}${bdg(k)}</button>`).join("");
-  } else {
-    wrap.innerHTML=TAB_MAIN.map(k=>
-      `<button data-t="${k}" class="${tab===k?'on':''}"><span class="ic">${TAB_ICON[k]}${bdg(k)}</span>${TAB_NAME[k]}</button>`).join("")
-      +`<button data-more="1" class="${TAB_MAIN.includes(tab)?'':'on'}"><span class="ic">☰</span>Mehr</button>`;
-  }
+  const mehrOffen = !TAB_MAIN.includes(tab);
+  wrap.innerHTML=TAB_MAIN.map(k=>
+    `<button data-t="${k}" class="${tab===k?'on':''}">`
+    + (narrow?`<span class="ic">${TAB_ICON[k]}${bdg(k)}</span>`:"")
+    + TAB_NAME[k] + (narrow?"":bdg(k)) + `</button>`).join("")
+    + `<button data-more="1" class="${mehrOffen?'on':''}">`
+    + (narrow?`<span class="ic">☰</span>`:"")
+    + (mehrOffen?TAB_NAME[tab]:"Mehr") + `</button>`;
   wrap.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>setTab(b.dataset.t));
   const mb=wrap.querySelector("[data-more]");
   if(mb) mb.onclick=moreSheet;
@@ -8418,7 +9210,8 @@ function moreSheet(){
   const rest=Object.keys(TAB_NAME).filter(k=>!TAB_MAIN.includes(k));
   modal("Weitere Bereiche",
     `<div id="sheetlist">${rest.map(k=>`<div class="choice ${tab===k?'on':''}" data-t="${k}">
-      <div><div class="t">${TAB_ICON[k]}  ${TAB_NAME[k]}</div></div>
+      <div style="flex:1"><div class="t">${TAB_ICON[k]}  ${TAB_NAME[k]}</div>
+        <div class="d">${esc(TAB_HINT[k]||"")}</div></div>
       <div class="mono amb">›</div></div>`).join("")}</div>`,
     [{t:"Schliessen",f:()=>$("#veil").classList.remove("on")}]);
   $("#sheetlist").onclick=e=>{
@@ -8428,14 +9221,14 @@ function moreSheet(){
 }
 function setTab(t){
   tab=t;
-  $$("#tabs button").forEach(b=>b.classList.toggle("on", b.dataset.t===t
-    || (b.dataset.more && !TAB_MAIN.includes(t) && mobileNav)));
+  if(typeof panelGross==="function" && t!=="ops") panelGross();
+  buildTabs(true);
   renderPane();
 }
 
 /* Fassungskennung — steht im Hauptmenü und unter Daten. So lässt sich auf
    einen Blick prüfen, welcher Stand tatsächlich auf dem Server liegt. */
-const APP_VERSION = "2026-08-29b · Vorschläge & Ereignisvielfalt";
+const APP_VERSION = "2026-09-02b · Concorde";
 
 
 
@@ -8479,6 +9272,362 @@ function tutorialPanel(){
         ${ok||!x.tab?"":`<button class="sm" data-tut="${x.tab}">hin</button>`}</div>`;}).join("")}
     <div class="row" style="margin-top:7px"><button class="sm" id="tutSkip">Nicht mehr anzeigen</button></div>
   </div>`;
+}
+
+
+
+/* ===================================================== Grosscheck ========
+   Bisher ging eine Maschine zum Grosscheck, sobald die Stunden voll waren —
+   ohne Rücksicht darauf, ob gerade Hochsaison ist. Jetzt kann man vorziehen:
+   im Winter, wenn ohnehin weniger geflogen wird, statt mitten im Juli.
+   Wer früh zieht, verschenkt Reststunden, spart aber die teure Zeit. */
+function checkRest(ac){
+  return Math.max(0, BAL.heavyCheckHrs-(ac.hours||0));
+}
+function checkAnteil(ac){
+  return clamp((ac.hours||0)/BAL.heavyCheckHrs, 0, 1);
+}
+/** Wann ist er fällig, wenn so weitergeflogen wird? */
+function checkMonate(ac){
+  const proMonat=acWeeklyBlock(ac)*BAL.weeksPerMonth;
+  if(proMonat<=0.5) return null;
+  return checkRest(ac)/proMonat;
+}
+function checkDauer(ac){ return hasUpgrade(ac.base,"hangar") ? 1 : 2; }
+/** Kosten: der Grundpreis fällt immer an, verschenkte Reststunden kosten extra. */
+function checkKosten(ac){
+  const t=ACT[ac.type];
+  const grund=t.price*1e6*0.03*(hasUpgrade(ac.base,"hangar")?0.68:1)*(BAL.aogMult||1);
+  const verschenkt=checkRest(ac)/BAL.heavyCheckHrs;
+  return {grund:Math.round(grund), verlust:Math.round(grund*verschenkt*0.45),
+    gesamt:Math.round(grund*(1+verschenkt*0.45))};
+}
+/** Beurteilt, ob der Zeitpunkt günstig ist. */
+function checkRat(ac){
+  const m=checkMonate(ac);
+  const sais=currentSeason();
+  const winter = sais==="winter";
+  if(m==null) return {t:"Die Maschine fliegt nicht — jetzt ist der beste Zeitpunkt.", gut:true};
+  if(m<1.5) return {t:"Der Check steht ohnehin unmittelbar bevor.", gut:true};
+  if(winter && m<6) return {t:"Winter und in wenigen Monaten fällig — ein guter Moment. Im Sommer fehlt die Maschine teurer.", gut:true};
+  if(winter) return {t:"Winter, aber noch viele Stunden übrig. Vorziehen kostet Reststunden.", gut:false};
+  if(!winter && m<3) return {t:"Er wird mitten in der Hochsaison fällig. Vorziehen auf den Winter lohnt sich meist nicht mehr — dafür ist es zu spät.", gut:false};
+  return {t:"Hochsaison. Wer jetzt zieht, verliert die ertragreichsten Wochen.", gut:false};
+}
+function checkDialog(id){
+  const ac=S.fleet.find(x=>x.id===id); if(!ac) return;
+  const t=ACT[ac.type], K=checkKosten(ac), m=checkMonate(ac), R=checkRat(ac);
+  const dauer=checkDauer(ac);
+  const verlust=Math.round(acWeeklyBlock(ac)*BAL.weeksPerMonth*dauer);
+  modal(`Grosscheck ${ac.reg}`,
+    `<div class="planebox">${planeSVG(ac.type,S.livery,{wear:acWear(ac)})}</div>
+     <div class="card">
+       <div class="kv"><span>Geflogene Stunden</span>
+         <span>${fmt(ac.hours||0)} von ${fmt(BAL.heavyCheckHrs)}</span></div>
+       <div class="bar" style="height:9px"><i style="width:${(checkAnteil(ac)*100).toFixed(0)}%;
+         background:${checkAnteil(ac)>0.85?"var(--red)":checkAnteil(ac)>0.6?"var(--amber)":"var(--green)"}"></i></div>
+       <div class="kv" style="margin-top:6px"><span>Noch übrig</span>
+         <span>${fmt(checkRest(ac))} Stunden${m!=null?` · rund ${fmt(m,1)} Monate beim heutigen Einsatz`:""}</span></div>
+       <div class="kv"><span>Dauer am Boden</span>
+         <span>${dauer} Monat${dauer>1?"e":""}${hasUpgrade(ac.base,"hangar")?" (eigenes Wartungszentrum)":""}</span></div>
+       <div class="kv"><span>Entgangene Flugzeit</span><span>rund ${fmt(verlust)} Blockstunden</span></div>
+     </div>
+     <h3 class="sub">Kosten</h3>
+     <div class="card">
+       <div class="kv"><span>Grundpreis des Checks</span><span>${chf(K.grund)}</span></div>
+       <div class="kv"><span>Verschenkte Reststunden</span>
+         <span class="${K.verlust>0?'neg':''}">${K.verlust?"+ "+chf(K.verlust):"keine"}</span></div>
+       <div class="kv" style="border-top:1px solid var(--line2);font-weight:600">
+         <span>Zusammen</span><span>${chf(K.gesamt)}</span></div>
+     </div>
+     <div class="card" style="border-color:${R.gut?"var(--green)":"var(--amber)"}">
+       <b class="${R.gut?"pos":"warn2"}">${currentSeason()==="winter"?"Winterflugplan":"Sommerflugplan"}</b><br>
+       <span class="dim" style="font-size:11.5px">${esc(R.t)}</span></div>
+     <p class="dim" style="font-size:11px">Wird nicht vorgezogen, geht die Maschine von selbst zum Check, sobald die Stunden voll sind — dann womöglich mitten in der Hochsaison.</p>`,
+    [{t:"Später",f:()=>$("#veil").classList.remove("on")},
+     {t:`Jetzt zum Check (${chf(K.gesamt)})`,p:true,f:()=>{
+        if(S.cash<K.gesamt){ toast("Dafür reicht die Liquidität nicht."); return; }
+        checkStarten(ac, true);
+        $("#veil").classList.remove("on"); render();
+     }}]);
+}
+/** Schickt eine Maschine zum Grosscheck. */
+function checkStarten(ac, freiwillig){
+  const K=checkKosten(ac);
+  ac.status="wartung";
+  ac.checkLeft=checkDauer(ac);
+  ac.hours=0;
+  S.cash-= freiwillig ? K.gesamt : K.grund;
+  if(!freiwillig && (BAL.aogMult||1)>2) S.rep=clamp(S.rep-1.5,5,99);
+  logg(`${ac.reg} zum Grosscheck am Boden, ${chf(freiwillig?K.gesamt:K.grund)} CHF.`, freiwillig?"":"warn");
+  if(freiwillig) chronikAdd("flotte", `${ac.reg} vorzeitig zum Grosscheck — ${checkDauer(ac)} Monat${checkDauer(ac)>1?"e":""} am Boden.`);
+}
+
+
+
+
+/* Blatt am Telefon: Wischen am Kopf schliesst es, wenn es geschlossen werden darf. */
+function initBlattWisch(){
+  const mh=document.querySelector("#modal .mh"), md=document.getElementById("modal");
+  if(!mh||!md) return;
+  let y0=null, zieht=false;
+  mh.addEventListener("touchstart",e=>{ if(!istMobil()) return;
+    y0=e.touches[0].clientY; zieht=true; md.style.transition="none"; },{passive:true});
+  mh.addEventListener("touchmove",e=>{ if(!zieht) return;
+    const dy=Math.max(0, e.touches[0].clientY-y0);
+    md.style.transform=`translateY(${dy}px)`;
+    if(dy>4) e.preventDefault(); },{passive:false});
+  mh.addEventListener("touchend",e=>{ if(!zieht) return; zieht=false;
+    const dy=parseFloat((md.style.transform.match(/([\d.]+)px/)||[0,0])[1])||0;
+    md.style.transition=""; md.style.transform="";
+    if(dy>90 && $("#veil").dataset.fest!=="1") veilClose(); });
+}
+
+/* Das Bedienfeld am Telefon: Griff zum Ziehen, Wischen für ganz auf und zu. */
+function initGriff(){
+  const g=document.getElementById("griff"), sd=document.getElementById("side");
+  if(!g||!sd) return;
+  const stufen=["klein","",  "voll"];
+  let stufe=1;
+  const setzen=(i)=>{
+    stufe=clamp(i,0,2);
+    sd.classList.remove("klein","voll");
+    if(stufen[stufe]) sd.classList.add(stufen[stufe]);
+    setTimeout(()=>{ if(typeof renderMap==="function" && S) renderMap(); }, 300);
+  };
+  g.addEventListener("click",()=>setzen(stufe===2?1:2));
+  let y0=null, h0=0, zieht=false;
+  const start=e=>{ const t=e.touches?e.touches[0]:e;
+    y0=t.clientY;
+    h0=sd.getBoundingClientRect().height || window.innerHeight*0.56;
+    zieht=true;
+    sd.style.transition="none"; };
+  const zug=e=>{ if(!zieht) return;
+    const t=e.touches?e.touches[0]:e;
+    const dy=y0-t.clientY;
+    const max=window.innerHeight-6;
+    sd.style.height=clamp(h0+dy, window.innerHeight*0.20, max)+"px";
+    e.preventDefault(); };
+  const ende=()=>{ if(!zieht) return; zieht=false;
+    const anteil=(sd.getBoundingClientRect().height||0)/window.innerHeight
+      || (parseFloat(sd.style.height)||0)/window.innerHeight;
+    sd.style.transition=""; sd.style.height="";
+    setzen(anteil>0.80 ? 2 : anteil<0.38 ? 0 : 1); };
+  g.addEventListener("touchstart",start,{passive:true});
+  g.addEventListener("touchmove",zug,{passive:false});
+  g.addEventListener("touchend",ende);
+  g.addEventListener("mousedown",e=>{ start(e);
+    const mm=ev=>zug(ev), mu=()=>{ ende();
+      document.removeEventListener("mousemove",mm); document.removeEventListener("mouseup",mu); };
+    document.addEventListener("mousemove",mm); document.addEventListener("mouseup",mu); });
+  /* Beim Blick auf die Karte automatisch klein, beim Planen automatisch gross */
+  window.panelGross=()=>{ if(istMobil()) setzen(2); };
+  window.panelKarte=()=>{ if(istMobil()) setzen(0); };
+}
+
+/* ================================================ Bedienung am Telefon ===
+   Auf 390 Pixeln ist Platz das knappste Gut. Die Flotte erscheint deshalb als
+   kompakte Liste, die sich auf Tippen öffnet, und die Handgriffe je Maschine
+   liegen in einem Blatt statt in acht Knöpfen nebeneinander. */
+function istMobil(){ return window.innerWidth<=880; }
+function acStatus(ac){
+  const sch=scheduleOf(ac);
+  const inAir=(S.daySched||[]).some(f=>f.ac===ac.id && f.started && !f.done);
+  const gesperrt = blockReason("ac",ac.id) || (blockActive("type",ac.type)?blockReason("type",ac.type):null);
+  if(ac.status==="wartung") return {cls:"mnt", t:`Grosscheck, noch ${ac.checkLeft} Mt`};
+  if(gesperrt) return {cls:"mnt", t:gesperrt};
+  if(!sch.flights) return {cls:"nop", t:"ohne Flugplan"};
+  if(inAir) return {cls:"air", t:"in der Luft"};
+  return {cls:"idle", t:`${sch.flights} Flüge/Woche`};
+}
+/** Auslastung einer Maschine aus den letzten Wochenzahlen. */
+function acLoad(ac){
+  const sch=scheduleOf(ac);
+  let pax=0, sitze=0;
+  sch.legs.forEach(l=>{ const st=LEGSTATS[legKey(ac.id,l.day,l.i)];
+    if(st){ pax+=st.pax; sitze+=st.seats; } });
+  return sitze ? pax/sitze : null;
+}
+/** Handgriffe zu einer Maschine als Blatt. */
+function acSheet(id){
+  const ac=S.fleet.find(x=>x.id===id); if(!ac) return;
+  const sch=scheduleOf(ac);
+  const eintraege=[
+    {k:"plan",  t:"Wochenplan",             d:`${sch.flights} Flüge, ${fmt(sch.blockWeek/60,1)} h`},
+    {k:"trim",  t:"Schwache Flüge streichen",d:"Alles entfernen, was sich nicht trägt"},
+    {k:"chk",   t:"Grosscheck",             d:`${fmt(checkRest(ac))} h übrig${checkMonate(ac)!=null?` · rund ${fmt(checkMonate(ac),1)} Mt`:""}`},
+    {k:"cab",   t:"Kabine",                 d:`${seatsOf(ac).total} Sitze`},
+    {k:"svc",   t:"Bordservice",            d:svcOfAc(ac).n},
+    {k:"fh",    t:"Letzte Flüge",           d:"Was diese Maschine geflogen hat"},
+    {k:"base",  t:"Verlegen",               d:`heute ${ac.base}`},
+    {k:ac.lease?"ret":"sell", t:ac.lease?"Zurückgeben":"Verkaufen",
+      d:ac.lease?"Leasingvertrag beenden":`Erlös rund ${chf(ACT[ac.type].price*1e6*gebrauchtWert(ac.age)*0.9)}`}
+  ].filter(x=>!(x.k==="chk" && ac.status==="wartung"));
+  modal(`${ac.reg} · ${ACT[ac.type].name}`,
+    `<div class="planebox">${planeSVG(ac.type,S.livery,{wear:acWear(ac)})}</div>
+     <div id="acsheet">${eintraege.map(x=>`<div class="choice" data-ac="${x.k}">
+       <div style="flex:1"><div class="t">${x.t}</div><div class="d">${esc(x.d)}</div></div>
+       <div class="mono amb">›</div></div>`).join("")}</div>`,
+    [{t:"Schliessen",f:()=>$("#veil").classList.remove("on")}]);
+  $("#acsheet").onclick=e=>{
+    const c=e.target.closest("[data-ac]"); if(!c) return;
+    const k=c.dataset.ac;
+    $("#veil").classList.remove("on");
+    setTimeout(()=>{
+      if(k==="plan") planDialog(id);
+      else if(k==="trim") trimPlan(id);
+      else if(k==="chk") checkDialog(id);
+      else if(k==="cab") cabinDialog(id);
+      else if(k==="svc") serviceDialog(id);
+      else if(k==="fh") flightHistoryDialog({ac:id});
+      else if(k==="base") relocateDialog(id);
+      else if(k==="sell") sellAircraft(id,false);
+      else if(k==="ret") sellAircraft(id,true);
+    }, 60);
+  };
+}
+/** Kompakte Flottenliste für schmale Schirme. */
+function fleetKompakt(){
+  return `<div class="acliste">${S.fleet.map(ac=>{
+    const st=acStatus(ac), lf=acLoad(ac), sch=scheduleOf(ac);
+    const warn=sch.warn.length;
+    return `<div class="acrow" data-acopen="${ac.id}">
+      <span class="stdot ${st.cls}"></span>
+      <div style="flex:1;min-width:0">
+        <div class="acr1"><b class="mono">${ac.reg}</b>
+          <span class="dim">${esc(ACT[ac.type].name.split(" (")[0])}</span></div>
+        <div class="acr2">${esc(st.t)} · ${ac.base}
+          ${lf!=null?` · <span class="${lf>0.7?'pos':lf>0.55?'':'warn2'}">${fmt(lf*100,0)}%</span>`:""}
+          ${warn?` · <span class="neg">${warn} Hinweis${warn>1?"e":""}</span>`:""}</div>
+        <div class="bar" style="height:3px;margin-top:4px"><i style="width:${(checkAnteil(ac)*100).toFixed(0)}%;
+          background:${checkAnteil(ac)>0.85?"var(--red)":checkAnteil(ac)>0.6?"var(--amber)":"var(--green)"}"></i></div>
+      </div>
+      <span class="mono amb" style="font-size:15px">⋯</span></div>`;}).join("")}</div>`;
+}
+
+/* =================================================== Streckenassistent ===
+   Der Befund erklärt, warum eine Strecke schwächelt. Hier dasselbe vorwärts:
+   Ziel wählen, das Spiel rechnet Muster, Frequenz und Tarif durch und zeigt,
+   was dabei herauskommt. Annehmen oder selbst feilen. */
+function assistVorschlag(von, nach){
+  const A=AP[von], B=AP[nach];
+  if(!A||!B) return null;
+  const d=distKm(A,B), m=marketDemand(A,B,S.month);
+  const konk=competitorBase(A,B)/7;
+  /* Wie viel des Marktes ist realistisch zu holen? */
+  const erreichbar = m.daily*clamp(0.62-0.045*konk, 0.22, 0.62);
+  const kand=[];
+  S.fleet.filter(a=>a.status==="aktiv" && !acCanFly(a,A,B)).forEach(ac=>{
+    const t=ACT[ac.type], sitze=seatsOf(ac).total;
+    const frei=Math.max(0, t.block*60 - scheduleOf(ac).week
+      .reduce((mx,x)=>Math.max(mx,x.blockSum),0));
+    const bm=blockMinutes(t,d)*2 + turnAt(t,B.iata) + turnAt(t,A.iata);
+    let proTag=clamp(Math.round(erreichbar/sitze*10)/10, 0.3, 4);
+    proTag=Math.min(proTag, Math.max(0.3, Math.floor(frei/bm*10)/10));
+    const proWoche=Math.max(2, Math.round(proTag*7));
+    const sitzeWoche=sitze*proWoche;
+    const paxWoche=Math.min(sitzeWoche*0.92, erreichbar*7);
+    const lf=paxWoche/sitzeWoche;
+    if(lf<0.42) return;
+    kand.push({ac, t, sitze, proWoche, lf, bm, frei, paxWoche});
+  });
+  if(!kand.length) return null;
+  /* Bestes Muster: höchster Deckungsbeitrag, nicht die grösste Kabine */
+  kand.forEach(k=>{
+    const kosten = (k.t.burn*S.fuel + k.t.maint) * (k.bm/60) * k.proWoche;
+    const tarif  = baseFare(d) * (1 + clamp(0.12-0.03*konk, -0.05, 0.12));
+    k.tarif = tarif/baseFare(d);
+    k.ertrag = k.paxWoche*tarif;
+    k.ergebnis = k.ertrag - kosten;
+  });
+  kand.sort((a,b)=>b.ergebnis-a.ergebnis);
+  const best=kand[0];
+  return {von, nach, d, markt:m.daily, konk, erreichbar,
+    ac:best.ac, muster:best.t, proWoche:best.proWoche, lf:best.lf,
+    tarif:best.tarif, ergebnis:best.ergebnis, alternativen:kand.slice(1,4)};
+}
+function assistDialog(von){
+  const A=AP[von];
+  let sel=null, gefiltert="";
+  const ziele=()=>{
+    const q=gefiltert.toLowerCase();
+    return APL.filter(B=>B.iata!==von && (!q||(B.iata+B.city+B.country).toLowerCase().includes(q)))
+      .map(B=>({B, m:marketDemand(A,B,S.month).daily}))
+      .filter(x=>x.m>25 && S.fleet.some(ac=>ac.status==="aktiv" && !acCanFly(ac,A,x.B)))
+      .sort((a,b)=>b.m-a.m).slice(0,40);
+  };
+  const zeichnen=()=>{
+    const v=sel?assistVorschlag(von, sel):null;
+    $("#mBody").innerHTML=`
+      <p class="dim">Wählen Sie ein Ziel — das Spiel rechnet Muster, Frequenz und Tarif durch und zeigt das erwartete Wochenergebnis. Übernehmen Sie den Vorschlag oder feilen Sie danach im Wochenplan.</p>
+      <input type="text" id="asq" placeholder="Filter: Kürzel, Stadt, Land" value="${esc(gefiltert)}">
+      <div id="asl" style="max-height:26vh;overflow-y:auto;margin-top:7px">
+        ${ziele().map(x=>`<div class="choice ${sel===x.B.iata?'on':''}" data-as="${x.B.iata}">
+          <div><div class="t">${x.B.iata} · ${esc(x.B.city)}</div>
+            <div class="d">${fmt(distKm(A,x.B))} km · Markt ${fmt(x.m,0)} Reisende am Tag</div></div>
+          <div class="mono">${fmt(x.m,0)}</div></div>`).join("")
+          || `<div class="dim" style="padding:8px">Keine erreichbaren Ziele — die Flotte kommt nicht hin oder der Markt ist zu dünn.</div>`}
+      </div>
+      ${v?`<h3 class="sub">Vorschlag ${von} – ${v.nach}</h3>
+        <div class="card">
+          <div class="kv"><span>Flugzeug</span><span>${esc(v.muster.name)} · ${v.ac.reg}</span></div>
+          <div class="kv"><span>Frequenz</span><span>${v.proWoche} Umläufe pro Woche${v.proWoche>=7?` (${fmt(v.proWoche/7,1)} am Tag)`:""}</span></div>
+          <div class="kv"><span>Tarif</span><span>${fmt(v.tarif*100,0)} — ${v.tarif>1.02?"über":v.tarif<0.98?"unter":"auf"} Marktniveau</span></div>
+          <div class="kv"><span>Erwartete Auslastung</span><span class="${v.lf>0.7?'pos':v.lf>0.55?'':'warn2'}">${fmt(v.lf*100,0)}%</span></div>
+          <div class="kv"><span>Wettbewerb</span><span>${fmt(v.konk,1)} fremde Flüge am Tag</span></div>
+          <div class="kv"><span>Erwartetes Wochenergebnis</span><span class="${cls(v.ergebnis)}">${sgn(v.ergebnis)}</span></div>
+        </div>
+        ${v.alternativen.length?`<p class="dim" style="font-size:11px">Andere Muster: ${v.alternativen.map(k=>
+          `${esc(k.t.name.split(" (")[0])} (${fmt(k.lf*100,0)}%, ${sgn(k.ergebnis)})`).join(" · ")}</p>`:""}
+        <p class="dim" style="font-size:11px">Die Rechnung nimmt Direktkosten und Marktanteil an. Fixkosten wie Abschreibung und Gehälter fallen ohnehin an — deshalb ist ein positiver Wert hier noch kein Gewinn für die Gesellschaft, aber ein Beitrag dazu.</p>`
+       :`<p class="dim" style="margin-top:10px">Noch kein Ziel gewählt.</p>`}`;
+    $("#asq").oninput=e=>{ gefiltert=e.target.value; zeichnen();
+      const el=$("#asq"); if(el){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); } };
+    $("#asl").querySelectorAll("[data-as]").forEach(b=>b.onclick=()=>{ sel=b.dataset.as; zeichnen(); });
+    const ok=$("#asOk");
+    if(ok) ok.disabled=!sel;
+  };
+  modal(`Strecke planen ab ${von}`, `<div></div>`,
+    [{t:"Abbrechen",f:()=>$("#veil").classList.remove("on")},
+     {t:"Vorschlag übernehmen",p:true,f:()=>{
+        if(!sel){ toast("Zuerst ein Ziel wählen."); return; }
+        const v=assistVorschlag(von, sel);
+        if(!v){ toast("Für dieses Ziel lässt sich nichts planen."); return; }
+        assistUebernehmen(v);
+        $("#veil").classList.remove("on");
+        render();
+        toast(`${v.von}–${v.nach} eingeplant: ${v.proWoche} Umläufe pro Woche.`);
+     }}]);
+  zeichnen();
+}
+/** Trägt den Vorschlag in den Wochenplan ein. */
+function assistUebernehmen(v){
+  const ac=v.ac;
+  ensurePlan(ac);
+  const W=planWeek(ac);
+  let gesetzt=0, tag=0;
+  for(let k=0; k<v.proWoche && gesetzt<v.proWoche; k++){
+    let versuche=0;
+    while(versuche<7){
+      const d=(tag+versuche)%7;
+      if(W[d].dests.length/2 < 3){
+        W[d].dests.push(v.nach, ac.base);
+        ensurePlan(ac);
+        const sch=scheduleOf(ac).week[d];
+        if(sch.duty>BAL.maxDuty || sch.legs.some(l=>l.issues.length)){
+          W[d].dests.splice(-2,2); W[d].nums.splice(-2,2); W[d].holds.splice(-2,2);
+          ensurePlan(ac);
+        } else { gesetzt++; tag=(d+1)%7; break; }
+      }
+      versuche++;
+    }
+    if(versuche>=7) break;
+  }
+  const r=ensureRoute(ac.base, v.nach);
+  r.fare=clamp(v.tarif, 0.6, 1.6);
+  r.keep=true;
+  recomputeWeek(); buildDaySchedule();
+  logg(`${v.von}–${v.nach} aufgenommen: ${gesetzt} Umläufe mit ${ac.reg}.`, gesetzt?"good":"warn");
 }
 
 /* ============================================ Planen auf der Karte ======
@@ -8546,6 +9695,219 @@ function mapPlanTo(iata){
       const i=+b.dataset.d; tage[i]=tage[i]?0:1; $("#mBody").innerHTML=body(); wire();});
   };
   wire();
+}
+
+
+
+/* ========================================================= AeroNews ======
+   Eine Fachzeitung, die alle zwei Monate erscheint. Zwei bis drei Schlagzeilen,
+   je zwei Sätze — sie greift auf, was tatsächlich geschehen ist: Züge der
+   Konkurrenz, eigene Ergebnisse, Übernahmen, Streiks, Marktlage. Kein
+   Nachrichtenersatz, sondern ein Spiegel. */
+function aeroNews(){
+  if(S.eventsOn===false) return;
+  const h=[];
+  const L=S.lastMonth, V=S.history[S.history.length-2];
+  const arch=archRival();
+
+  /* --- Konkurrenz --- */
+  if(arch){
+    const f=S.feud[arch.id];
+    h.push({t:`${arch.name} und ${S.name}: das Duell des Jahres`,
+      b:`Auf gemeinsamen Strecken stehen ${f.runden} Auseinandersetzungen zu Buche, ${f.verloren} davon gingen an ${arch.name}. Beobachter erwarten, dass sich der Konflikt auf weitere Märkte ausdehnt.`});
+  }
+  const angriff=S.routes.filter(r=>r.last&&r.last.ok&&r.last.share<0.3&&(r.rivals||[]).length>1);
+  if(angriff.length>=3 && !arch){
+    h.push({t:`Preiskampf auf ${angriff.length} Strecken`,
+      b:`Gleich mehrere Anbieter drängen gleichzeitig in dieselben Märkte. Die Branche rechnet mit sinkenden Erträgen über den ganzen Sommer.`});
+  }
+  const rueckzug=S.routes.filter(r=>(r.rivals||[]).length===0 && r.last&&r.last.ok);
+  if(rueckzug.length>=2){
+    h.push({t:`Rückzug aus dünnen Märkten`,
+      b:`Auf ${rueckzug.length} Verbindungen ist ${S.name} inzwischen allein unterwegs. Wo die Nachfrage fehlt, geben die Grossen zuerst auf.`});
+  }
+
+  /* --- eigene Lage --- */
+  if(L && V){
+    const d=L.profit-V.profit;
+    if(L.profit>0 && d>0.4e6)
+      h.push({t:`${S.name} steigert das Ergebnis deutlich`,
+        b:`${sgn(L.profit)} im Monat, ${sgn(d)} mehr als zuvor. Als Treiber gelten ${(L.lf*100).toFixed(0)}% Auslastung und ein Netz von ${S.routes.length} Strecken.`});
+    else if(L.profit<0 && d<-0.4e6)
+      h.push({t:`Rote Zahlen bei ${S.name}`,
+        b:`Der Monatsverlust beträgt ${sgn(L.profit)}. Bei ${(L.lf*100).toFixed(0)}% Auslastung steht die Streckenplanung auf dem Prüfstand.`});
+  }
+  if(S.rep>=82) h.push({t:`${S.name} unter den bestbewerteten Gesellschaften`,
+    b:`Ein Ruf von ${fmt(S.rep,0)} Punkten bringt die Gesellschaft in die Spitzengruppe. Vor allem Geschäftsreisende honorieren Verlässlichkeit.`});
+  if(S.rep<=42) h.push({t:`Reisende üben Kritik an ${S.name}`,
+    b:`Der Ruf ist auf ${fmt(S.rep,0)} Punkte gefallen. Genannt werden Verspätungen und der Bordservice.`});
+  if((S.rel||{}).crew<45) h.push({t:`Unruhe bei der Belegschaft von ${S.name}`,
+    b:`Die Personalvertretung spricht von Dauerbelastung und zu knapper Reserve. Eine Eskalation gilt als möglich.`});
+  const jung=S.fleet.length?S.fleet.reduce((a,x)=>a+x.age,0)/S.fleet.length/12:0;
+  if(S.fleet.length>=6 && jung<6) h.push({t:`Eine der jüngsten Flotten Europas`,
+    b:`Mit ${fmt(jung,1)} Jahren Durchschnittsalter fliegt ${S.name} moderner als der Wettbewerb. Das senkt Verbrauch und Wartungsaufwand.`});
+  if(S.fleet.length>=6 && jung>17) h.push({t:`Überalterte Flotte belastet ${S.name}`,
+    b:`Im Schnitt ${fmt(jung,1)} Jahre auf dem Buckel. Technische Ausfälle und Wartungskosten steigen mit jedem Jahr.`});
+
+  /* --- Markt und Umfeld --- */
+  if(S.fuel>1.25) h.push({t:`Kerosin auf Höchststand`,
+    b:`Bei ${fmt(S.fuel,2)} CHF je Kilogramm geraten Billigflieger zuerst unter Druck. Wer abgesichert hat, gewinnt an Boden.`});
+  else if(S.fuel<0.7) h.push({t:`Billiges Kerosin beflügelt die Branche`,
+    b:`${fmt(S.fuel,2)} CHF je Kilogramm entlasten die Rechnung spürbar. Erfahrungsgemäss folgt darauf ein Ausbau der Kapazitäten.`});
+  if((S.takeovers||[]).length) {
+    const t=S.takeovers[S.takeovers.length-1];
+    const x=rivalById(t.id);
+    if(x) h.push({t:`${x.name} geht in ${S.name} auf`,
+      b:`Die Übernahme ist abgeschlossen. Strecken und Personal werden schrittweise in das bestehende Netz überführt.`});
+  }
+  if(currentSeason()==="sommer") h.push({t:`Sommerflugplan bringt Rekordangebot`,
+    b:`Ferienstrecken werden branchenweit ausgebaut. Wer jetzt Kapazität hat, verdient — wer zu viel hat, fliegt sie leer.`});
+
+  if(!h.length) return;
+  /* Zufällig zwei bis drei auswählen, Wichtiges zuerst */
+  const anzahl=Math.min(h.length, 2+(Math.random()<0.45?1:0));
+  const wahl=h.slice(0,anzahl);
+  S.zeitung=S.zeitung||[];
+  S.zeitung.unshift({t:S.clock, m:S.month, y:S.year, kopf:wahl});
+  if(S.zeitung.length>24) S.zeitung.length=24;
+  mailAdd({kind:"markt", von:"sales", subj:`AeroNews ${MONTHS[S.month]} ${S.year}`,
+    kurz:wahl[0].t, stufe:1,
+    body:`<div class="news">
+      <div class="newskopf">AeroNews</div>
+      <div class="newsdatum">${MONTHS[S.month]} ${S.year} · Fachzeitung für den Luftverkehr</div>
+      ${wahl.map(x=>`<div class="newsart"><h4>${esc(x.t)}</h4><p>${x.b}</p></div>`).join("")}
+    </div>`});
+}
+
+/* ==================================================== Flugplantafel =====
+   Ankunft und Abflug an einer Station, wie sie in der Halle hängt — eigene
+   Flüge und die der Konkurrenz nebeneinander.
+
+   Die eigenen Flüge stehen mit exakten Zeiten im Wochenplan. Von der
+   Konkurrenz kennt das Spiel nur Wochenfrequenzen; ihre Abflugzeiten werden
+   deshalb aus Kürzel, Strecke und Nummer errechnet — immer gleich, nie
+   gewürfelt, damit dieselbe Tafel morgen wieder dasselbe zeigt. */
+function hash01(str){
+  let h=2166136261;
+  for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); }
+  return ((h>>>0)%100000)/100000;
+}
+/** Abflugzeiten häufen sich morgens und am frühen Abend. */
+function tafelZeit(seed){
+  const a=hash01(seed), b=hash01(seed+"x");
+  let t;
+  if(a<0.34)      t = 5.5 + b*3.5;      /* Morgenwelle */
+  else if(a<0.58) t = 9.0 + b*4.5;      /* Mittag */
+  else if(a<0.88) t = 14.5 + b*5.0;     /* Nachmittag und Abendwelle */
+  else            t = 19.5 + b*3.0;     /* später Abend */
+  return Math.round(t*60/5)*5;
+}
+/** Alle Flüge eines Tages an einem Platz, eigene und fremde. */
+function tafelFluege(iata, tag){
+  const A=AP[iata]; if(!A) return [];
+  const out=[];
+  /* --- eigene Flüge --- */
+  S.fleet.filter(a=>a.status==="aktiv").forEach(ac=>{
+    const sch=scheduleOf(ac);
+    (sch.week[tag]||{legs:[]}).legs.forEach(l=>{
+      if(l.from===iata) out.push({t:l.dep%1440, art:"ab", ziel:l.to, no:S.code+" "+l.no,
+        ges:S.name, eigen:true, muster:ACT[ac.type].name, reg:ac.reg, issues:l.issues});
+      if(l.to===iata) out.push({t:l.arr%1440, art:"an", ziel:l.from, no:S.code+" "+l.no,
+        ges:S.name, eigen:true, muster:ACT[ac.type].name, reg:ac.reg, issues:l.issues});
+    });
+  });
+  /* --- fremde Flüge: Ziele nach Marktgrösse, Frequenz aus dem Wettbewerbsmodell --- */
+  const ziele=APL.filter(B=>B.iata!==iata)
+    .map(B=>({B, m:marketDemand(A,B,S.month).daily}))
+    .filter(x=>x.m>18).sort((a,b)=>b.m-a.m).slice(0,55);
+  ziele.forEach(({B})=>{
+    const r={key:routeKey(iata,B.iata), from:iata<B.iata?iata:B.iata, to:iata<B.iata?B.iata:iata};
+    let liste=[];
+    try{ liste=rivalsOn(r)||[]; }catch(e){ liste=[]; }
+    liste.forEach(v=>{
+      const x=rivalById(v.id); if(!x) return;
+      const proTag=v.flights/7;
+      const n=Math.floor(proTag) + (hash01(v.id+r.key+tag) < (proTag%1) ? 1 : 0);
+      for(let i=0;i<Math.min(n,6);i++){
+        const seed=v.id+r.key+i;
+        const ab=tafelZeit(seed);
+        const bm=blockMinutes({speed:x.model==="regional"?720:850}, distKm(A,B));
+        if(inCurfew(A,ab) || inCurfew(B,ab+bm)) continue;
+        const kuerzel=AIRLINE_IATA[x.id]||x.id;
+        const nr=100+Math.floor(hash01(seed+"n")*890);
+        out.push({t:ab, art:"ab", ziel:B.iata, no:kuerzel+" "+nr, ges:x.name, id:x.id,
+          eigen:false, muster:tafelMuster(x, distKm(A,B))});
+        /* Gegenflug: kommt später am Tag zurück */
+        const an=(ab+bm*2+Math.round(hash01(seed+"r")*180)+45)%1440;
+        if(!inCurfew(A,an)) out.push({t:an, art:"an", ziel:B.iata, no:kuerzel+" "+(nr+1),
+          ges:x.name, id:x.id, eigen:false, muster:tafelMuster(x, distKm(A,B))});
+      }
+    });
+  });
+  return out.sort((a,b)=>a.t-b.t);
+}
+function tafelMuster(x, d){
+  if(d>7000) return x.model==="lcc" ? "Boeing 787" : "Airbus A350";
+  if(d>3500) return x.model==="lcc" ? "Boeing 737-8" : "Airbus A330";
+  if(d>1400) return x.model==="lcc" ? "Airbus A320neo" : "Airbus A321neo";
+  return x.model==="regional" ? "Embraer E195" : "Airbus A320";
+}
+/** Zustand eines eigenen Fluges, sofern er heute stattfindet. */
+function tafelStatus(f, heute){
+  if(!f.eigen || !heute) return "";
+  const s=(S.daySched||[]).find(x=>S.code+" "+x.no===f.no
+    && ((f.art==="ab" && x.from===f.heim) || (f.art==="an" && x.to===f.heim)));
+  if(!s) return "";
+  if(s.cancelled) return `<span class="neg">annulliert</span>`;
+  if(s.done) return f.art==="ab" ? `<span class="dim">gestartet</span>` : `<span class="pos">gelandet</span>`;
+  if(s.started) return `<span class="amb">unterwegs</span>`;
+  return `<span class="dim">planmässig</span>`;
+}
+function tafelDialog(iata){
+  S.tafelArt=S.tafelArt||"ab";
+  S.tafelTag=(S.tafelTag==null)?weekdayIdx():S.tafelTag;
+  S.tafelNur=S.tafelNur||"alle";
+  const A=AP[iata];
+  const zeichnen=()=>{
+    const heute=S.tafelTag===weekdayIdx();
+    let liste=tafelFluege(iata, S.tafelTag).filter(f=>f.art===S.tafelArt);
+    if(S.tafelNur==="eigen") liste=liste.filter(f=>f.eigen);
+    const eigene=liste.filter(f=>f.eigen).length;
+    $("#mBody").innerHTML=`
+      <div class="segbar" id="tfa">
+        <button class="${S.tafelArt==="ab"?"on":""}" data-ta="ab">Abflug</button>
+        <button class="${S.tafelArt==="an"?"on":""}" data-ta="an">Ankunft</button></div>
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:7px">
+        <div class="daysel" id="tft">${DAYS.map((d,i)=>
+          `<button class="${S.tafelTag===i?'on':''}" data-tt="${i}">${d}</button>`).join("")}</div>
+        <button class="sm ${S.tafelNur==="eigen"?"primary":""}" id="tfn">${S.tafelNur==="eigen"?"nur eigene":"alle"}</button>
+      </div>
+      <div class="kv"><span>${esc(A.city)} · ${DAYS[S.tafelTag]}${heute?" (heute)":""}</span>
+        <span>${liste.length} Flüge, davon ${eigene} eigene</span></div>
+      ${curfewOf(A)?`<div class="pill warn" style="display:inline-block;margin:5px 0">Nachtflugverbot ${hhmm(curfewOf(A)[0])}–${hhmm(curfewOf(A)[1])}</div>`:""}
+      <div class="tafel">
+        <div class="tzeile tkopf"><span>Zeit</span><span>Flug</span><span>${S.tafelArt==="ab"?"nach":"von"}</span>
+          <span>Gesellschaft</span><span>Muster</span></div>
+        ${liste.length?liste.map(f=>{
+          f.heim=iata;
+          const st=tafelStatus(f, heute);
+          return `<div class="tzeile ${f.eigen?"teigen":""}">
+            <span class="mono">${hhmm(f.t)}</span>
+            <span class="mono">${esc(f.no)}</span>
+            <span class="mono"><b>${f.ziel}</b> <span class="dim">${esc((AP[f.ziel]||{}).city||"")}</span></span>
+            <span>${f.eigen?"":`<span style="display:inline-block;vertical-align:middle;margin-right:4px">${rivalMark({id:f.id},14)}</span>`}${esc(f.ges)}</span>
+            <span class="dim">${esc(f.muster)}${f.eigen?" · "+f.reg:""}${st?" · "+st:""}
+              ${f.issues&&f.issues.length?` <span class="neg">${esc(f.issues[0])}</span>`:""}</span></div>`;}).join("")
+          :`<div class="empty"><b>Keine Flüge</b>An diesem Tag ist hier nichts geplant.</div>`}
+      </div>
+      <p class="dim" style="font-size:10.5px;margin-top:8px">Eigene Flüge sind hervorgehoben und stammen aus Ihrem Wochenplan. Die Flüge der Konkurrenz werden aus deren Wochenfrequenzen abgeleitet — die Zeiten sind plausibel und bleiben gleich, entsprechen aber keinem veröffentlichten Flugplan.</p>`;
+    $("#tfa").querySelectorAll("[data-ta]").forEach(b=>b.onclick=()=>{S.tafelArt=b.dataset.ta; zeichnen();});
+    $("#tft").querySelectorAll("[data-tt]").forEach(b=>b.onclick=()=>{S.tafelTag=+b.dataset.tt; zeichnen();});
+    $("#tfn").onclick=()=>{S.tafelNur=S.tafelNur==="eigen"?"alle":"eigen"; zeichnen();};
+  };
+  modal(`Flugplantafel ${iata}`, `<div></div>`,
+    [{t:"Schliessen",p:true,f:()=>$("#veil").classList.remove("on")}]);
+  zeichnen();
 }
 
 /* ==================================================== Beziehungswerte ====
@@ -8884,6 +10246,7 @@ function paxWord(n){ return fmt(Math.round(n))+" Reisende"; }
 function rollDisruptions(){
   if(!S || !S.fleet.length) return;
   pruneBlocks();
+  if(S.eventsOn===false) return;      /* vom Spieler abgeschaltet */
   const aktiv=S.fleet.filter(a=>a.status==="aktiv");
   if(!aktiv.length) return;
   const wochentag=weekdayIdx();
@@ -9060,6 +10423,120 @@ function rollDisruptions(){
     }
   }
 }
+
+/* ------------------------------------------------ weitere Ereignisse ---- */
+function rollDisruptionsExtra(){
+  if(!S || S.eventsOn===false) return;
+  const aktiv=S.fleet.filter(a=>a.status==="aktiv");
+  if(!aktiv.length) return;
+  const seit = k => (S.clock-((S.evtLast||{})[k]||0))/DAYMS;
+  const merken = k => { S.evtLast=S.evtLast||{}; S.evtLast[k]=S.clock; };
+
+  /* 1 — Ein Reisebüro will ein festes Kontingent */
+  if(seit("kontingent")>150 && Math.random()<0.004 && S.routes.length>2){
+    const r=pick(S.routes.filter(x=>x.last&&x.last.ok)||S.routes);
+    if(r){
+      merken("kontingent");
+      const plaetze=Math.round(rnd(15,40));
+      const preis=Math.round(rnd(0.55,0.75)*100);
+      mailAdd({kind:"chance", von:"sales", subj:`Reiseveranstalter will Kontingent auf ${r.from}–${r.to}`,
+        kurz:`${plaetze} Sitze je Flug zu ${preis}% des Tarifs`, stufe:3,
+        body:`<p>Ein Veranstalter bietet an, dauerhaft <b>${plaetze} Sitze je Flug</b> auf ${r.from}–${r.to} abzunehmen — zu ${preis}% des heutigen Tarifs, dafür garantiert und unabhängig von der Saison.</p>
+          <p class="dim">Sichere Auslastung gegen geringeren Ertrag je Sitz. Auf einer schwach gefüllten Strecke ein gutes Geschäft, auf einer vollen ein schlechtes.</p>`,
+        optionen:[
+          {l:"Kontingent annehmen", d:"Feste Grundlast, dafür weniger Ertrag je Sitz.",
+           f:()=>{ r.kontingent={plaetze, preis:preis/100}; r.keep=true;
+             logg(`Kontingent auf ${r.key} vereinbart.`,"good"); }},
+          {l:"Nur für die Nebensaison", d:"Halbe Wirkung, halbes Zugeständnis.",
+           f:()=>{ r.kontingent={plaetze:Math.round(plaetze/2), preis:preis/100};
+             logg(`Kontingent auf ${r.key} für die Nebensaison.`,""); }},
+          {l:"Ablehnen", d:"Die Sitze lieber selbst verkaufen.",
+           f:()=>logg("Kontingentangebot abgelehnt.","")}
+        ]});
+      stopForEvent(3);
+    }
+  }
+
+  /* 2 — Flughafen bietet Anschubhilfe für eine neue Strecke */
+  if(seit("anschub")>120 && Math.random()<0.005){
+    const kand=APL.filter(a=>!S.bases.includes(a.iata) && a.pax<12 && a.pax>0.6
+      && S.fleet.some(ac=>!acCanFly(ac, AP[S.bases[0]], a)));
+    if(kand.length){
+      merken("anschub");
+      const z=pick(kand), betrag=Math.round(rnd(0.6,2.4)*1e6);
+      mailAdd({kind:"chance", von:"sales", subj:`${z.iata} lockt mit Anschubhilfe`,
+        kurz:`${chf(betrag)} für eine neue Verbindung`, stufe:3,
+        body:`<p>Der Flughafen <b>${esc(z.city)}</b> will neue Verbindungen und bietet <b>${chf(betrag)} CHF</b> sowie zwei Jahre reduzierte Gebühren, wenn Sie ${S.bases[0]}–${z.iata} aufnehmen.</p>
+          <p class="dim">Markt: rund ${fmt(marketDemand(AP[S.bases[0]],z,S.month).daily,0)} Reisende am Tag in beide Richtungen.</p>`,
+        optionen:[
+          {l:"Annehmen und Strecke aufnehmen", d:"Geld sofort, Gebühren zwei Jahre günstiger.",
+           f:()=>{ S.cash+=betrag; S.feeCut=S.feeCut||{}; S.feeCut[z.iata]=S.clock+730*DAYMS;
+             ensureRoute(S.bases[0], z.iata).keep=true;
+             logg(`Anschubhilfe von ${z.iata} angenommen — Strecke angelegt, Flüge noch einzuplanen.`,"good"); }},
+          {l:"Dankend ablehnen", d:"Kein Interesse an diesem Markt.", f:()=>{}}
+        ]});
+      stopForEvent(3);
+    }
+  }
+
+  /* 3 — Triebwerkstausch steht an */
+  if(seit("triebwerk")>90 && Math.random()<0.006){
+    const alt=aktiv.filter(a=>a.age>150).sort((a,b)=>b.age-a.age)[0];
+    if(alt){
+      merken("triebwerk");
+      const kosten=Math.round(ACT[alt.type].price*1e6*0.035);
+      mailAdd({kind:"stoerung", von:"tech", subj:`Triebwerksbefund an ${alt.reg}`,
+        kurz:`${chf(kosten)} für die Überholung`, stufe:3,
+        body:`<p>Die Borddaten von <b>${alt.reg}</b> zeigen steigende Abgastemperaturen. Eine Überholung kostet <b>${chf(kosten)} CHF</b> und legt die Maschine fünf Tage still.</p>
+          <p class="dim">Aufschieben spart heute Geld und erhöht das Risiko eines Ausfalls unterwegs — dort kostet dasselbe Problem ein Vielfaches.</p>`,
+        optionen:[
+          {l:"Jetzt überholen", d:"Fünf Tage am Boden, danach wieder wie neu.", kosten,
+           f:()=>{ addBlock({art:"ac", wert:alt.id, bis:S.clock+5*DAYMS, grund:"Triebwerksüberholung"});
+             alt.hours=Math.max(0,(alt.hours||0)-BAL.heavyCheckHrs*0.3); }},
+          {l:"Bis zum nächsten Grosscheck warten", d:"Kostet nichts, bis etwas passiert.",
+           f:()=>{ alt.triebwerkRisiko=true; logg(`${alt.reg}: Überholung aufgeschoben.`,"warn"); }}
+        ]});
+      stopForEvent(3);
+    }
+  }
+
+  /* 4 — Kerosinpreis springt */
+  if(seit("kerosin")>75 && Math.random()<0.008){
+    merken("kerosin");
+    const hoch=Math.random()<0.6;
+    const faktor=hoch?rnd(1.12,1.35):rnd(0.72,0.9);
+    const alt=S.fuel;
+    S.fuel=+(S.fuel*faktor).toFixed(3);
+    mailAdd({kind:"markt", von:"fin", subj:hoch?"Kerosinpreis zieht kräftig an":"Kerosinpreis bricht ein",
+      kurz:`${fmt(alt,2)} → ${fmt(S.fuel,2)} CHF je Kilogramm`, stufe:2,
+      body:`<p>Der Kerosinpreis ${hoch?"steigt":"fällt"} von ${fmt(alt,2)} auf <b>${fmt(S.fuel,2)} CHF je Kilogramm</b>.</p>
+        <p class="dim">${hoch
+          ? "Bei unserem Verbrauch macht das rund "+chf(S.fleet.reduce((x,a)=>x+ACT[a.type].burn*acWeeklyBlock(a)*4.345,0)*(S.fuel-alt))+" im Monat aus. Absicherungsgeschäfte unter «Finanzen» dämpfen solche Sprünge."
+          : "Das entlastet die Rechnung — ein guter Moment, um Absicherungen für später abzuschliessen."}</p>`});
+    stopForEvent(2);
+  }
+
+  /* 5 — Auszeichnung oder Abmahnung durch einen Bewertungsdienst */
+  if(seit("bewertung")>180 && Math.random()<0.005 && S.history.length>2){
+    merken("bewertung");
+    const gut=S.rep>68 && (S.punctuality||0.85)>0.86;
+    if(gut){
+      S.rep=clamp(S.rep+2.5,5,99);
+      mailAdd({kind:"chance", von:"sales", subj:"Auszeichnung für Pünktlichkeit",
+        kurz:"+2.5 Ruf", stufe:2,
+        body:`<p>Ein Branchendienst führt uns in der Jahreswertung unter den pünktlichsten Gesellschaften Europas. Die Fachpresse greift es auf.</p>
+          <p class="dim">Der Ruf steigt um 2.5 Punkte. Solche Wertungen wirken vor allem bei Geschäftsreisenden.</p>`});
+    } else {
+      S.rep=clamp(S.rep-2,5,99);
+      mailAdd({kind:"stoerung", von:"sales", subj:"Schlechte Note im Branchenvergleich",
+        kurz:"−2 Ruf", stufe:2,
+        body:`<p>Ein Branchendienst führt uns im hinteren Drittel: Verspätungen, Umbuchungen, Erreichbarkeit. Die Wertung wird breit zitiert.</p>
+          <p class="dim">Der Ruf sinkt um 2 Punkte. Pünktlichkeit und Bordservice sind die Hebel dagegen.</p>`});
+    }
+    stopForEvent(2);
+  }
+}
+
 const REGION_NAME={EU:"Europa", NA:"Nordamerika", SA:"Südamerika", AF:"Afrika",
   ME:"dem Nahen Osten", AS:"Asien", OC:"Ozeanien"};
 
@@ -9350,7 +10827,9 @@ function legacyDialog(){
         <div style="flex:1"><div class="t">${esc(A.name)}
           <span class="dim">${A.code}${A.icao?" · "+A.icao:""}</span></div>
           <div class="d">${esc(A.txt)}</div>
-          <div class="d" style="margin-top:3px">${A.bases.join(" · ")} · ${cnt} Flugzeuge · ${A.fleet.map(([t,n])=>n+"× "+esc(ACT[t].name.split(" (")[0])).join(", ")}</div></div>
+          <div class="d" style="margin-top:3px">${A.bases.join(" · ")} · ${cnt} Flugzeuge · ${A.fleet.map(([t,n])=>n+"× "+esc(ACT[t].name.split(" (")[0])).join(", ")}</div>
+          ${A.lage?`<div style="margin-top:4px"><span class="pill" style="border-color:${LAGE[A.lage].col};color:${LAGE[A.lage].col}">${LAGE[A.lage].t}</span>
+            <span class="dim" style="font-size:10px"> ${esc(LAGE[A.lage].d)}</span></div>`:""}</div>
         <div class="mono" style="text-align:right">${A.cash} Mio<br><span class="dim">Ruf ${A.rep}</span></div></div>`;}).join("")}</div>`,
     [{t:"Zurück",f:mainMenu}], true);
   $("#lgl").onclick=e=>{
@@ -9361,10 +10840,13 @@ function legacyDialog(){
         ? `<div style="padding:10px 0 12px"><img src="${esc(artFor(A.icao,"long"))}" alt=""
              style="height:34px;max-width:100%;object-fit:contain;display:block"></div>`:""}
        <p>${esc(A.txt)}</p>
+       ${A.hinweis?`<p class="dim">${esc(A.hinweis)}</p>`:""}
        <div class="card">
          <div class="kv"><span>Basen</span><span>${A.bases.map(b=>b+" — "+esc(AP[b].city)).join("<br>")}</span></div>
          <div class="kv"><span>Flotte</span><span>${A.fleet.map(([t,n])=>n+"× "+esc(ACT[t].name)).join("<br>")}</span></div>
          <div class="kv"><span>Startkapital · Ruf</span><span>${A.cash} Mio CHF · ${A.rep}</span></div>
+         ${A.lage?`<div class="kv"><span>Ausgangslage</span>
+           <span style="color:${LAGE[A.lage].col}">${LAGE[A.lage].t} — ${esc(LAGE[A.lage].d)}</span></div>`:""}
          <div class="kv"><span>Netz</span><span>${A.dests.slice(0,10).join(" ")}${A.dests.length>10?" …":""}</span></div>
        </div>
        <p class="dim">Name, Bemalung und Flugpläne lassen sich danach frei ändern. Die Gesellschaft verschwindet aus dem Wettbewerb.</p>`,
@@ -9386,6 +10868,72 @@ function legacyDialog(){
 }
 
 /* ========================================================== Startdialog */
+
+/* ========================================================= Startpaket ====
+   Ohne Flugzeug wartet man Monate auf die erste Auslieferung — für den
+   Einstieg der sicherste Weg, das Spiel wegzulegen. Deshalb steht bei der
+   Gründung eine gebrauchte Maschine bereit, sofort verfügbar, mit einer
+   ersten Strecke im Plan. Wer lieber selbst aufbaut, wählt das reine Kapital. */
+const PAKETE = {
+  regional:{n:"Zwei gebrauchte Regionalflugzeuge",
+    d:"Sofort verfügbar. Kleine Kabine, dafür füllen sich auch dünne Strecken. Zwei Ziele sind eingeplant.",
+    anzahl:2, cat:"Regional"},
+  schmal:{n:"Ein gebrauchter Schmalrumpf",
+    d:"Sofort verfügbar. Mehr Sitze je Flug, braucht aber einen Markt, der sie füllt. Ein Ziel ist eingeplant.",
+    anzahl:1, cat:"Schmalrumpf"},
+  kapital:{n:"Kein Flugzeug, dafür mehr Kapital",
+    d:"25% mehr Startkapital. Sie kaufen selbst — im Gebrauchtmarkt sofort, als Neubestellung mit Lieferzeit.",
+    anzahl:0}
+};
+/** Passendes Gebrauchtmuster für den gewählten Standort. */
+function paketMuster(home, cat){
+  const A=AP[home]; if(!A) return null;
+  const kand=ACTL.filter(t=>t.cat===cat && t.runway<=A.runway && t.price<160 && musterFrei(t.id))
+    .sort((a,b)=>b.maxSeats-a.maxSeats);
+  if(!kand.length) return null;
+  /* Nicht das grösste nehmen, sondern eines, das der Markt auch füllt */
+  const markt=APL.filter(B=>B.iata!==home).map(B=>marketDemand(A,B,S?S.month:6).daily)
+    .sort((a,b)=>b-a);
+  const gross=markt.length?markt[0]:200;
+  return kand.find(t=>t.maxSeats<=gross*0.55) || kand[kand.length-1];
+}
+function paketVerfuegbar(home, key){
+  if(key==="kapital") return true;
+  return !!paketMuster(home, PAKETE[key].cat);
+}
+/** Baut das gewählte Paket auf: Maschinen, erste Strecken, Personal. */
+function paketAufbauen(key){
+  const P=PAKETE[key]; if(!P) return;
+  if(key==="kapital"){ S.cash=Math.round(S.cash*1.25); return; }
+  const t=paketMuster(S.bases[0], P.cat);
+  if(!t){ S.cash=Math.round(S.cash*1.25); return; }
+  const A=AP[S.bases[0]];
+  let ausgabe=0;
+  for(let i=0;i<P.anzahl;i++){
+    const alter=Math.round(rnd(96,168));
+    const ac=addAircraft(t.id,false,S.bases[0],alter);
+    ac.hours=Math.round(rnd(0.2,0.5)*BAL.heavyCheckHrs);
+    ausgabe += t.price*1e6*gebrauchtWert(alter);
+  }
+  S.cash-=Math.round(ausgabe);
+  /* Erste Ziele: die tragfähigsten, die dieses Muster erreicht */
+  const ziele=APL.filter(B=>B.iata!==A.iata && B.runway>=t.runway && distKm(A,B)<t.range*0.9)
+    .map(B=>({c:B.iata, m:marketDemand(A,B,S.month).daily}))
+    .filter(x=>x.m>40).sort((a,b)=>b.m-a.m).slice(0,6).map(x=>x.c);
+  const need=pilotNeed(); S.pilots={};
+  for(const k in need) S.pilots[k]=Math.max(2,need[k]);
+  S.cabin=Math.max(4,cabinNeed());
+  seedNetwork(ziele);
+  const n2=pilotNeed(); S.pilots={};
+  for(const k in n2) S.pilots[k]=Math.ceil(n2[k]*1.1);
+  S.cabin=Math.ceil(cabinNeed()*1.1);
+  recomputeWeek(); buildDaySchedule();
+}
+/** Restwert einer gebrauchten Maschine nach Alter in Monaten. */
+function gebrauchtWert(alterM){
+  return clamp(Math.pow(0.92, alterM/12), 0.18, 1);
+}
+
 function startDialog(){
   const suggest=["BSL","ZRH","GVA","VIE","CPH","DUB","LIS","BER","MAN","OSL","HEL","PRG","BUD",
                  "EDI","KEF","TLV","AKL","YVR","MDE","CMN","BLR","BRN","LUG"];
@@ -9405,6 +10953,9 @@ function startDialog(){
      <select id="gl">${Object.entries(DIFFICULTY).map(([k,v])=>
        `<option value="${k}" ${k==="normal"?"selected":""}>${v.n} — ${v.cash} Mio Startkapital, Elastizität ${v.elasticity}</option>`).join("")}</select>
      <p class="dim" id="gld" style="font-size:11px;margin-top:4px"></p>
+     <h3 class="sub">Startpaket</h3>
+     <p class="dim" style="font-size:11px;margin-top:0">Eine Neubestellung braucht Monate. Damit Sie nicht warten müssen, steht eine gebrauchte Maschine bereit — bezahlt aus dem Startkapital.</p>
+     <div id="gpk"></div>
      <h3 class="sub">Gestaltung</h3><div id="lvEd0"></div>`,
     [{t:"Zurück",f:mainMenu},
      {t:"Betrieb aufnehmen",p:true,f:()=>{
@@ -9413,6 +10964,7 @@ function startDialog(){
       L.code=code;
       const fs0=clamp(+$("#gf").value||100,10,8000);
       newGame({name,code,home:$("#gh").value,level:$("#gl").value,livery:L,flightStart:fs0});
+      paketAufbauen(paket);
       $("#veil").classList.remove("on"); $("#veil").dataset.fest="0"; $("#mX").style.display="";
       focusAirport(S.bases[0]);
       recomputeWeek(); buildDaySchedule(); render(); setSpeed(0);
@@ -9424,13 +10976,31 @@ function startDialog(){
           <li>Unter <b>Netz → Marktanalyse</b> sehen Sie, wie viele Passagiere pro Tag ein Städtepaar überhaupt hergibt.</li>
           <li>Oben rechts läuft die Uhr. Mit <b>❚❚</b> anhalten, mit <b>1×</b>, <b>5×</b> und <b>20×</b> beschleunigen — oder die Leertaste drücken.</li>
         </ol>
+        ${S.fleet.length?`<p class="pos">${S.fleet.length} Maschine${S.fleet.length>1?"n":""} steht bereit, ${S.routes.length} Strecke${S.routes.length>1?"n":""} ist eingeplant. Sie können sofort starten.</p>`:""}
         <p class="dim">Im Lagebild stehen die ersten vier Handgriffe. Die Simulation hält bei wichtigen Ereignissen von selbst an — und mit ▶▶ springen Sie gleich dorthin.</p>`,
         [{t:"Angehalten lassen",f:()=>$("#veil").classList.remove("on")},
          {t:"Uhr starten",p:true,f:()=>{$("#veil").classList.remove("on"); setSpeed(1);}}]),380);
     }}]);
   $("#veil").dataset.fest="1";
   $("#mX").style.display="none";
-  const upd=()=>{ const v=DIFFICULTY[$("#gl").value]; $("#gld").textContent=v?v.d:""; };
+  let paket="regional";
+  const updPaket=()=>{
+    const home=$("#gh").value;
+    $("#gpk").innerHTML=Object.entries(PAKETE).map(([k,P])=>{
+      const t=k==="kapital"?null:paketMuster(home,P.cat);
+      const geht=k==="kapital"||!!t;
+      if(!geht) return "";
+      const kosten=t?Math.round(t.price*1e6*gebrauchtWert(132))*P.anzahl:0;
+      return `<div class="choice ${paket===k?'on':''}" data-pk="${k}">
+        <div><div class="t">${P.n}</div><div class="d">${P.d}</div>
+          ${t?`<div class="d" style="margin-top:3px">${P.anzahl}× ${esc(t.name.split(" (")[0])} ·
+            ${t.maxSeats} Sitze · rund ${chf(kosten)}</div>`:""}</div>
+        <div class="mono amb">${paket===k?"✓":""}</div></div>`;}).join("");
+    $("#gpk").querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{ paket=b.dataset.pk; updPaket(); });
+    if(!paketVerfuegbar(home,paket)) { paket="kapital"; updPaket(); }
+  };
+  $("#gh").addEventListener("change", updPaket);
+  const upd=()=>{ const v=DIFFICULTY[$("#gl").value]; $("#gld").textContent=v?v.d:""; updPaket(); };
   $("#gl").onchange=upd; upd();
   liveryEditor($("#lvEd0"), L, ()=>{}, ()=>($("#gc").value||"XX").toUpperCase().slice(0,3));
 }
@@ -9456,6 +11026,8 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
   }).catch(()=>{});
 }
 buildTabs();
+initGriff();
+initBlattWisch();
 applyBrand();
 renderMap();
 mainMenu();
