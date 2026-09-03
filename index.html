@@ -88,6 +88,30 @@ input[type=color]{width:100%;height:32px;padding:2px;background:#0a1322;border:1
 #ticker .tk.arr{border-left:2px solid var(--green);padding-left:5px}
 .night{pointer-events:none}
 
+
+/* Schieber zwischen Karte und Bedienfeld — dauerhaft sichtbar, mit Rillen als
+   Anfasser und Doppelpfeil als Zeiger. Ziehen nach links macht das Menü
+   breiter und die Karte schmaler, nach rechts umgekehrt. */
+#breitgriff{position:absolute;top:0;bottom:0;width:18px;z-index:8;cursor:ew-resize;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(11,18,32,.5) 42%,rgba(11,18,32,.5) 58%,rgba(0,0,0,0) 100%)}
+#breitgriff::after{content:"";position:absolute;top:0;bottom:0;left:50%;width:1px;
+  background:rgba(120,150,190,.24);transform:translateX(-50%)}
+#breitgriff.zieht::after{background:var(--amber);width:2px}
+#breitgriff .rillen{position:relative;z-index:1;display:flex;flex-direction:column;gap:3px;
+  padding:10px 4px;border-radius:5px;background:rgba(20,32,52,.95);
+  border:1px solid rgba(120,150,190,.32);box-shadow:0 3px 10px rgba(0,0,0,.5);
+  transition:background .15s,border-color .15s}
+#breitgriff .rillen i{display:block;width:3px;height:3px;border-radius:50%;background:var(--dim)}
+#breitgriff:hover .rillen,#breitgriff.zieht .rillen{background:var(--amber);border-color:var(--amber)}
+#breitgriff:hover .rillen i,#breitgriff.zieht .rillen i{background:#0d1119}
+#breitmass{position:absolute;top:50%;left:50%;z-index:2;
+  transform:translate(-50%,-50%) translateY(-42px);
+  background:var(--amber);color:#0d1119;border-radius:4px;padding:3px 8px;
+  font-family:var(--mono);font-size:10.5px;font-weight:600;white-space:nowrap;
+  opacity:0;pointer-events:none;transition:opacity .15s}
+#breitgriff.zieht #breitmass{opacity:1}
+@media(max-width:880px){ #breitgriff{display:none} }
 #app{display:flex;height:calc(100% - 54px)}
 #stage{flex:1;position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 0%,#122140 0%,#080e1a 62%)}
 #side{width:460px;flex:0 0 460px;border-left:1px solid var(--line2);background:var(--panel);display:flex;flex-direction:column}
@@ -97,11 +121,26 @@ input[type=color]{width:100%;height:32px;padding:2px;background:#0a1322;border:1
      Griff oder einer Wischgeste über den ganzen Bildschirm ziehen — sonst
      bleiben nach Kopfzeile und Navigation kaum fünf Zeilen Inhalt. */
   #stage{position:absolute;inset:0;height:auto;min-height:140px}
-  #side{position:absolute;left:0;right:0;bottom:0;top:auto;height:var(--sideh,56%);width:auto;
-    border-radius:14px 14px 0 0;padding-bottom:0;
-    transition:height .26s cubic-bezier(.32,.72,0,1)}
+  /* Voreinstellung umgekehrt: Das Bedienfeld füllt den Bildschirm, die Karte
+     wird geholt, wenn man sie sehen will — nicht umgekehrt. Sie trägt in den
+     allermeisten Spielminuten nichts bei und behinderte bisher die Bedienung. */
+  #side{position:absolute;left:0;right:0;bottom:0;top:auto;height:var(--sideh,calc(100% - 6px));
+    width:auto;border-radius:14px 14px 0 0;padding-bottom:0;
+    transition:height .26s cubic-bezier(.32,.72,0,1),transform .26s cubic-bezier(.32,.72,0,1)}
   #side.voll{height:calc(100% - 6px);border-radius:14px 14px 0 0}
-  #side.klein{height:26%}
+  #side.klein{height:34%}
+  #side.weg{transform:translateY(101%)}
+  /* Streifen mit dem Weltbild über dem Inhalt: genug, um zu spüren, dass
+     etwas läuft, ohne Platz zu fressen. Antippen macht ihn gross. */
+  #streifen{display:block;flex:0 0 auto;height:58px;position:relative;overflow:hidden;
+    border-bottom:1px solid var(--line);cursor:pointer;background:#0a1120}
+  #streifen canvas,#streifen svg{position:absolute;inset:0;width:100%;height:100%}
+  #streifen .stlabel{position:absolute;right:8px;bottom:4px;z-index:3;
+    font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--dim2);
+    background:rgba(11,18,32,.72);border-radius:3px;padding:1px 5px}
+  body.kartevoll 
+  body.kartevoll #tabs{position:fixed;left:0;right:0;bottom:0;z-index:9;
+    background:rgba(9,15,26,.96);border-top:1px solid var(--line2)}
   #griff{display:flex;align-items:center;justify-content:center;gap:9px;
     padding:7px 0 5px;cursor:grab;touch-action:none;flex:0 0 auto;
     border-bottom:1px solid var(--line)}
@@ -122,7 +161,8 @@ input[type=color]{width:100%;height:32px;padding:2px;background:#0a1322;border:1
   #tabs button.on .ic{transform:translateY(-1px)}
   #side{display:flex;flex-direction:column}
   #griff{order:0}
-  #pane{order:1;flex:1}
+  #streifen{order:1}
+  #pane{order:2;flex:1}
   .fleetgrid{grid-template-columns:1fr}
   #brand h1{font-size:14px}
   #brand small{display:none}
@@ -450,7 +490,9 @@ table.tbl th.r,table.tbl td.r{text-align:right}
     <div id="ticker"><h5>Flugbetrieb</h5><div id="tkl"></div></div>
     <div id="mapsize"><button id="btnMapSize">Karte grösser</button></div>
     <button id="sideToggle" title="Bedienfeld ein- und ausblenden">⤢</button>
-    <div id="breitgriff" title="Ziehen: Bedienfeld breiter oder schmaler"></div>
+    <div id="breitgriff" title="Ziehen: Bedienfeld breiter oder schmaler · Doppelklick setzt zurück">
+      <span class="rillen"><i></i><i></i><i></i><i></i><i></i></span>
+      <span id="breitmass"></span></div>
     <button id="sideWide" title="Bedienfeld verbreitern">▭</button>
     <div id="legend">
       <div><i style="background:var(--green)"></i>Strecke rentabel</div>
@@ -462,6 +504,8 @@ table.tbl th.r,table.tbl td.r{text-align:right}
   </div>
   <div id="side">
     <div id="griff"><span id="griffbalken"></span><span class="gt"></span></div>
+    <div id="streifen" title="Antippen für die ganze Karte">
+      <span class="stlabel" id="stlabel"></span></div>
     <div id="tabs">
       <button data-t="ops" class="on">Lage</button><button data-t="net">Netz</button>
       <button data-t="fleet">Flotte</button><button data-t="market">Markt</button>
@@ -5395,6 +5439,7 @@ function renderMap(){
   svg.setAttribute("viewBox",`0 0 ${MAPW} ${MAPH}`);
   svg.innerHTML=`<g id="cam" transform="translate(${view.x},${view.y}) scale(${view.k})">${parts.join("")}</g>`;
   bindMapHover();
+  renderStreifen();
   const ph=document.getElementById("planhint");
   if(ph){
     ph.classList.toggle("on", !!PLAN_FROM);
@@ -5608,6 +5653,7 @@ function renderHeader(){
   if(ne) ne.textContent = nx ? `Nächstes: ${nx.txt} in ${nx.tage} Tag${nx.tage===1?"":"en"}` : "";
   const jm=$("#jumpMode"); if(jm && S.jumpMode) jm.value=S.jumpMode;
   updateBadges();
+  if(istMobil() && !KARTE_VOLL) renderStreifen();
   const acc=S.acc||{};
   if(acc.pax||S.lastMonth) animateNum($("#hPax"), acc.pax||S.lastMonth.pax, v=>fmt(Math.round(v)));
   else $("#hPax").textContent="–";
@@ -9396,18 +9442,22 @@ function animateNum(el, to, fmtFn){
 
 /* Am Telefon wandert die Navigation nach unten: vier feste Reiter mit Zeichen
    und ein Sammelknopf für alles Übrige — mit dem Daumen erreichbar. */
-const TAB_ICON = {ops:"◉", net:"⇄", fleet:"✈", inbox:"✉", fin:"💰", mkt:"📣", market:"🛒",
-  staff:"👥", charter:"📋", ach:"🏆", data:"⚙", guest:"★", brand:"🎨"};
+const TAB_ICON = {karte:"🌍", ops:"◉", net:"⇄", fleet:"✈", inbox:"✉", fin:"💰", mkt:"📣",
+  market:"🛒", staff:"👥", charter:"📋", ach:"🏆", data:"⚙", guest:"★", brand:"🎨"};
 /* Fünf Bereiche tragen eine normale Partie. Alles Übrige sind Nebenschauplätze
    und stehen unter «Mehr» — auch am Rechner, sonst sind zwölf Reiter zwölf
    Möglichkeiten, nichts zu tun. */
 /* Zwölf Bereiche in zwei Reihen statt fünf plus Sammelknopf — sichtbar ist
    besser als versteckt, solange die Zeilen kurz bleiben. */
 const TAB_MAIN = ["ops","net","fleet","fin","inbox","mkt"];
+/* Am Telefon kommt die Karte als eigener Eintrag dazu: sie ist dort nicht
+   Hintergrund, sondern eine Ansicht, die man holt. */
+const TAB_MOBIL = ["karte","ops","net","fleet","inbox","mkt"];
+const TAB_MOBIL2 = ["fin","market","staff","charter","ach","data"];
 const TAB_ZWEI = ["market","staff","charter","ach","data"];
-const TAB_NAME = {ops:"Lage", net:"Netz", fleet:"Flotte", fin:"Finanzen", inbox:"Postfach",
-  mkt:"Marketing", market:"Markt", staff:"Personal", charter:"Charter", ach:"Erfolge",
-  data:"Einstell.", guest:"Gäste", brand:"Marke"};
+const TAB_NAME = {karte:"Karte", ops:"Lage", net:"Netz", fleet:"Flotte", fin:"Finanzen",
+  inbox:"Postfach", mkt:"Marketing", market:"Markt", staff:"Personal", charter:"Charter",
+  ach:"Erfolge", data:"Einstell.", guest:"Gäste", brand:"Marke"};
 /* Kurzbeschreibung für das Mehr-Blatt */
 const TAB_HINT = {
   market:"Flugzeuge kaufen, leasen oder gebraucht übernehmen",
@@ -9439,11 +9489,13 @@ function buildTabs(force){
   if(!force && narrow===mobileNav && wrap.dataset.built) return;
   mobileNav=narrow; wrap.dataset.built="1";
   const bdg=k=>k==="inbox"&&S&&mailUnread()?`<span class="badge">${mailUnread()}</span>`:"";
-  const knopf=k=>`<button data-t="${k}" class="${tab===k?'on':''}">`
+  const knopf=k=>`<button data-t="${k}" class="${(k==="karte"?KARTE_VOLL:tab===k&&!KARTE_VOLL)?'on':''}">`
     + (narrow?`<span class="ic">${TAB_ICON[k]}${bdg(k)}</span>`:"")
     + TAB_NAME[k] + (narrow?"":bdg(k)) + `</button>`;
-  wrap.innerHTML=`<div class="tabreihe">${TAB_MAIN.map(knopf).join("")}</div>`
-    + `<div class="tabreihe zwei">${TAB_ZWEI.map(knopf).join("")}</div>`;
+  const r1 = narrow ? TAB_MOBIL  : TAB_MAIN;
+  const r2 = narrow ? TAB_MOBIL2 : TAB_ZWEI;
+  wrap.innerHTML=`<div class="tabreihe">${r1.map(knopf).join("")}</div>`
+    + `<div class="tabreihe zwei">${r2.map(knopf).join("")}</div>`;
   wrap.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>setTab(b.dataset.t));
 }
 function moreSheetUnbenutzt(){
@@ -9460,15 +9512,20 @@ function moreSheetUnbenutzt(){
   };
 }
 function setTab(t){
+  if(t==="karte"){
+    karteVollbild(!KARTE_VOLL);
+    return;
+  }
+  if(KARTE_VOLL) karteVollbild(false);
   tab=t;
-  if(typeof panelGross==="function" && t!=="ops") panelGross();
+  if(typeof panelGross==="function") panelGross();
   buildTabs(true);
   renderPane();
 }
 
 /* Fassungskennung — steht im Hauptmenü und unter Daten. So lässt sich auf
    einen Blick prüfen, welcher Stand tatsächlich auf dem Server liegt. */
-const APP_VERSION = "2026-09-03b · Marketing & Breite";
+const APP_VERSION = "2026-09-04 · Karte auf Abruf";
 
 
 
@@ -9629,11 +9686,13 @@ function initBlattWisch(){
 function initBreitgriff(){
   const g=document.getElementById("breitgriff"), sd=document.getElementById("side");
   if(!g||!sd) return;
+  const mass=document.getElementById("breitmass");
   const setzen=(px)=>{
-    const min=320, max=Math.min(window.innerWidth-260, 1100);
-    const b=clamp(px, min, max);
+    const min=300, max=Math.min(window.innerWidth-240, 1400);
+    const b=Math.round(clamp(px, min, max));
     document.documentElement.style.setProperty("--sidew", b+"px");
     g.style.right=(b+12)+"px";
+    if(mass) mass.textContent=`Menü ${b} px · Karte ${Math.round((window.innerWidth-b-24)/window.innerWidth*100)}%`;
     if(S) S.sidePx=b;
     return b;
   };
@@ -9662,7 +9721,81 @@ function initBreitgriff(){
   window.addEventListener("resize",()=>{ if(!istMobil()) setzen(jetzt()); });
 }
 
+
+
+/* Der Weltstreifen: eine flache Miniaturkarte mit Tag-Nacht-Grenze und den
+   eigenen Maschinen als Punkte. Kein Ersatz für die Karte, nur ein Lebenszeichen. */
+function renderStreifen(){
+  const el=document.getElementById("streifen");
+  if(!el || !istMobil() || KARTE_VOLL || !S) return;
+  const W=el.clientWidth||360, H=58;
+  const x=(lon)=>((lon+180)/360)*W;
+  const y=(lat)=>(0.5-lat/180)*H*1.9+H*0.06;
+  const d=clockDate();
+  const std=d.getUTCHours()+d.getUTCMinutes()/60;
+  const sonne=((12-std)/24)*360;           /* Längengrad des Sonnenhöchststands */
+  const nachtA=x(((sonne+180+540)%360)-180);
+  let punkte="";
+  (S.daySched||[]).filter(f=>f.started&&!f.done).slice(0,26).forEach(f=>{
+    const A=AP[f.from], B=AP[f.to];
+    if(!A||!B) return;
+    const k=clamp((S.minute-f.dep)/Math.max(f.arr-f.dep,1),0,1);
+    const la=A.lat+(B.lat-A.lat)*k, lo=A.lon+(B.lon-A.lon)*k;
+    punkte+=`<circle cx="${x(lo).toFixed(1)}" cy="${y(la).toFixed(1)}" r="1.9" fill="#f2a93b"/>`;
+  });
+  let basen="";
+  S.bases.forEach(b=>{ const a=AP[b]; if(!a) return;
+    basen+=`<circle cx="${x(a.lon).toFixed(1)}" cy="${y(a.lat).toFixed(1)}" r="2.6"
+      fill="none" stroke="#4aa8e0" stroke-width="1"/>`;});
+  const alt=el.querySelector("svg"); if(alt) alt.remove();
+  el.insertAdjacentHTML("afterbegin",
+    `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <rect width="${W}" height="${H}" fill="#0e1a2e"/>
+      <rect x="${Math.min(nachtA, W/2).toFixed(0)}" y="0" width="${(W/2).toFixed(0)}" height="${H}"
+        fill="#060b16" opacity=".72"/>
+      <g opacity=".5">${WORLD_MINI.map(pfad=>`<path d="${pfad}" fill="#1d3350"/>`).join("")}</g>
+      ${basen}${punkte}
+    </svg>`);
+  const lab=document.getElementById("stlabel");
+  if(lab) lab.textContent=`${clockLabel()} · ${(S.daySched||[]).filter(f=>f.started&&!f.done).length} in der Luft`;
+}
+/* Stark vereinfachte Landmassen — nur als Andeutung, nicht als Karte. */
+const WORLD_MINI=[];
+function baueWeltMini(){
+  const W=360, H=58;
+  const x=(lon)=>((lon+180)/360)*W, y=(lat)=>(0.5-lat/180)*H*1.9+H*0.06;
+  const formen=[
+    [[-168,66],[-140,70],[-95,72],[-60,68],[-52,47],[-75,25],[-97,16],[-115,32],[-125,49],[-168,66]],
+    [[-82,10],[-60,5],[-35,-8],[-38,-24],[-58,-52],[-73,-40],[-81,-4],[-82,10]],
+    [[-10,36],[5,44],[30,45],[42,42],[30,70],[5,60],[-10,44],[-10,36]],
+    [[-17,20],[10,32],[35,32],[52,12],[42,-18],[18,-35],[10,-2],[-17,20]],
+    [[45,42],[75,50],[120,55],[145,50],[140,35],[120,22],[95,20],[70,25],[45,42]],
+    [[113,-22],[135,-12],[152,-28],[145,-39],[120,-34],[113,-22]]
+  ];
+  formen.forEach(f=>WORLD_MINI.push("M"+f.map(([lo,la])=>x(lo).toFixed(1)+","+y(la).toFixed(1)).join("L")+"Z"));
+}
+
+/* Die Karte am Telefon: kein Hintergrund, sondern eine Ansicht auf Abruf.
+   Antippen des Reiters schiebt das Bedienfeld weg und gibt den ganzen
+   Bildschirm frei; ein zweites Antippen holt es zurück. */
+let KARTE_VOLL=false;
+function karteVollbild(an){
+  KARTE_VOLL = an!==false;
+  document.body.classList.toggle("kartevoll", KARTE_VOLL);
+  const sd=document.getElementById("side");
+  if(sd){
+    sd.classList.remove("voll");
+    sd.classList.toggle("weg", KARTE_VOLL);
+  }
+  setTimeout(()=>{ if(typeof renderMap==="function" && S) renderMap(); }, 300);
+  buildTabs(true);
+}
+
 /* Das Bedienfeld am Telefon: Griff zum Ziehen, Wischen für ganz auf und zu. */
+function initStreifen(){
+  const el=document.getElementById("streifen");
+  if(el) el.addEventListener("click",()=>karteVollbild(true));
+}
 function initGriff(){
   const g=document.getElementById("griff"), sd=document.getElementById("side");
   if(!g||!sd) return;
@@ -11395,6 +11528,8 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
   }).catch(()=>{});
 }
 buildTabs();
+baueWeltMini();
+initStreifen();
 initGriff();
 initBreitgriff();
 initBlattWisch();
