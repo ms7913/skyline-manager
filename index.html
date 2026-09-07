@@ -2273,7 +2273,7 @@ function transferBonus(map){
       const gap=e.leg.dep-f.leg.arr;
       if(gap>=35 && gap<=240) n += (f.leg.dist>1500?1.8:1);
     });
-    e.transfer = clamp(n*0.055*(S.codeshare?1.5:1), 0, 0.30);
+    e.transfer = clamp(n*0.055*partnerFaktor(e.leg.from), 0, 0.34);
   }));
 }
 
@@ -2491,6 +2491,7 @@ function newGame(cfg){
     charters:[], charterJobs:[], achievements:{}, pending:null,
     hedges:[], holdings:{}, takeovers:[], loyalty:false, seatFee:false, mapStyle:"nacht",
     inbox:[], mailSeq:0, zeitung:[], rel:{crew:70, airports:70, partners:55}, blocks:[], sais:null, feud:{},
+    partners:{}, partnerAngebote:[],
     chronik:[],
     staff:rollStaff(cfg.home),
     curfewHits:0, tutorial:{done:false, erledigt:{}}, jumpMode:"event",
@@ -3818,7 +3819,7 @@ const DILEMMAS = [
       {l:"Verzichten", d:"Kein Effekt", f:()=>{}}]},
   {id:"code", t:"Angebot für eine Codeshare-Partnerschaft",
    x:"Eine grössere Fluggesellschaft möchte Ihre Zubringer vermarkten.",
-   o:[{l:"Partnerschaft eingehen", d:"Mehr Umsteiger, aber 4% Provision auf den Umsatz", f:()=>{S.codeshare=true;}},
+   o:[{l:"Gespräche aufnehmen", d:"Öffnet die Partnerübersicht", f:()=>partnerDialog()},
       {l:"Eigenständig bleiben", d:"Kein Effekt", f:()=>{}}]},
   {id:"gepaeck", t:"Gepäckgebühr einführen",
    x:"Der Vertrieb schlägt vor, aufgegebenes Gepäck separat zu berechnen.",
@@ -4742,6 +4743,322 @@ function finSVG(x, size){
     <path d="${fin}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.2"/></svg>`;
 }
 
+
+/* ================================================== Partnerschaften =====
+   Codeshare heisst: zwei Gesellschaften verkaufen dieselben Flüge unter beiden
+   Nummern, das Gepäck läuft durch, der Gast bucht einmal. Wertvoll ist so eine
+   Ehe nur, wenn die Netze sich ergänzen statt überschneiden — wer dieselben
+   Strecken fliegt wie der Partner, verschenkt Provision an einen Wettbewerber.
+   Genau diese Abwägung soll der Spieler treffen. */
+const PARTNER_STUFEN = {
+  interline:{n:"Interline-Abkommen", kurz:"lose",
+    d:"Durchgehende Buchung und Gepäckdurchleitung, sonst nichts. Günstig, wirkt bescheiden.",
+    einmal:0.25e6, monat:18000, provision:0.015, faktor:1.25, ruf:0.5, dauer:24},
+  codeshare:{n:"Codeshare", kurz:"eng",
+    d:"Beide Gesellschaften verkaufen dieselben Flüge unter eigener Nummer. Deutlich mehr Umsteiger, dafür Provision auf den Umsatz.",
+    einmal:1.4e6, monat:65000, provision:0.038, faktor:1.75, ruf:2.0, dauer:36},
+  allianz:{n:"Strategische Allianz", kurz:"tief",
+    d:"Gemeinsame Vielfliegerprogramme, abgestimmte Flugpläne, geteilte Abfertigung. Grösste Wirkung, höchste Bindung.",
+    einmal:4.2e6, monat:180000, provision:0.055, faktor:2.35, ruf:4.5, dauer:60}
+};
+function partnerListe(){ return Object.keys(S.partners||{}); }
+function partnerAktiv(id){
+  const p=(S.partners||{})[id];
+  return p && p.bis>S.clock ? p : null;
+}
+function partnerAnzahl(){ return partnerListe().filter(id=>partnerAktiv(id)).length; }
+/** Gemeinsame Drehkreuze: dort trifft man sich, dort entsteht der Umsteiger. */
+function partnerHubs(x){
+  return (x.hubs||[]).filter(h=>S.bases.includes(h) || S.routes.some(r=>r.from===h||r.to===h));
+}
+/** Bedient der Partner diesen Platz — als eigenes Drehkreuz oder im Liniendienst? */
+function partnerBedient(x, iata){
+  if((x.hubs||[]).includes(iata)) return true;
+  return S.routes.some(r=>(r.from===iata||r.to===iata)
+    && (r.rivals||[]).some(v=>v.id===x.id && v.flights>0.2));
+}
+/** Plätze, an denen sich beide treffen — dort entsteht der Umsteiger. */
+function partnerTreffpunkte(x){
+  const orte=new Set();
+  S.bases.forEach(b=>{ if(partnerBedient(x,b)) orte.add(b); });
+  (x.hubs||[]).forEach(h=>{ if(S.routes.some(r=>r.from===h||r.to===h)) orte.add(h); });
+  return [...orte];
+}
+/** Wie stark überschneiden sich die Netze? 0 = ergänzt sich, 1 = derselbe Markt. */
+function partnerUeberlapp(x){
+  const meine=S.routes.filter(r=>r.last&&r.last.ok);
+  if(!meine.length) return 0;
+  let treffer=0;
+  meine.forEach(r=>{ if((r.rivals||[]).some(v=>v.id===x.id)) treffer++; });
+  let u=treffer/meine.length;
+  /* Wer an unserer eigenen Basis sitzt, ist zuerst Wettbewerber und erst
+     danach Partner — das wiegt schwerer als eine gemeinsame Strecke. */
+  const heim=(x.hubs||[]).filter(h=>S.bases.includes(h)).length;
+  if(heim) u=clamp(u+0.28*heim, 0, 1);
+  if(x.model==="lcc") u=clamp(u+0.10, 0, 1);   /* Billigflieger speisen selten ein */
+  return u;
+}
+/** Beurteilung eines möglichen Partners — die Grundlage der Entscheidung. */
+function partnerBewertung(x, stufe){
+  const St=PARTNER_STUFEN[stufe];
+  const hubs=partnerTreffpunkte(x);
+  const ueber=partnerUeberlapp(x);
+  const groesse = clamp((x.fleet||20)/45, 0.3, 2.2);
+  /* Wie viele eigene Gäste sind an den Treffpunkten überhaupt umsteigefähig?
+     Nur wer dort täglich Verkehr hat, kann Anschlüsse verkaufen. */
+  let basis=0;
+  hubs.forEach(h=>{
+    S.routes.forEach(r=>{
+      if(r.from!==h && r.to!==h) return;
+      if(!r.last || !r.last.ok) return;
+      basis += r.last.pax/7;
+    });
+  });
+  /* Der Zuwachs ist der Teil, der neu durchgebucht wird — gedämpft durch
+     Überschneidung, weil dieselben Märkte keine Anschlüsse erzeugen. */
+  /* Zwei Quellen: eigene Anschlüsse an den Treffpunkten, und Gäste, die der
+     Partner auf unsere Flüge bucht. Die zweite ist die grössere. */
+  const anschluss = basis*0.10*(St.faktor-1)*groesse*(1-ueber*1.1);
+  const zubringer = basis*0.30*(St.faktor-1)*0.30*groesse*(1-ueber*1.25);
+  const umsteiger = Math.max(0, anschluss+zubringer);
+  /* Provision nur auf den vermittelten Umsatz, wie in der Monatsrechnung */
+  const ertrag = umsteiger*118*30.4;
+  const monat = St.monat + ertrag*St.provision;
+  return {hubs, ueber, groesse, basis, umsteiger,
+    monat:Math.round(monat), einmal:St.einmal, ertrag:Math.round(ertrag),
+    saldo:Math.round(ertrag-monat)};
+}
+/** Wirkung auf den Umsteigeranteil einer Station. */
+function partnerFaktor(iata){
+  let f=1;
+  partnerListe().forEach(id=>{
+    const p=partnerAktiv(id); if(!p) return;
+    const x=rivalById(id); if(!x) return;
+    if(!partnerBedient(x, iata)) return;
+    f *= PARTNER_STUFEN[p.stufe].faktor;
+  });
+  return Math.min(f, 3.2);
+}
+/** Ein Codeshare bringt nicht nur eigene Anschlüsse, sondern auch Gäste des
+    Partners auf die eigenen Flüge — er verkauft sie unter seiner Nummer mit.
+    Das hebt den erreichbaren Anteil auf Strecken, die einen gemeinsamen Platz
+    berühren, und ist der eigentliche wirtschaftliche Gehalt der Sache. */
+function partnerShareBoost(r){
+  let f=1;
+  partnerListe().forEach(id=>{
+    const a=partnerAktiv(id); if(!a) return;
+    const x=rivalById(id); if(!x) return;
+    if(!partnerBedient(x, r.from) && !partnerBedient(x, r.to)) return;
+    /* Auf Strecken, die der Partner selbst bedient, hilft er nicht — dort
+       konkurriert man weiter miteinander. */
+    if((r.rivals||[]).some(v=>v.id===id && v.flights>0.5)) return;
+    const St=PARTNER_STUFEN[a.stufe];
+    const groesse=clamp((x.fleet||20)/45, 0.4, 2.0);
+    f *= 1 + (St.faktor-1)*0.30*groesse;
+  });
+  return Math.min(f, 1.85);
+}
+function partnerProvision(){
+  let p=0;
+  partnerListe().forEach(id=>{
+    const a=partnerAktiv(id); if(!a) return;
+    p += PARTNER_STUFEN[a.stufe].provision;
+  });
+  return Math.min(p, 0.12);
+}
+/** Provision fällt nur auf die Tickets an, die über den Partner verkauft
+    werden — nicht auf den ganzen Umsatz. Der vermittelte Anteil ergibt sich
+    daraus, wie stark der Partner den Zuspruch auf den Strecken hebt. */
+function partnerUmsatzAnteil(){
+  const r=S.routes.filter(x=>x.last&&x.last.ok);
+  if(!r.length) return 0;
+  let gew=0, ums=0;
+  r.forEach(x=>{
+    const b=partnerShareBoost(x);
+    ums += x.last.rev;
+    gew += x.last.rev*(1-1/b);
+  });
+  return ums ? clamp(gew/ums, 0, 0.42) : 0;
+}
+function partnerKostenAnteil(){ return partnerProvision()*partnerUmsatzAnteil(); }
+function partnerMonat(){
+  let m=0;
+  partnerListe().forEach(id=>{
+    const a=partnerAktiv(id); if(!a) return;
+    m += PARTNER_STUFEN[a.stufe].monat;
+  });
+  return m;
+}
+/** Darf der Spieler von sich aus zugehen? Erst wenn er etwas zu bieten hat. */
+function partnerReif(){
+  return S.history.length>=12 && S.routes.filter(r=>r.last&&r.last.ok).length>=5 && S.rep>=48;
+}
+function partnerReifText(){
+  const teile=[];
+  if(S.history.length<12) teile.push(`${12-S.history.length} Monate Betrieb`);
+  if(S.routes.filter(r=>r.last&&r.last.ok).length<5)
+    teile.push(`${5-S.routes.filter(r=>r.last&&r.last.ok).length} weitere Strecken`);
+  if(S.rep<48) teile.push(`Ruf über 48 (heute ${fmt(S.rep,0)})`);
+  return teile.join(", ");
+}
+
+
+function partnerDialog(){
+  const zeichnen=()=>{
+    const aktiv=partnerListe().map(id=>({id, p:partnerAktiv(id)})).filter(x=>x.p);
+    const reif=partnerReif();
+    /* Wer käme in Frage? Gesellschaften, deren Drehkreuz wir berühren. */
+    const kand=(S.rivals||[]).filter(x=>!partnerAktiv(x.id) && partnerHubs(x).length)
+      .map(x=>({x, b:partnerBewertung(x,"codeshare")}))
+      .sort((a,b)=>b.b.saldo-a.b.saldo).slice(0,8);
+    $("#mBody").innerHTML=`
+      <p class="dim">Bei einer Partnerschaft verkaufen beide Häuser dieselben Flüge, das Gepäck läuft durch, der Gast bucht einmal. Wertvoll ist das nur, wenn sich die Netze <b>ergänzen</b>. Wer dieselben Strecken fliegt wie der Partner, zahlt Provision an einen Wettbewerber.</p>
+      <div class="card">
+        <div class="kv"><span>Laufende Partnerschaften</span><span>${aktiv.length}</span></div>
+        <div class="kv"><span>Provision auf den Umsatz</span><span class="${partnerProvision()?'neg':''}">${fmt(partnerProvision()*100,1)}%</span></div>
+        <div class="kv"><span>Feste Kosten</span><span>${chf(partnerMonat())} im Monat</span></div>
+        <div class="kv"><span>Umsteigerwirkung an Ihren Stationen</span>
+          <span>${S.bases.map(b=>b+" "+fmt(partnerFaktor(b),2)+"×").join(" · ")}</span></div>
+      </div>
+      ${aktiv.length?`<h3 class="sub">Bestehende Abkommen</h3>
+        ${aktiv.map(({id,p})=>{
+          const x=rivalById(id), St=PARTNER_STUFEN[p.stufe];
+          const rest=Math.max(0,Math.round((p.bis-S.clock)/DAYMS/30.4));
+          const b=partnerBewertung(x,p.stufe);
+          return `<div class="card">
+            <div class="row" style="justify-content:space-between;align-items:flex-start">
+              <div style="flex:1"><b>${esc(x.name)}</b> <span class="pill">${St.kurz}</span><br>
+                <span class="dim" style="font-size:10.5px">${St.n} · gemeinsame Plätze ${b.hubs.join(", ")||"keine mehr"} · noch ${rest} Monate</span></div>
+              <div class="mono" style="text-align:right">${fmt(St.provision*100,1)}%<br>
+                <span class="dim" style="font-size:10px">${chf(St.monat)}/Mt</span></div></div>
+            <div class="kv"><span>Netzüberschneidung</span>
+              <span class="${b.ueber>0.5?'neg':b.ueber>0.25?'warn2':'pos'}">${fmt(b.ueber*100,0)}% Ihrer Strecken</span></div>
+            <div class="kv"><span>Geschätzter Saldo</span>
+              <span class="${cls(b.saldo)}">${sgn(b.saldo)} im Monat</span></div>
+            <div class="row" style="margin-top:6px">
+              <button class="sm" data-kuend="${id}">Vorzeitig kündigen</button></div></div>`;}).join("")}`:""}
+      <h3 class="sub">Neue Partnerschaft</h3>
+      ${!reif
+        ? `<div class="card" style="border-color:var(--amber)">
+             <b class="warn2">Noch zu früh</b><br>
+             <span class="dim" style="font-size:11px">Grosse Häuser reden mit Gesellschaften, die etwas zu bieten haben. Es fehlt: ${esc(partnerReifText())}.</span>
+             <p class="dim" style="font-size:11px;margin:6px 0 0">Angebote von aussen können trotzdem eintreffen — dann entscheiden Sie ebenso.</p></div>`
+        : (kand.length
+          ? kand.map(({x,b})=>`<div class="card">
+              <div class="row" style="justify-content:space-between;align-items:flex-start">
+                <div style="flex:1"><b>${esc(x.name)}</b><br>
+                  <span class="dim" style="font-size:10.5px">${esc(MODEL_NAME[x.model]||x.model)} · Drehkreuze ${(x.hubs||[]).join(", ")}</span></div>
+                <div style="width:22px">${rivalMark(x,20)}</div></div>
+              <div class="kv"><span>Gemeinsame Plätze</span>
+                <span class="${b.hubs.length?'pos':'neg'}">${b.hubs.join(", ")||"keine"}</span></div>
+              <div class="kv"><span>Netzüberschneidung</span>
+                <span class="${b.ueber>0.5?'neg':b.ueber>0.25?'warn2':'pos'}">${fmt(b.ueber*100,0)}%${
+                  b.ueber>0.5?" — er fliegt, was Sie fliegen":b.ueber<0.2?" — die Netze ergänzen sich":""}</span></div>
+              <div class="kv"><span>Erwartete Umsteiger</span><span>${fmt(b.umsteiger,0)} am Tag</span></div>
+              <div class="row" style="margin-top:7px;flex-wrap:wrap">
+                ${Object.keys(PARTNER_STUFEN).map(k=>{
+                  const bb=partnerBewertung(x,k), St=PARTNER_STUFEN[k];
+                  return `<button class="sm ${bb.saldo>0?'primary':''}" data-neu="${x.id}|${k}">
+                    ${St.n}<br><span class="dim" style="font-size:9.5px">${chf(St.einmal)} · Saldo ${sgn(bb.saldo)}</span></button>`;}).join("")}
+              </div>
+              <p class="dim" style="font-size:10.5px;margin:6px 0 0">${
+                b.saldo>0 ? "Die Rechnung spricht dafür — aber die Schätzung kennt Ihren künftigen Flugplan nicht."
+                : "Nach heutiger Rechnung ein Verlustgeschäft. Kann sich lohnen, wenn Sie sein Drehkreuz künftig stärker bedienen."}</p>
+            </div>`).join("")
+          : `<div class="dim" style="padding:8px">Keine Gesellschaft berührt zurzeit eine Ihrer Stationen.</div>`)}
+      <p class="dim" style="font-size:11px;margin-top:9px">Eine Kündigung vor Ablauf kostet drei Monatsbeiträge und belastet das Verhältnis zur Branche.</p>`;
+    $("#mBody").querySelectorAll("[data-neu]").forEach(b=>b.onclick=()=>{
+      const [id,stufe]=b.dataset.neu.split("|");
+      partnerSchliessen(id, stufe, zeichnen);
+    });
+    $("#mBody").querySelectorAll("[data-kuend]").forEach(b=>b.onclick=()=>{
+      partnerKuendigen(b.dataset.kuend, zeichnen);
+    });
+  };
+  modal("Partnerschaften", `<div></div>`,
+    [{t:"Fertig",p:true,f:()=>{$("#veil").classList.remove("on"); recomputeWeek(); render();}}]);
+  zeichnen();
+}
+function partnerSchliessen(id, stufe, danach){
+  const x=rivalById(id), St=PARTNER_STUFEN[stufe];
+  if(!x||!St) return;
+  if(S.cash<St.einmal){ toast("Die Einrichtung übersteigt die Liquidität."); return; }
+  S.cash-=St.einmal;
+  S.partners=S.partners||{};
+  S.partners[id]={stufe, seit:S.clock, bis:S.clock+St.dauer*30.4*DAYMS};
+  S.rep=clamp(S.rep+St.ruf,5,99);
+  S.rel.partners=clamp((S.rel.partners||55)+8,0,100);
+  chronikAdd("meilenstein", `${St.n} mit ${x.name} geschlossen.`);
+  mailAdd({kind:"chance", von:"sales", subj:`${St.n} mit ${x.name} unterzeichnet`,
+    kurz:`${St.dauer} Monate, ${fmt(St.provision*100,1)}% Provision`, stufe:1,
+    body:`<p>Die Verträge sind unterschrieben. Ab sofort werden Flüge beider Häuser gemeinsam vermarktet, das Gepäck läuft durch.</p>
+      <div class="card"><div class="kv"><span>Laufzeit</span><span>${St.dauer} Monate</span></div>
+        <div class="kv"><span>Provision</span><span>${fmt(St.provision*100,1)}% des Umsatzes</span></div>
+        <div class="kv"><span>Feste Kosten</span><span>${chf(St.monat)} im Monat</span></div></div>
+      <p class="dim">Die Wirkung zeigt sich dort, wo sich die Netze treffen — an den gemeinsamen Drehkreuzen.</p>`});
+  logg(`${St.n} mit ${x.name} geschlossen.`,"good");
+  recomputeWeek();
+  if(danach) danach();
+}
+function partnerKuendigen(id, danach){
+  const p=partnerAktiv(id), x=rivalById(id);
+  if(!p||!x) return;
+  const St=PARTNER_STUFEN[p.stufe], strafe=St.monat*3;
+  modal("Partnerschaft kündigen",
+    `<p>Das Abkommen mit <b>${esc(x.name)}</b> läuft noch ${Math.round((p.bis-S.clock)/DAYMS/30.4)} Monate.</p>
+     <div class="card"><div class="kv"><span>Ablösung</span><span class="neg">${chf(strafe)}</span></div>
+       <div class="kv"><span>Verhältnis zur Branche</span><span class="neg">−12 Punkte</span></div></div>
+     <p class="dim">Die Umsteiger fallen sofort weg.</p>`,
+    [{t:"Doch nicht",f:()=>{ $("#veil").classList.remove("on"); partnerDialog(); }},
+     {t:`Kündigen (${chf(strafe)})`,p:true,f:()=>{
+        S.cash-=strafe;
+        delete S.partners[id];
+        S.rel.partners=clamp((S.rel.partners||55)-12,0,100);
+        logg(`Partnerschaft mit ${x.name} gekündigt.`,"warn");
+        recomputeWeek();
+        $("#veil").classList.remove("on"); partnerDialog();
+     }}]);
+}
+/** Andere Gesellschaften kommen von sich aus — wenn man interessant ist. */
+function partnerAngebot(){
+  if(S.eventsOn===false || !S) return;
+  if(partnerAnzahl()>=3) return;
+  const seit=(S.clock-(S.evtLast||{}).partner||0)/DAYMS;
+  if(seit<120 || Math.random()>0.16) return;
+  const kand=(S.rivals||[]).filter(x=>!partnerAktiv(x.id) && partnerHubs(x).length);
+  if(!kand.length) return;
+  /* Wer anfragt, richtet sich nach unserer Attraktivität */
+  const attraktiv = S.rep>55 && S.routes.filter(r=>r.last&&r.last.ok).length>=4;
+  if(!attraktiv && Math.random()<0.7) return;
+  const x=pick(kand);
+  const stufe = S.rep>68 ? pick(["codeshare","codeshare","allianz"]) : pick(["interline","codeshare"]);
+  const St=PARTNER_STUFEN[stufe], b=partnerBewertung(x,stufe);
+  S.evtLast=S.evtLast||{}; S.evtLast.partner=S.clock;
+  mailAdd({kind:"chance", von:"sales", subj:`${x.name} sucht das Gespräch`,
+    kurz:`Angebot für ${St.n}`, stufe:3,
+    body:`<p><b>${esc(x.name)}</b> tritt an uns heran. Man will die Zubringer bündeln und schlägt ein <b>${St.n}</b> über ${St.dauer} Monate vor.</p>
+      <div class="card">
+        <div class="kv"><span>Gemeinsame Plätze</span><span>${b.hubs.join(", ")||"keine"}</span></div>
+        <div class="kv"><span>Netzüberschneidung</span>
+          <span class="${b.ueber>0.5?'neg':'pos'}">${fmt(b.ueber*100,0)}% Ihrer Strecken</span></div>
+        <div class="kv"><span>Einmalig</span><span>${chf(St.einmal)}</span></div>
+        <div class="kv"><span>Laufend</span><span>${chf(St.monat)}/Mt + ${fmt(St.provision*100,1)}% Provision</span></div>
+        <div class="kv"><span>Geschätzter Saldo</span><span class="${cls(b.saldo)}">${sgn(b.saldo)} im Monat</span></div>
+      </div>
+      <p class="dim">${b.ueber>0.45
+        ? "Achtung: Er bedient grösstenteils dieselben Märkte. Dann füttert die Provision einen Wettbewerber."
+        : "Die Netze überschneiden sich wenig — das ist die Voraussetzung dafür, dass sich so etwas trägt."}</p>`,
+    optionen:[
+      {l:`Annehmen (${chf(St.einmal)})`, d:`${St.dauer} Monate Bindung`,
+       f:()=>partnerSchliessen(x.id, stufe)},
+      {l:"Zuerst prüfen", d:"Öffnet die Partnerübersicht",
+       f:()=>setTimeout(partnerDialog,120)},
+      {l:"Ablehnen", d:"Eigenständig bleiben",
+       f:()=>{ S.rel.partners=clamp((S.rel.partners||55)-3,0,100); }}
+    ]});
+  stopForEvent(3);
+}
+
 /* =================================================== Beteiligungen ======
    Die Wettbewerber sind bewertete Unternehmen. Wer 51% hält, übernimmt. */
 function rivalValue(x){
@@ -4894,7 +5211,7 @@ function simRoute(r, legList, monthIdx, ctx){
   const m=marketDemand(A,B,monthIdx), sh=classShares(m);
   const preis = campaignOn(r.key,"preis"), bekannt = campaignOn(r.key,"bekanntheit");
   const fareEff = r.fare * (preis?0.80:1);
-  const werbung = campaignBoost(r, A, B);
+  const werbung = campaignBoost(r, A, B) * partnerShareBoost(r);
   const priceAdv=Math.pow(1/fareEff,1.3)*Math.pow(S.rep/62,0.55)*Math.pow(comfort,0.5)
     *Math.pow(svcPull,0.6)*(bekannt?1.35:1)*werbung;
   const effF=flights*priceAdv*Math.pow(timeQual,0.8);
@@ -5159,6 +5476,7 @@ function newDay(){
   buildDaySchedule();
   rollDisruptions();
   rollDisruptionsExtra();
+  partnerAngebot();
   renderMap();
 }
 
@@ -5217,7 +5535,8 @@ function monthClose(){
   M.station=S.bases.length*BAL.baseMonthly*1e6 + upgradeUpkeep();
   M.interest=S.debt*BAL.loanRate/12;
   if(S.bagFee) M.rev*=1.035;
-  if(S.codeshare) M.rev*=0.96;
+  M.rev *= (1 - partnerKostenAnteil());
+  M.station += partnerMonat();
   M.overhead=M.rev*BAL.overhead;
   const fixed=M.crew - (wC*scale) + M.lease + M.dep + M.interest + M.station + M.overhead;
   S.cash -= (M.crew-(wC*scale)) + M.lease + M.interest + M.station + M.overhead;
@@ -5334,6 +5653,7 @@ function monthClose(){
   S.acc=emptyAcc();
 
   cloudAuto();
+  partnerAngebot();
   if(S.month%2===1) aeroNews();
   if(S.boardOn && !S.board && S.history.length>=1) boardNewGoal();
   boardCheck();
@@ -6043,7 +6363,10 @@ function paneNet(p){
   const map=syncRoutes();
   let h=`<h2 class="sec">Streckennetz</h2>
   <div class="row" style="margin-bottom:9px">${S.bases.map(b=>
-    `<button class="sm primary" data-assi="${b}">Strecke planen ab ${b}</button>`).join("")}</div>`;
+    `<button class="sm primary" data-assi="${b}">Strecke planen ab ${b}</button>`).join("")}
+    <button class="sm" id="partnerBtn">Partnerschaften${partnerAnzahl()?" ("+partnerAnzahl()+")":""}${
+      (S.partnerAngebote||[]).filter(a=>a.frist>S.clock).length
+        ? ` · ${(S.partnerAngebote||[]).filter(a=>a.frist>S.clock).length} Anfrage` : ""}</button></div>`;
   h+=`
   <div class="row" style="margin-bottom:10px">
     <button id="analyse" class="primary">Marktanalyse</button>
@@ -6087,6 +6410,8 @@ function paneNet(p){
   $("#fhAll").onclick=()=>flightHistoryDialog(null);
   $("#goFleet").onclick=()=>setTab("fleet");
   p.querySelectorAll("[data-assi]").forEach(b=>b.onclick=()=>assistDialog(b.dataset.assi));
+  const pnb=$("#partnerBtn"); if(pnb) pnb.onclick=partnerDialog;
+  const pb=$("#partBtn"); if(pb) pb.onclick=partnerDialog;
   p.querySelectorAll(".strip").forEach(el=>{
     el.onclick=()=>routeDetail(el.dataset.r);
     el.addEventListener("mouseenter",()=>{ el.classList.add("hot"); glowRoute(el.dataset.r,true); });
@@ -8708,6 +9033,8 @@ function adoptSave(d){
   if(!S.flightNums) S.flightNums={};
   if(!S.inbox) S.inbox=[];
   if(!S.rel) S.rel={crew:70, airports:70, partners:55};
+  if(!S.partners) S.partners={};
+  if(!S.partnerAngebote) S.partnerAngebote=[];
   if(!S.blocks) S.blocks=[];
   if(!S.tutorial) S.tutorial={done:true, erledigt:{}};
   if(!S.jumpMode) S.jumpMode="event";
@@ -9746,7 +10073,7 @@ function setTab(t){
 
 /* Fassungskennung — steht im Hauptmenü und unter Daten. So lässt sich auf
    einen Blick prüfen, welcher Stand tatsächlich auf dem Server liegt. */
-const APP_VERSION = "2026-09-04b · Pause, Crew, Tafel";
+const APP_VERSION = "2026-09-05 · Partnerschaften";
 
 
 
