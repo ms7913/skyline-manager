@@ -20,6 +20,7 @@
 :root{
   --bg:#080e1a; --bg2:#0c1524; --panel:#101a2d; --panel2:#152238;
   --line:#203148; --line2:#2b415e;
+  --sidew:460px;
   --txt:#dfe7f2; --dim:#8598b2; --dim2:#5d7089;
   --amber:#f2a93b; --amber-d:#8a5f18;
   --blue:#4aa8e0; --green:#5fcf95; --red:#e2695f;
@@ -92,7 +93,7 @@ input[type=color]{width:100%;height:32px;padding:2px;background:#0a1322;border:1
 /* Schieber zwischen Karte und Bedienfeld — dauerhaft sichtbar, mit Rillen als
    Anfasser und Doppelpfeil als Zeiger. Ziehen nach links macht das Menü
    breiter und die Karte schmaler, nach rechts umgekehrt. */
-#breitgriff{position:absolute;top:0;bottom:0;width:18px;z-index:8;cursor:ew-resize;
+#breitgriff{position:absolute;top:0;bottom:0;right:calc(var(--sidew) - 9px);width:18px;z-index:8;cursor:ew-resize;
   display:flex;align-items:center;justify-content:center;
   background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(11,18,32,.5) 42%,rgba(11,18,32,.5) 58%,rgba(0,0,0,0) 100%)}
 #breitgriff::after{content:"";position:absolute;top:0;bottom:0;left:50%;width:1px;
@@ -112,10 +113,18 @@ input[type=color]{width:100%;height:32px;padding:2px;background:#0a1322;border:1
   opacity:0;pointer-events:none;transition:opacity .15s}
 #breitgriff.zieht #breitmass{opacity:1}
 @media(max-width:880px){ #breitgriff{display:none} }
-#app{display:flex;height:calc(100% - 54px)}
-#stage{flex:1;position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 0%,#122140 0%,#080e1a 62%)}
-#side{width:460px;flex:0 0 460px;border-left:1px solid var(--line2);background:var(--panel);display:flex;flex-direction:column}
-@media(max-width:1220px){#side{width:380px;flex-basis:380px}}
+#app{display:flex;height:calc(100% - 54px);position:relative}
+/* min-width:0 ist zwingend: ohne das weigert sich ein Flex-Element, unter
+   seine Inhaltsbreite zu schrumpfen — dann wird das Menü breiter, die Karte
+   aber nicht schmaler, und alles läuft aus dem Fenster. */
+#stage{flex:1 1 auto;min-width:0;position:relative;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 0%,#122140 0%,#080e1a 62%)}
+/* Die Breite kommt aus --sidew, damit der Schieber sie verändern kann. Steht
+   sie fest, verschiebt sich der Griff zwar, aber das Layout bleibt starr —
+   genau das war der Fehler. */
+#side{width:var(--sidew);flex:0 0 var(--sidew);max-width:none;min-width:0;border-left:1px solid var(--line2);
+  background:var(--panel);display:flex;flex-direction:column}
+@media(max-width:1220px){:root{--sidew:380px}}
 @media(max-width:880px){
   /* Das Bedienfeld liegt als Blatt über der Karte und lässt sich mit einem
      Griff oder einer Wischgeste über den ganzen Bildschirm ziehen — sonst
@@ -215,6 +224,7 @@ input[type=color]{width:100%;height:32px;padding:2px;background:#0a1322;border:1
   .card{padding:10px 11px}
   #pane{padding:14px 13px 26px}
   .mailrow{padding:11px 9px}
+  .mailrow .mi{width:30px}
   .tzeile{padding:7px 8px}
   .choice .t{font-size:13px}
   .planebox{padding:4px 0}
@@ -345,6 +355,37 @@ h3.sub{font-family:var(--disp);font-size:13px;letter-spacing:.13em;text-transfor
 .slg i{width:8px;height:8px;border-radius:2px;display:inline-block}
 
 /* Kompakte Flottenliste am Telefon */
+.caterrow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.catbild{margin:0;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:#0d1524}
+.catbild img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+.catbild figcaption{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--dim2);padding:3px 5px;text-align:center}
+@media(max-width:880px){.caterrow{grid-template-columns:repeat(2,1fr)}}
+.perskarte{border:1px solid var(--line);border-radius:var(--r);background:var(--panel2);
+  padding:10px 11px;margin-bottom:8px}
+.skb{display:inline-block;height:7px;border-radius:4px;background:#16243a;overflow:hidden;
+  vertical-align:middle}
+.skb i{display:block;height:100%;border-radius:4px}
+.eig{margin-top:7px;font-size:11px;line-height:1.55}
+.eig .ep{color:#5fcf95}
+.eig .em{color:#e2695f}
+.stwrap{position:relative;display:inline-block;flex:0 0 auto;vertical-align:middle}
+.stwrap .stav,.stwrap .stsig{display:block}
+.stabz{position:absolute;right:-2px;bottom:-2px;display:flex;align-items:center;
+  justify-content:center;border-radius:50%;color:#0d1119;font-weight:700;
+  border:2px solid var(--panel);line-height:1}
+.stav,.stsig{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+  border-radius:50%;overflow:hidden;vertical-align:middle;
+  border:1px solid var(--line2);background:#16243a}
+.stav img{width:100%;height:100%;object-fit:cover;display:block}
+.stsig{font-family:var(--disp);letter-spacing:.04em;color:#fff;font-weight:600}
+.mailkopf{display:flex;align-items:center;gap:10px;margin-bottom:9px;
+  padding-bottom:9px;border-bottom:1px solid var(--line)}
+.mailkopf .mn{font-size:13px;color:var(--txt)}
+.mailkopf .mr{font-size:10.5px;color:var(--dim);margin-top:1px}
+.stkarte{display:flex;align-items:center;gap:11px;padding:9px 0;
+  border-bottom:1px solid var(--line)}
+.stkarte:last-child{border-bottom:none}
 .acliste{border:1px solid var(--line2);border-radius:var(--r);overflow:hidden}
 .acrow{display:flex;align-items:center;gap:9px;padding:10px 11px;border-bottom:1px solid var(--line);
   cursor:pointer;transition:background .15s}
@@ -588,9 +629,6 @@ table.tbl th.r,table.tbl td.r{text-align:right}
     <div id="ticker"><h5>Flugbetrieb</h5><div id="tkl"></div></div>
     <div id="mapsize"><button id="btnMapSize">Karte grösser</button></div>
     <button id="sideToggle" title="Bedienfeld ein- und ausblenden">⤢</button>
-    <div id="breitgriff" title="Ziehen: Bedienfeld breiter oder schmaler · Doppelklick setzt zurück">
-      <span class="rillen"><i></i><i></i><i></i><i></i><i></i></span>
-      <span id="breitmass"></span></div>
     <button id="sideWide" title="Bedienfeld verbreitern">▭</button>
     <div id="legend">
       <div><i style="background:var(--green)"></i>Strecke rentabel</div>
@@ -600,6 +638,9 @@ table.tbl th.r,table.tbl td.r{text-align:right}
       <div><i style="background:#d8544a;height:8px;width:8px;border-radius:50%"></i>Fremdes Drehkreuz</div>
       <div style="margin-top:4px;color:var(--dim2)">Auf einen Flughafen zeigen hebt sein Netz hervor</div></div>
   </div>
+  <div id="breitgriff" title="Ziehen: Bedienfeld breiter oder schmaler · Doppelklick setzt zurück">
+  <span class="rillen"><i></i><i></i><i></i><i></i><i></i></span>
+  <span id="breitmass"></span></div>
   <div id="side">
     <div id="griff"><span id="griffbalken"></span><span class="gt"></span></div>
     <div id="streifen" title="Antippen für die ganze Karte">
@@ -2493,7 +2534,7 @@ function newGame(cfg){
     inbox:[], mailSeq:0, zeitung:[], rel:{crew:70, airports:70, partners:55}, blocks:[], sais:null, feud:{},
     partners:{}, partnerAngebote:[],
     chronik:[],
-    staff:rollStaff(cfg.home),
+    staff:rollStaff(cfg.home), bewerber:{},
     curfewHits:0, tutorial:{done:false, erledigt:{}}, jumpMode:"event",
     dayReport:null, lastStop:null, tarifGesehen:false,
     boardOn:true, board:null, boardTrust:50, crewRealism:true,
@@ -2507,6 +2548,10 @@ function newGame(cfg){
   S.speed = 1; S.acc = {rev:0,direct:0,pax:0,seats:0,flights:0,rpk:0,ask:0};
   S.ticker=[]; S.daySched=[];
   rollWeather(); rollCharters(); rollUsed();
+  /* Führung mit Fähigkeiten ausstatten und Gesichter zuteilen */
+  fuehrungNachruesten(poolKey(cfg.home));
+  if(STAFF_READY) portraetsZuteilen(poolKey(cfg.home));
+  else setTimeout(()=>{ portraetsZuteilen(); render(); }, 1400);
   chronikAdd("start", `${S.name} nimmt den Betrieb auf, Heimatstation ${home.iata}.`);
   logg(`${S.name} (${S.code}) nimmt den Betrieb auf. Heimatstation ${home.iata} — ${home.city}.`,"good");
 }
@@ -3131,6 +3176,274 @@ function crewStationSetzen(iata, delta, danach){
   if(danach) danach();
 }
 
+
+/* =============================================== Führungspersonal =======
+   Bisher waren die acht Köpfe reine Kulisse. Jetzt haben sie Fähigkeiten,
+   Stärken und Schwächen, kosten Lohn und lassen sich austauschen. Die Werte
+   greifen in vorhandene Stellschrauben ein: Störungsrisiko, Kreditrahmen,
+   Kampagnenwirkung, Belegschaftsstimmung, Pünktlichkeit.
+
+   Skala 1 bis 20, wie man es aus Sportmanagern kennt. Elf ist Durchschnitt. */
+const RESSORTS = {
+  ops:  {n:"Leitung Flugbetrieb", f:"Betrieb",
+         d:"Pünktlichkeit, Umlaufplanung, Umgang mit Störungen."},
+  tech: {n:"Leitung Technik", f:"Technik",
+         d:"Wartungsplanung, Ausfallrisiko, Kosten der Instandhaltung."},
+  crew: {n:"Personalvertretung", f:"Personal",
+         d:"Stimmung der Belegschaft, Krankheitsquote, Lohnverhandlungen."},
+  sales:{n:"Vertrieb und Netz", f:"Vertrieb",
+         d:"Marktanteil, Wirkung von Marketingaktionen, Streckenwahl."},
+  fin:  {n:"Finanzen", f:"Finanzen",
+         d:"Kreditrahmen und Zinssatz, Absicherungsgeschäfte, Verwaltungskosten."},
+  legal:{n:"Rechtsdienst", f:"Recht",
+         d:"Behörden, Zeitnischen, Verhandlungen mit Flughäfen."},
+  board:{n:"Präsident des Verwaltungsrats", f:"Führung",
+         d:"Geduld des Rats, Kapitalzugang, Ruf in der Branche."}
+};
+const RESSORT_KEYS = Object.keys(RESSORTS);
+
+/* Stärken und Schwächen im Klartext, je Ressort. Der erste Eintrag ist der
+   stärkste, der letzte der schwächste — gezogen wird nach Fähigkeitswert. */
+const EIGENSCHAFTEN = {
+  ops:{ plus:["hält den Flugplan auch bei Störungen zusammen",
+              "plant Umläufe mit klugem Puffer",
+              "kennt jeden Vorfeldleiter beim Vornamen"],
+        minus:["neigt zu zu knappen Standzeiten",
+               "reagiert spät auf Verspätungsketten",
+               "plant lieber am Schreibtisch als am Vorfeld"]},
+  tech:{plus:["erkennt Befunde, bevor sie teuer werden",
+              "handelt gute Wartungsverträge aus",
+              "hält die Flotte auffallend zuverlässig"],
+        minus:["schiebt Grosschecks zu lange auf",
+               "vernachlässigt die Ersatzteilhaltung",
+               "unterschätzt das Alter der Flotte"]},
+  crew:{plus:["hat das Vertrauen der Belegschaft",
+              "verhandelt Verträge ohne Scherben",
+              "erkennt Überlastung früh"],
+        minus:["gilt als Mann der Geschäftsleitung",
+               "übersieht Unmut, bis er laut wird",
+               "verspricht mehr, als sie halten kann"]},
+  sales:{plus:["holt Firmenkunden von der Konkurrenz",
+               "trifft mit Kampagnen den richtigen Ton",
+               "hat ein Gespür für tragfähige Strecken"],
+         minus:["setzt zu früh auf Preisnachlässe",
+                "verschenkt Ertrag an Reiseveranstalter",
+                "streut Werbung, statt zu zielen"]},
+  fin:{plus:["bekommt Kredit zu ungewöhnlich guten Bedingungen",
+             "sichert Treibstoff mit ruhiger Hand ab",
+             "hält die Verwaltung schlank"],
+       minus:["lässt sich von Banken schlecht behandeln",
+              "sichert entweder gar nicht oder zur Unzeit",
+              "verliert die Kostenseite aus dem Blick"]},
+  legal:{plus:["setzt Zeitnischen auch gegen Widerstand durch",
+               "hält Behördenverfahren von uns fern",
+               "verhandelt Gebühren hart und erfolgreich"],
+         minus:["stolpert regelmässig über Auflagen",
+                "verhandelt zu weich mit Flughäfen",
+                "erkennt rechtliche Risiken zu spät"]},
+  board:{plus:["öffnet Türen bei Kapitalgebern",
+               "gibt der Geschäftsleitung Rückendeckung",
+               "geniesst hohes Ansehen in der Branche"],
+         minus:["verlangt Erfolge im Quartalstakt",
+                "hat wenig Geduld mit Anlaufverlusten",
+                "gilt in der Branche als schwierig"]}
+};
+/** Fähigkeitswert einer Person, mit Rückfall auf Durchschnitt. */
+function koennen(k){
+  const P=(S&&S.staff)||{};
+  const v=P[k] && P[k].skill;
+  return (v==null) ? 11 : v;
+}
+/** Wirkung eines Werts, von 0.5 bei ganz schwach bis 1.5 bei Spitze. */
+function ressortFaktor(k){ return 0.5 + (koennen(k)-1)/19; }
+/** Abweichung vom Durchschnitt, −1 bis +1. */
+function ressortAbw(k){ return clamp((koennen(k)-11)/9, -1.2, 1); }
+
+/** Erzeugt eine Person mit Werten und Eigenschaften. */
+function personErzeugen(ressort, heim, staerke, belegt){
+  const pool=NAME_POOLS[heim] || NAME_POOLS.de;
+  /* Wer schon im Haus ist oder sich bereits beworben hat, taucht nicht
+     ein zweites Mal auf. */
+  const schon=new Set(belegt||[]);
+  if(S && S.staff) Object.values(S.staff).forEach(P=>schon.add(P.n));
+  const frei=pool.filter(x=>!schon.has(x));
+  const n=pick(frei.length?frei:pool);
+  const skill=clamp(Math.round(staerke + rnd(-2.5,2.5)), 1, 20);
+  const E=EIGENSCHAFTEN[ressort] || EIGENSCHAFTEN.ops;
+  const staerken=[], schwaechen=[];
+  if(skill>=15) staerken.push(E.plus[0]);
+  if(skill>=12) staerken.push(E.plus[1]);
+  if(skill>=17) staerken.push(E.plus[2]);
+  if(skill<=7)  schwaechen.push(E.minus[0]);
+  if(skill<=10) schwaechen.push(E.minus[1]);
+  if(skill<=5)  schwaechen.push(E.minus[2]);
+  /* Auch Starke haben eine Schwäche, auch Schwache eine Stärke */
+  /* Auch Schwache können etwas — aber nicht das Herausragende. */
+  if(!staerken.length) staerken.push(E.plus[1] || E.plus[0]);
+  if(!schwaechen.length) schwaechen.push(E.minus[1] || E.minus[0]);
+  const R=RESSORTS[ressort];
+  const alter=Math.round(rnd(34, 62));
+  return {
+    n, r:R.n, ic:RESSORT_ABZ[ressort].z, col:RESSORT_ABZ[ressort].f,
+    skill, alter,
+    staerken:staerken.slice(0,2), schwaechen:schwaechen.slice(0,2),
+    lohn: Math.round((9000 + skill*1900 + rnd(-1200,1200))/100)*100,
+    dauer: pick([24,36,36,48]),
+    ablöse: skill>=13 ? Math.round((skill-11)*rnd(90000,190000)/1000)*1000 : 0,
+    frei: skill<13 || Math.random()<0.35
+  };
+}
+/** Monatliche Kosten der Führung. */
+function fuehrungLohn(){
+  const P=(S&&S.staff)||{};
+  return RESSORT_KEYS.reduce((a,k)=>a + (P[k] && P[k].lohn ? P[k].lohn : 12000), 0);
+}
+/** Rüstet ältere Spielstände und die Startbelegschaft mit Werten aus. */
+function fuehrungNachruesten(heim){
+  if(!S || !S.staff) return;
+  const basis = S.level==="leicht" ? 12 : S.level==="schwer" ? 9 : 10.5;
+  RESSORT_KEYS.forEach(k=>{
+    const P=S.staff[k];
+    if(!P || P.skill!=null) return;
+    const neu=personErzeugen(k, heim || poolKey(S.bases[0]), basis);
+    P.skill=neu.skill; P.alter=neu.alter;
+    P.staerken=neu.staerken; P.schwaechen=neu.schwaechen;
+    P.lohn=neu.lohn; P.dauer=neu.dauer;
+    P.seit=S.clock;
+  });
+}
+
+
+/** Bewerberfeld je Posten. Wird alle drei Monate neu gemischt, damit sich
+    Warten lohnen kann — aber nicht endlos. */
+function bewerberFeld(ressort){
+  S.bewerber=S.bewerber||{};
+  const b=S.bewerber[ressort];
+  if(b && b.bis>S.clock) return b.liste;
+  const heim=poolKey(S.bases[0]);
+  const n=3+Math.floor(Math.random()*2);
+  const liste=[];
+  for(let i=0;i<n;i++){
+    /* Guter Ruf zieht bessere Leute an */
+    const basis = 8 + (S.rep-50)/9 + rnd(-1,3.5);
+    const p=personErzeugen(ressort, Math.random()<0.7?heim:pick(Object.keys(NAME_POOLS)),
+      basis, liste.map(x=>x.n));
+    p.id="B"+ressort+i+Math.floor(Math.random()*9999);
+    liste.push(p);
+  }
+  liste.sort((a,b2)=>b2.skill-a.skill);
+  S.bewerber[ressort]={bis:S.clock+92*DAYMS, liste};
+  return liste;
+}
+function skillBalken(v, breite){
+  const w=breite||120;
+  const f = v>=15 ? "var(--green)" : v>=11 ? "var(--amber)" : "var(--red)";
+  return `<span class="skb" style="width:${w}px"><i style="width:${(v/20*100).toFixed(0)}%;background:${f}"></i></span>
+    <span class="mono" style="font-size:11px;color:${f};margin-left:6px">${v}</span>`;
+}
+function personKarte(P, ressort, knopf){
+  return `<div class="perskarte">
+    <div class="row" style="gap:11px;align-items:flex-start;margin:0">
+      ${staffAvatar(P, 56, ressort)}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13.5px"><b>${esc(P.n)}</b>
+          <span class="dim" style="font-size:10.5px">· ${P.alter} Jahre</span></div>
+        <div class="dim" style="font-size:10.5px;margin-bottom:4px">${esc(RESSORTS[ressort].f)}</div>
+        <div class="row" style="margin:0;align-items:center">${skillBalken(P.skill)}</div>
+      </div>
+      <div class="mono" style="text-align:right;font-size:11px">
+        ${chf(P.lohn)}<span class="dim" style="font-size:9.5px">/Mt</span><br>
+        ${P.ablöse?`<span class="neg">${chf(P.ablöse)}</span><br><span class="dim" style="font-size:9.5px">Ablöse</span>`
+          :`<span class="pos">ablösefrei</span>`}</div>
+    </div>
+    <div class="eig">
+      ${(P.staerken||[]).map(x=>`<div class="ep">+ ${esc(x)}</div>`).join("")}
+      ${(P.schwaechen||[]).map(x=>`<div class="em">− ${esc(x)}</div>`).join("")}
+    </div>
+    ${knopf||""}</div>`;
+}
+function personalMarkt(ressort){
+  S.persTab=ressort||S.persTab||"ops";
+  const zeichnen=()=>{
+    const k=S.persTab, R=RESSORTS[k], jetzt=(S.staff||{})[k];
+    const liste=bewerberFeld(k);
+    const b=S.bewerber[k];
+    $("#mBody").innerHTML=`
+      <div class="segbar" id="psg">${RESSORT_KEYS.map(x=>
+        `<button class="${k===x?'on':''}" data-ps="${x}">${RESSORTS[x].f}</button>`).join("")}</div>
+      <p class="dim">${esc(R.d)}</p>
+      <h3 class="sub">Zurzeit im Amt</h3>
+      ${jetzt ? personKarte(jetzt, k,
+        `<div class="row" style="margin-top:8px;justify-content:space-between;align-items:center">
+           <span class="dim" style="font-size:10.5px">Im Amt seit ${jetzt.seit?monatVon(jetzt.seit):"Beginn"}</span>
+           <span class="pill ${jetzt.skill>=14?'ok':jetzt.skill<=8?'warn':''}">${
+             jetzt.skill>=17?"herausragend":jetzt.skill>=14?"stark":jetzt.skill>=11?"solide":
+             jetzt.skill>=8?"schwach":"überfordert"}</span></div>`)
+        : `<div class="dim">Posten unbesetzt.</div>`}
+      <h3 class="sub">Bewerberinnen und Bewerber</h3>
+      <p class="dim" style="font-size:11px;margin-top:0">Das Feld wechselt alle drei Monate — noch ${
+        Math.max(0,Math.round((b.bis-S.clock)/DAYMS))} Tage. Ein guter Ruf zieht bessere Leute an.</p>
+      ${liste.map(P=>personKarte(P, k,
+        `<div class="row" style="margin-top:8px;justify-content:space-between;align-items:center">
+           <span class="dim" style="font-size:10.5px">Vertrag über ${P.dauer} Monate${
+             P.frei?"":" · steht anderswo unter Vertrag"}</span>
+           <button class="sm ${P.skill>(jetzt?jetzt.skill:0)?'primary':''}" data-ein="${P.id}">
+             Einstellen${P.ablöse?" · "+chf(P.ablöse):""}</button></div>`)).join("")}
+      <p class="dim" style="font-size:11px;margin-top:9px">Die Werte wirken sich aus: Technik auf Ausfälle und Wartungskosten, Vertrieb auf Marktanteil und Kampagnen, Finanzen auf Kreditrahmen und Zins, Personal auf Stimmung und Krankheitsquote, Betrieb auf Pünktlichkeit, Recht auf Behörden und Gebühren, Führung auf die Geduld des Rats.</p>`;
+    $("#psg").querySelectorAll("[data-ps]").forEach(x=>x.onclick=()=>{ S.persTab=x.dataset.ps; zeichnen(); });
+    $("#mBody").querySelectorAll("[data-ein]").forEach(x=>x.onclick=()=>{
+      const P=liste.find(y=>y.id===x.dataset.ein);
+      if(P) einstellen(k, P, zeichnen);
+    });
+  };
+  modal("Führungspersonal", `<div></div>`,
+    [{t:"Fertig",p:true,f:()=>{$("#veil").classList.remove("on"); render();}}]);
+  zeichnen();
+}
+function monatVon(t){
+  const d=new Date(t);
+  return MONTHS[d.getUTCMonth()]+" "+d.getUTCFullYear();
+}
+function einstellen(ressort, P, danach){
+  const alt=(S.staff||{})[ressort];
+  const kosten=P.ablöse||0;
+  const abfind=alt && alt.lohn ? alt.lohn*4 : 0;
+  const gesamt=kosten+abfind;
+  modal(`${P.n} verpflichten?`,
+    `<p><b>${esc(P.n)}</b> soll ${esc(RESSORTS[ressort].n.toLowerCase())} werden.</p>
+     <div class="card">
+       <div class="kv"><span>Fähigkeit</span><span>${P.skill} von 20${alt?` (bisher ${alt.skill})`:""}</span></div>
+       <div class="kv"><span>Lohn</span><span>${chf(P.lohn)} im Monat${
+         alt&&alt.lohn?` · bisher ${chf(alt.lohn)}`:""}</span></div>
+       <div class="kv"><span>Vertragsdauer</span><span>${P.dauer} Monate</span></div>
+       ${kosten?`<div class="kv"><span>Ablöse</span><span class="neg">${chf(kosten)}</span></div>`:""}
+       ${abfind?`<div class="kv"><span>Abfindung für ${esc(alt.n)}</span><span class="neg">${chf(abfind)}</span></div>`:""}
+       <div class="kv" style="border-top:1px solid var(--line2);font-weight:600">
+         <span>Sofort fällig</span><span>${chf(gesamt)}</span></div>
+     </div>
+     ${alt && alt.skill>P.skill ? `<div class="card" style="border-color:var(--amber)">
+       <b class="warn2">Verschlechterung</b><br><span class="dim" style="font-size:11px">
+       Der neue Kopf ist schwächer als der bisherige. Das wirkt sich unmittelbar aus.</span></div>`:""}`,
+    [{t:"Abbrechen",f:()=>{ $("#veil").classList.remove("on"); personalMarkt(ressort); }},
+     {t:`Verpflichten (${chf(gesamt)})`,p:true,f:()=>{
+        if(S.cash<gesamt){ toast("Dafür reicht die Liquidität nicht."); return; }
+        S.cash-=gesamt;
+        const neu=Object.assign({}, P, {r:RESSORTS[ressort].n, seit:S.clock});
+        delete neu.id; delete neu.frei; delete neu.ablöse;
+        neu.ic=RESSORT_ABZ[ressort].z; neu.col=RESSORT_ABZ[ressort].f;
+        S.staff[ressort]=neu;
+        /* Gesicht neu zuteilen, Dopplungen vermeiden */
+        delete S.staff[ressort].bild;
+        portraetsZuteilen();
+        S.bewerber[ressort].liste=S.bewerber[ressort].liste.filter(x=>x.id!==P.id);
+        chronikAdd("personal", `${P.n} übernimmt ${RESSORTS[ressort].n}.`);
+        logg(`${P.n} verpflichtet — ${RESSORTS[ressort].f}, Fähigkeit ${P.skill}.`,"good");
+        $("#veil").classList.remove("on");
+        personalMarkt(ressort);
+        render();
+     }}]);
+}
+
 /* ================================================== Lohnpolitik =========
    Bisher blieben die Löhne fest, bis eine Forderung kam — man konnte nur
    reagieren. Jetzt lässt sich das Niveau vorher wählen, und wer will,
@@ -3340,7 +3653,7 @@ function boardCheck(){
   b.erfuellt=ok;
   if(ok){
     S.cash+=b.lohn; S.rep=clamp(S.rep+2,5,99);
-    S.boardTrust=clamp((S.boardTrust||50)+12,0,100);
+    S.boardTrust=clamp((S.boardTrust||50)+12+ressortAbw("board")*3,0,100);
     mailAdd({kind:"vr", von:"board", subj:"Vorgabe erreicht",
       kurz:boardText(b), stufe:2,
       body:`<p><b>${boardText(b)}</b> — erreicht mit ${boardFormat(b, boardValue(b))}.</p>
@@ -3348,7 +3661,7 @@ function boardCheck(){
     logg(`Quartalsvorgabe erfüllt: ${boardText(b)}.`,"good");
     chronikAdd("vr", `Quartalsvorgabe erfüllt: ${boardText(b)}.`);
   } else {
-    S.boardTrust=clamp((S.boardTrust||50)-18,0,100);
+    S.boardTrust=clamp((S.boardTrust||50)-18+ressortAbw("board")*5,0,100);
     S.rep=clamp(S.rep-1.5,5,99);
     const eng=S.boardTrust<25;
     mailAdd({kind:"vr", von:"board", subj:eng?"Letzte Verwarnung":"Vorgabe verfehlt",
@@ -4621,6 +4934,185 @@ const ICAO_FIX = {
 };
 const icaoOf = x => (x && (ICAO_FIX[x.id] || x.id)) || "";
 
+
+/* ================================================ Bilder der Menschen ===
+   Die Porträts liegen in graphics/Staff/ als m01…m24 und w01…w24 — teils mit
+   Endung .jpeg, teils .jpg. Die Ordnersuche liest die tatsächlichen Namen,
+   deshalb muss hier nichts geraten werden.
+
+   Zugeordnet wird fest über den Namen: dieselbe Person behält ihr Gesicht,
+   solange die Partie läuft, und in zwei Partien mit derselben Belegschaft
+   sieht sie gleich aus. */
+
+/* Herkunft der 48 Porträts. Beim Schreiben der Bildaufträge wurde je Bild eine
+   Weltgegend festgelegt; hier steht dieselbe Zuordnung, damit eine griechische
+   Technikleiterin kein nordisches Gesicht bekommt. Die Schlüssel entsprechen
+   den Namensvorräten. */
+const PORTRAET_HERKUNFT = {
+  m01:"ch", m02:"de", m03:"at", m04:"fr", m05:"it", m06:"es", m07:"pt", m08:"nl",
+  m09:"no", m10:"fi", m11:"is", m12:"pl", m13:"cz", m14:"hr", m15:"gr", m16:"tr",
+  m17:"gb", m18:"ie", m19:"us", m20:"latam", m21:"af", m22:"af", m23:"me", m24:"as",
+  w01:"ch", w02:"de", w03:"at", w04:"fr", w05:"it", w06:"es", w07:"pt", w08:"nl",
+  w09:"no", w10:"fi", w11:"is", w12:"pl", w13:"cz", w14:"hr", w15:"gr", w16:"tr",
+  w17:"gb", w18:"ie", w19:"us", w20:"latam", w21:"af", w22:"af", w23:"me", w24:"as"
+};
+/* Wo eine Weltgegend kein eigenes Gesicht hat, wird auf verwandte ausgewichen. */
+const HERKUNFT_NAH = {
+  be:["nl","fr","de"], oc:["gb","us"], as:["as"], me:["me","tr"],
+  latam:["latam","es","pt"], af:["af"], us:["us","gb"], ie:["ie","gb"],
+  gb:["gb","ie"], is:["is","no"], fi:["fi","no"], no:["no","fi"],
+  cz:["cz","pl","at"], pl:["pl","cz"], hr:["hr","it","cz"], gr:["gr","it","tr"],
+  tr:["tr","gr","me"], pt:["pt","es"], es:["es","pt","it"], it:["it","es","gr"],
+  fr:["fr","be","ch"], nl:["nl","be","de"], de:["de","at","ch"],
+  at:["at","de","ch"], ch:["ch","de","at","fr"]
+};
+const STAFF_DIR = ["graphics/Staff","graphics/staff","Graphics/Staff"];
+const STAFF_ART = {m:[], w:[]};
+let STAFF_READY=false;
+
+async function scanStaffArt(){
+  let files=[], dir=null;
+  for(const d of STAFF_DIR){
+    const f=await listFolder(d);
+    if(f.length){ files=f; dir=d; break; }
+  }
+  if(!dir){ STAFF_READY=true; return; }
+  files.filter(f=>/\.(png|jpe?g|webp)$/i.test(f)).forEach(f=>{
+    const m=f.match(/^([mw])(\d+)\./i);
+    if(!m) return;
+    STAFF_ART[m[1].toLowerCase()].push({n:+m[2], url:dir+"/"+f});
+  });
+  STAFF_ART.m.sort((a,b)=>a.n-b.n);
+  STAFF_ART.w.sort((a,b)=>a.n-b.n);
+  STAFF_READY=true;
+  if(STAFF_ART.m.length+STAFF_ART.w.length)
+    logg(`${STAFF_ART.m.length+STAFF_ART.w.length} Porträts gefunden.`,"");
+}
+/** Streuwert aus einem Namen — stabil über Sitzungen hinweg. */
+function nameHash(str){
+  let h=2166136261;
+  for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); }
+  return (h>>>0);
+}
+/* Vornamen, die im Spiel weiblich vergeben werden. Steht ein Name nicht
+   darin, wird männlich angenommen — die Vorräte sind entsprechend gebaut. */
+/* Aus den Namensvorräten des Spiels abgeleitet — 245 Vornamen einmal
+   durchgesehen. Wer nicht darin steht, gilt als männlich. */
+const WEIBLICH = new Set(["Agnieszka", "Alyssa", "Amber", "Amina", "Andrea", "Anna", "Anouk", "Aoife", "Aurélie", "Aylin", "Beatrice", "Beatriz", "Bronwyn", "Camila", "Camille", "Charlotte", "Chiara", "Ciara", "Claudia", "Cláudia", "Céline", "Dana", "Daniela", "Danielle", "Despina", "Donna", "Elena", "Eleni", "Elif", "Elina", "Elisabeth", "Els", "Ewa", "Fatou", "Federica", "Femke", "Fiona", "Franziska", "Gemma", "Gerlinde", "Giulia", "Grace", "Guðrún", "Hana", "Hannah", "Helga", "Ilse", "Ingrid", "Inês", "Isabelle", "Ivana", "Jana", "Joanna", "Johanna", "Karen", "Karolina", "Katerina", "Kateřina", "Katrin", "Katrín", "Kristin", "Kylie", "Laura", "Layla", "Leila", "Ling", "Lotte", "Louise", "Lucie", "Lucía", "Magdalena", "Maja", "Maria", "Mariana", "Marieke", "Marit", "Marta", "Mei", "Merve", "Michelle", "Miriam", "Nadia", "Nadine", "Nathalie", "Nele", "Niamh", "Nikolina", "Nuria", "Paula", "Petra", "Pilar", "Priya", "Päivi", "Rachel", "Rania", "Renate", "Riikka", "Rocío", "Sabine", "Sanja", "Sanna", "Sanne", "Sharon", "Sigrún", "Silje", "Silvia", "Sinéad", "Sofia", "Sylvie", "Tracy", "Valentina", "Veronika", "Yasmin", "Yuki", "Zeynep", "Élodie", "Órla"]);
+function istWeiblich(name){
+  const vor=(name||"").split(/[\s.]/)[0];
+  return WEIBLICH.has(vor);
+}
+/** Bild zu einer Person. Bevorzugt wird ein Gesicht aus derselben Weltgegend
+    wie der Name; innerhalb einer Partie wird jedes Bild höchstens einmal
+    vergeben. Die Zuordnung entsteht einmal beim Gründen und bleibt danach
+    unverändert im Spielstand. */
+function portraetWaehlen(person, heim, vergeben){
+  const g = istWeiblich(person.n) ? "w" : "m";
+  const liste = STAFF_ART[g].length ? STAFF_ART[g] : (STAFF_ART.m.length?STAFF_ART.m:STAFF_ART.w);
+  if(!liste || !liste.length) return null;
+  const stamm = person.n.replace(/\.[^.]+$/,"");
+  const key = u => u.split("/").pop().replace(/\.[^.]+$/,"").toLowerCase();
+  const region = heim || "ch";
+  const nah = HERKUNFT_NAH[region] || [region];
+  /* erst die eigene Weltgegend, dann verwandte, dann alles Übrige */
+  const stufen = nah.map(r=>liste.filter(x=>PORTRAET_HERKUNFT[key(x.url)]===r))
+    .concat([liste]);
+  for(const stufe of stufen){
+    const frei = stufe.filter(x=>!vergeben.has(x.url));
+    if(frei.length) return frei[nameHash(stamm) % frei.length].url;
+  }
+  return liste[nameHash(stamm) % liste.length].url;
+}
+/** Vergibt einmalig für alle Führungspersonen ein Gesicht. */
+function portraetsZuteilen(heim){
+  if(!S || !S.staff) return;
+  if(!STAFF_ART.m.length && !STAFF_ART.w.length) return;
+  const vergeben=new Set();
+  Object.values(S.staff).forEach(P=>{
+    if(P.bild && !vergeben.has(P.bild)){ vergeben.add(P.bild); return; }
+    const u=portraetWaehlen(P, heim || poolKey(S.bases[0]), vergeben);
+    if(u){ P.bild=u; vergeben.add(u); }
+  });
+}
+function staffBild(person){
+  if(!person || !person.n) return null;
+  if(person.bild) return person.bild;
+  /* Noch nicht zugeteilt — zum Beispiel bei alten Spielständen */
+  const g = istWeiblich(person.n) ? "w" : "m";
+  const liste = STAFF_ART[g].length ? STAFF_ART[g] : (STAFF_ART.m.length?STAFF_ART.m:STAFF_ART.w);
+  if(!liste || !liste.length) return null;
+  return liste[nameHash(person.n) % liste.length].url;
+}
+/** Kleines Signet als Rückfall, wenn kein Bild vorliegt. */
+function staffSignet(person, groesse){
+  const g=groesse||40;
+  const kuerzel=(person.n||"?").split(/\s+/).map(x=>x[0]).slice(0,2).join("").toUpperCase();
+  const farben=["#3d6ea8","#4a7c59","#8a5a3b","#6b4a7c","#a8633d","#3d7c8a","#7c3d5a"];
+  const f=farben[nameHash(person.n||"") % farben.length];
+  return `<span class="stsig" style="width:${g}px;height:${g}px;background:${f};
+    font-size:${Math.round(g*0.38)}px">${esc(kuerzel)}</span>`;
+}
+/** Bild oder Signet, einheitlich gerahmt. */
+/* Zeichen für das Ressort. Es steht als Abzeichen in der Bildecke — so
+   erkennt man die Funktion, ohne für jede Rolle ein eigenes Foto zu brauchen. */
+const RESSORT_ABZ = {
+  ops:{z:"✈", f:"#4aa8e0"},   tech:{z:"⚙", f:"#e2695f"},
+  crew:{z:"👥", f:"#e0a13a"}, sales:{z:"⇄", f:"#9b8cf0"},
+  fin:{z:"▤", f:"#5fcf95"},   legal:{z:"§", f:"#c8a0e0"},
+  board:{z:"★", f:"#f2a93b"}, station:{z:"⌂", f:"#2aa8c4"}
+};
+function staffAvatar(person, groesse, ressort){
+  const g=groesse||40;
+  const url=staffBild(person);
+  const kern = url
+    ? `<span class="stav" style="width:${g}px;height:${g}px"><img src="${esc(url)}" alt="" loading="lazy"
+        onerror="this.parentNode.innerHTML='';"></span>`
+    : staffSignet(person, g);
+  const A = RESSORT_ABZ[ressort];
+  if(!A || g<32) return kern;
+  const d=Math.round(g*0.42);
+  return `<span class="stwrap" style="width:${g}px;height:${g}px">${kern}
+    <span class="stabz" style="width:${d}px;height:${d}px;background:${A.f};
+      font-size:${Math.round(d*0.62)}px">${A.z}</span></span>`;
+}
+
+
+/* ================================================= Bilder der Verpflegung
+   graphics/Catering/ enthält je Kabinenklasse und Servicestufe ein Bild.
+   Endungen wechseln zwischen .jpg und .jpeg, deshalb liest die Ordnersuche
+   die tatsächlichen Namen statt sie zu erraten. */
+const CATER_DIR = ["graphics/Catering","graphics/catering","Graphics/Catering"];
+const CATER_ART = {};
+async function scanCateringArt(){
+  let files=[], dir=null;
+  for(const d of CATER_DIR){
+    const f=await listFolder(d);
+    if(f.length){ files=f; dir=d; break; }
+  }
+  if(!dir) return;
+  files.filter(f=>/\.(png|jpe?g|webp)$/i.test(f)).forEach(f=>{
+    CATER_ART[f.replace(/\.[^.]+$/,"").toLowerCase()]=dir+"/"+f;
+  });
+  const n=Object.keys(CATER_ART).length;
+  if(n) logg(`${n} Verpflegungsbilder gefunden.`,"");
+}
+/* Die Servicestufe der Flotte auf die Bildnamen abbilden. */
+const SVC_BILD = {lowcost:"basic", standard:"standard", premium:"premium"};
+function caterBild(klasse, stufe){
+  return CATER_ART[`${klasse}-${SVC_BILD[stufe]||stufe}`] || null;
+}
+/** Bildstreifen über alle vier Klassen für eine Servicestufe. */
+function caterStreifen(stufe){
+  const klassen=[["eco","Economy"],["prem","Premium"],["biz","Business"],["first","First"]];
+  const vorhanden=klassen.filter(([k])=>caterBild(k,stufe));
+  if(!vorhanden.length) return "";
+  return `<div class="caterrow">${vorhanden.map(([k,n])=>
+    `<figure class="catbild"><img src="${esc(caterBild(k,stufe))}" alt="" loading="lazy"
+       onerror="this.parentNode.style.display='none'">
+     <figcaption>${n}</figcaption></figure>`).join("")}</div>`;
+}
+
 async function scanAirlineArt(){
   ART_COUNT=0;
   for(const kind of ["tail","box","long"]){
@@ -5158,7 +5650,8 @@ function campaignBoost(r, A, B){
   const tour=((A.tourism||1)+(B.tourism||1))/2;
   const biz=((A.biz||1)+(B.biz||1))/2;
   let f=1;
-  if(campaignOn(r.key,"bekanntheit")) f*=1.16;
+  const vertrieb = 1 + ressortAbw("sales")*0.22;
+  if(campaignOn(r.key,"bekanntheit")) f*=1+0.16*vertrieb;
   if(campaignOn(r.key,"geschaeft"))  f*=1+clamp((biz-0.82)*0.55, 0.05, 0.24);
   if(campaignOn(r.key,"ferien"))     f*=1+clamp((tour-0.82)*0.50, 0.05, 0.26);
   return f;
@@ -5211,7 +5704,8 @@ function simRoute(r, legList, monthIdx, ctx){
   const m=marketDemand(A,B,monthIdx), sh=classShares(m);
   const preis = campaignOn(r.key,"preis"), bekannt = campaignOn(r.key,"bekanntheit");
   const fareEff = r.fare * (preis?0.80:1);
-  const werbung = campaignBoost(r, A, B) * partnerShareBoost(r);
+  /* Der Vertrieb hebt die Durchsetzungskraft im Markt. */
+  const werbung = campaignBoost(r, A, B) * partnerShareBoost(r) * (1 + ressortAbw("sales")*0.09);
   const priceAdv=Math.pow(1/fareEff,1.3)*Math.pow(S.rep/62,0.55)*Math.pow(comfort,0.5)
     *Math.pow(svcPull,0.6)*(bekannt?1.35:1)*werbung;
   const effF=flights*priceAdv*Math.pow(timeQual,0.8);
@@ -5249,7 +5743,8 @@ function simRoute(r, legList, monthIdx, ctx){
     for(const k of ["eco","prem","biz","first"]) out.detail[k].pax*=cut; }
   /* Anschubhilfe eines Flughafens senkt die Gebühren für zwei Jahre */
   const cut = x => (S.feeCut && S.feeCut[x.iata] && S.feeCut[x.iata]>S.clock) ? 0.55 : 1;
-  const avgFee=(A.fee*cut(A)+B.fee*cut(B))/2;
+  /* Ein guter Rechtsdienst drückt die Gebühren. */
+  const avgFee=(A.fee*cut(A)+B.fee*cut(B))/2 * (1 - ressortAbw("legal")*0.07);
   const fees = pax*14*avgFee + flights*avgSeats*6*avgFee;
   const svcMix = parts.reduce((a,x)=>a+x.fl,0)||1;
   const svcCost = ["eco","prem","biz","first"].reduce((a,k)=>{
@@ -5493,10 +5988,12 @@ function monthClose(){
     wF+=L.fuelKg*S.fuel; wM+=L.maintC; wC+=L.crewC; wG+=L.fees; wS+=L.svc||0; wB+=L.blockH; });
   const wTot=wF+wM+wC+wG+wS;
   const scale = wTot>0 ? A.direct/wTot : 0;
-  M.fuel=wF*scale; M.maint=wM*scale; M.crew=wC*scale; M.fees=wG*scale; M.svcTotal=wS*scale;
+  /* Ein guter Technikchef senkt die Instandhaltung, ein schwacher verteuert sie. */
+  M.fuel=wF*scale; M.maint=wM*scale*(1-ressortAbw("tech")*0.12);
+  M.crew=wC*scale; M.fees=wG*scale; M.svcTotal=wS*scale;
   M.block=wB*BAL.weeksPerMonth;
 
-  M.crew += lohnKosten() + crewStationMonat();
+  M.crew += lohnKosten() + crewStationMonat() + fuehrungLohn();
   S.fleet.forEach(ac=>{
     const t=ACT[ac.type]; ac.age++;
     ac.hours += acWeeklyBlock(ac)*BAL.weeksPerMonth;
@@ -5548,7 +6045,7 @@ function monthClose(){
   S.routes.forEach(r=>{ if(r.last&&r.last.ok){ wxLoad+=r.last.wx*r.last.flights; wn+=r.last.flights; } });
   const wxAvg=wn?wxLoad/wn:0;
   const lfAll=M.ask?M.rpk/M.ask:0;
-  S.punctuality=clamp(0.945 - wxAvg*0.20 - M.cancel*0.45 - Math.max(0,lfAll-0.90)*0.35, 0.52, 0.99);
+  S.punctuality=clamp(0.945 + opsBonus() - wxAvg*0.20 - M.cancel*0.45 - Math.max(0,lfAll-0.90)*0.35, 0.52, 0.99);
 
   let dRep=0;
   if(S.routes.length){
@@ -5654,6 +6151,7 @@ function monthClose(){
 
   cloudAuto();
   partnerAngebot();
+  autoSave("Monatsabschluss");
   if(S.month%2===1) aeroNews();
   if(S.boardOn && !S.board && S.history.length>=1) boardNewGoal();
   boardCheck();
@@ -5789,8 +6287,58 @@ const MAP_STYLES = {
           label:"#a9bdd6", labelStroke:"#080e1a", night:0.45, dot:"#3f5a78"},
   tag:   {n:"Tageskarte", sea0:"#aadaff", sea1:"#8fc8f5", land:"#f3efe6", coast:"#c9c0ae",
           border:"rgba(150,140,120,0.55)", grat:"rgba(120,140,160,0.18)", equ:"rgba(120,140,160,0.35)",
-          label:"#3d4a5a", labelStroke:"#ffffff", night:0.30, dot:"#8fa0b4"}
+          label:"#3d4a5a", labelStroke:"#ffffff", night:0.30, dot:"#8fa0b4"},
+  satellit:{n:"Satellit", sea0:"#0b1a2e", sea1:"#050c16", land:"#1e2c3f", coast:"rgba(255,255,255,0.10)",
+          border:"rgba(255,255,255,0.16)", grat:"rgba(255,255,255,0.07)", equ:"rgba(255,255,255,0.14)",
+          label:"#e8eef6", labelStroke:"rgba(0,0,0,0.85)", night:0.30, dot:"#7d94ad", foto:true}
 };
+
+/* ================================================= Satellitenkarte ======
+   In graphics/misc/ liegen zwei gleichrechteckige Weltbilder: earth-tag.jpg
+   und earth-nacht.jpg. Die Spielkarte ist aber Mercator projiziert, deshalb
+   lassen sie sich nicht einfach darüberlegen. Beim ersten Aufruf werden sie
+   deshalb einmal umgerechnet — zeilenweise, weil in Mercator jede Bildzeile
+   einer anderen Breite entspricht. Das Ergebnis bleibt als Blob liegen. */
+const ERDE = {tag:null, nacht:null, laeuft:{}, fehlt:{}};
+function invMercY(y){ return 2*Math.atan(Math.exp(y))-Math.PI/2; }
+
+function backeErde(art){
+  if(ERDE[art] || ERDE.laeuft[art] || ERDE.fehlt[art]) return;
+  ERDE.laeuft[art]=true;
+  const img=new Image();
+  img.crossOrigin="anonymous";
+  img.onload=()=>{
+    try{
+      const B=Math.min(2048, img.naturalWidth||2048);
+      const H=Math.round(B*(MY_TOP-MY_BOT)/(2*Math.PI));
+      const quelle=document.createElement("canvas");
+      quelle.width=img.naturalWidth; quelle.height=img.naturalHeight;
+      quelle.getContext("2d").drawImage(img,0,0);
+      const ziel=document.createElement("canvas");
+      ziel.width=B; ziel.height=H;
+      const ctx=ziel.getContext("2d");
+      /* Jede Zielzeile bekommt die Quellzeile ihrer Breite. Zwei Zeilen weit
+         gezeichnet, damit keine Lücken entstehen. */
+      for(let y=0;y<H;y++){
+        const my=MY_TOP-(y/H)*(MY_TOP-MY_BOT);
+        const lat=invMercY(my)*180/Math.PI;
+        const sy=(90-lat)/180*quelle.height;
+        ctx.drawImage(quelle, 0, Math.max(0,Math.min(quelle.height-1, sy)), quelle.width, 1,
+                      0, y, B, 2);
+      }
+      ziel.toBlob(b=>{
+        ERDE[art]=URL.createObjectURL(b);
+        ERDE.laeuft[art]=false;
+        if(S && (S.mapStyle==="satellit")) renderMap();
+      }, "image/jpeg", 0.86);
+    }catch(e){ ERDE.fehlt[art]=true; ERDE.laeuft[art]=false; }
+  };
+  img.onerror=()=>{ ERDE.fehlt[art]=true; ERDE.laeuft[art]=false; };
+  img.src=MISC_DIR+"earth-"+art+".jpg";
+}
+function erdeBereit(){ return !!ERDE.tag; }
+function erdeMoeglich(){ return !ERDE.fehlt.tag; }
+
 function mapStyle(){ return MAP_STYLES[(S&&S.mapStyle)||"nacht"]; }
 function gcPath(A,B){
   const la1=rad(A.lat),lo1=rad(A.lon),la2=rad(B.lat),lo2=rad(B.lon);
@@ -5891,6 +6439,21 @@ function renderMap(){
       <stop offset="70%" stop-color="#ffffff" stop-opacity=".10"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
   </defs>`);
   parts.push(`<rect width="${MAPW}" height="${MAPH}" fill="url(#oc)"/>`);
+  /* Satellitenbild statt gezeichneter Landflächen */
+  if(MS.foto){
+    backeErde("tag"); backeErde("nacht");
+    if(ERDE.tag){
+      parts.push(`<image href="${ERDE.tag}" x="0" y="0" width="${MAPW}" height="${MAPH}"
+        preserveAspectRatio="none"/>`);
+      if(ERDE.nacht)
+        parts.push(`<clipPath id="nachtclip"><path d="${nightPath()}"/></clipPath>
+          <image href="${ERDE.nacht}" x="0" y="0" width="${MAPW}" height="${MAPH}"
+            preserveAspectRatio="none" clip-path="url(#nachtclip)" opacity="0.92"/>`);
+    } else {
+      parts.push(`<text x="${MAPW/2}" y="${MAPH/2}" text-anchor="middle"
+        style="fill:#7d94ad;font-family:var(--mono);font-size:${MAPW/70}px">Satellitenbild wird aufbereitet …</text>`);
+    }
+  }
   let g=""; for(let lon=-180;lon<=180;lon+=30) g+=`M${px(lon)},0V${MAPH.toFixed(0)}`;
   for(let lat=-40;lat<=80;lat+=20) g+=`M0,${py(lat).toFixed(1)}H${MAPW}`;
   parts.push(`<path class="grat" fill="none" style="stroke:${MS.grat}" d="${g}"/>
@@ -5898,8 +6461,11 @@ function renderMap(){
   /* Landflächen und Staatsgrenzen aus den Naturdaten */
   const ringPath=r=>{ let d="M"; for(let i=0;i<r.length;i+=2){
       d+=(i?"L":"")+px(r[i]).toFixed(1)+","+py(r[i+1]).toFixed(1); } return d; };
-  parts.push(`<path class="land" style="fill:${MS.land};stroke:${MS.coast}"
-    d="${LAND.map(r=>ringPath(r)+"Z").join("")}"/>`);
+  parts.push(MS.foto && ERDE.tag
+    ? `<path class="land" style="fill:none;stroke:${MS.coast};stroke-width:.5"
+        d="${LAND.map(r=>ringPath(r)+"Z").join("")}"/>`
+    : `<path class="land" style="fill:${MS.land};stroke:${MS.coast}"
+        d="${LAND.map(r=>ringPath(r)+"Z").join("")}"/>`);
   if(bordOn) parts.push(`<path class="bord" fill="none" style="stroke:${MS.border}" d="${BORDERS.map(ringPath).join("")}"/>`);
 
   /* Wetterzonen */
@@ -6055,8 +6621,11 @@ function applyCam(){ const c=document.getElementById("cam");
     $("#btnWx").textContent=wxOn?"Wetter aus":"Wetter ein"; renderMap();});
   $("#btnStyle").addEventListener("click",()=>{
     if(!S) return;
-    S.mapStyle = S.mapStyle==="tag" ? "nacht" : "tag";
-    $("#btnStyle").textContent = S.mapStyle==="tag" ? "Nachtkarte" : "Tageskarte";
+    /* Reihum: Nacht → Tag → Satellit. Fehlen die Weltbilder, entfällt Satellit. */
+    const folge = erdeMoeglich() ? ["nacht","tag","satellit"] : ["nacht","tag"];
+    const i=folge.indexOf(S.mapStyle||"nacht");
+    S.mapStyle = folge[(i+1)%folge.length];
+    $("#btnStyle").textContent = MAP_STYLES[folge[(folge.indexOf(S.mapStyle)+1)%folge.length]].n;
     document.body.classList.toggle("lightmap", S.mapStyle==="tag");
     renderMap();});
   const MAPH_STEPS=["34%","52%","68%"]; let mapStep=0;
@@ -7747,12 +8316,13 @@ function sparkline(){
     <span class="${cls(last)}">${sgn(last)}</span>
     <span>${String(h[h.length-1].m+1).padStart(2,"0")}/${h[h.length-1].y}</span></div>`;
 }
+function finanzFaktor(){ return 1 + ressortAbw("fin")*0.18; }
 function creditLimit(){
   /* Der Kreditrahmen hängt am Vertrauen des Verwaltungsrats: wer Vorgaben
      verfehlt, bekommt weniger Spielraum. */
   const vertrauen = (S.boardOn && S.boardTrust!=null) ? clamp(0.6+S.boardTrust/100*0.8, 0.6, 1.4) : 1;
   const earn=S.history.slice(-6).reduce((s,h)=>s+Math.max(0,h.profit),0);
-  return Math.round(Math.max(30e6, fleetValue()*0.62+earn*4)*vertrauen);
+  return finanzFaktor()*Math.round(Math.max(30e6, fleetValue()*0.62+earn*4)*vertrauen);
 }
 function paneStaff(p){
   const need=pilotNeed(), cn=cabinNeed();
@@ -7760,6 +8330,17 @@ function paneStaff(p){
   const rats=Array.from(new Set(Object.keys(need).concat(Object.keys(S.pilots),
     S.pilotsTrain.map(x=>x.r), S.orders.map(o=>ACT[o.type].rating))));
   let h=`<h2 class="sec">Personal</h2>
+  <div class="card">
+    <b class="amb">Führung</b>
+    <div style="margin-top:6px">${Object.entries((S&&S.staff)||STAFF).map(([k,P])=>
+      `<div class="stkarte">${staffAvatar(P, 44, k)}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12.5px"><b style="color:${P.col}">${esc(P.n)}</b></div>
+          <div class="dim" style="font-size:10.5px">${esc(P.r)}</div>
+          ${P.skill!=null?`<div class="row" style="margin:3px 0 0;align-items:center">${skillBalken(P.skill,90)}</div>`:""}</div>
+        <span class="mono dim" style="font-size:11px;text-align:right">${P.lohn?chf(P.lohn):""}</span></div>`).join("")}
+      <div class="kv" style="margin-top:7px"><span>Löhne der Führung</span><span>${chf(fuehrungLohn())} im Monat</span></div>
+      <div class="row" style="margin-top:7px"><button class="sm primary" id="persBtn2">Personalmarkt öffnen</button></div></div></div>
   <div class="card"><div class="kv"><span>Stimmung in der Belegschaft</span>
     <span style="color:${relColor((S.rel||{}).crew||0)}">${fmt((S.rel||{}).crew||0,0)} · ${relLabel((S.rel||{}).crew||0)}</span></div>
     <div class="bar"><i style="width:${(S.rel||{}).crew||0}%;background:${relColor((S.rel||{}).crew||0)}"></i></div>
@@ -7799,7 +8380,8 @@ function paneStaff(p){
     <div class="kv"><span>Lohnniveau</span><span>${lohnStufe().n}${gavAktiv()?` · Vertrag noch ${gavRest()} Mt`:""}</span></div>
     <div class="kv"><span>Besatzungen auswärts</span><span>${crewStationCrews()} an ${Object.keys(S.crewStations||{}).length} Orten${crewStationMonat()?` · ${chf(crewStationMonat())}/Mt`:""}</span></div>
     <div class="row" style="margin-top:8px"><button class="sm primary" id="lohnBtn">Lohnpolitik und Vertrag</button>
-      <button class="sm" id="csBtn">Besatzungen stationieren</button></div>
+      <button class="sm" id="csBtn">Besatzungen stationieren</button>
+      <button class="sm primary" id="persBtn">Führungspersonal</button></div>
     <div class="kv"><span>Neueinstellung Cockpit</span><span>${fmt(BAL.hireCost+BAL.ratingCost)} CHF, ${BAL.trainMonths} Mt</span></div>
     <div class="kv"><span>Umschulung</span><span>${fmt(BAL.ratingCost)} CHF, ${BAL.retrainMonths} Mt</span></div></div>`;
   p.innerHTML=h;
@@ -7870,7 +8452,8 @@ function paneGuest(p){
     h+=`<div class="card" style="padding:8px 10px"><div class="row" style="justify-content:space-between">
       <div><b>${v.n}</b><br><span class="dim" style="font-size:10.5px">${v.d}</span></div>
       <div class="row"><span class="pill ${n?'ok':''}">${n} Flugzeuge</span>
-        <button class="sm" data-all="${k}">Alle</button></div></div></div>`;
+        <button class="sm" data-all="${k}">Alle</button></div></div>
+      ${caterStreifen(k)}</div>`;
   });
   h+=`<div class="card"><div class="kv"><span>Servicekosten letzter Monat</span>
     <span>${L&&L.svcTotal?chf(L.svcTotal):"–"}</span></div>
@@ -8015,7 +8598,8 @@ function paneInbox(p){
       const P=staffOf(m);
       const wartet=m.optionen && m.entschieden==null;
       h+=`<div class="mailrow ${m.read?"":"un"}" data-m="${m.id}">
-        <span class="mi" style="color:${P.col}">${P.ic}</span>
+        <span class="mi" style="color:${P.col}">${STAFF_ART.m.length||STAFF_ART.w.length
+          ? staffAvatar(P, 30, m.von) : P.ic}</span>
         <div style="flex:1">
           <div class="ms">${m.read?"":'<span class="undot"></span>'}${esc(m.subj)}
             ${wartet?'<span class="pill warn" style="margin-left:5px">offen</span>':""}</div>
@@ -8776,6 +9360,17 @@ function paneData(p){
       <div style="flex:1"><b>Störungen und Ereignisse</b><br>
         <span class="dim" style="font-size:10.5px">Technische Ausfälle, Wetter, Streiks, Behörden, Angebote und Gelegenheiten. Abgeschaltet läuft der Betrieb ungestört — dafür fehlen auch die Chancen.</span></div>
       <button class="sm ${S.eventsOn!==false?'primary':''}" id="evtTgl">${S.eventsOn!==false?"an":"aus"}</button></div>
+    <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line)">
+      <b>Zwischenspeicher</b><br>
+      <span class="dim" style="font-size:10.5px">Das Spiel sichert den Stand selbsttätig im Gerät — beim Wegblenden, beim Schliessen, bei jedem Monatsabschluss und alle 25 Sekunden. Beim nächsten Start steht «Fortsetzen» zuoberst im Menü.</span>
+      ${(()=>{ const A=autoMeta(); return A
+        ? `<div class="kv" style="margin-top:6px"><span>Zuletzt gesichert</span>
+             <span>${autoAlter(A.t)} · ${MONTHS[A.monat]} ${A.jahr}</span></div>
+           <div class="kv"><span>Umfang</span><span>${Math.round(A.groesse/1024)} KB${A.grund?" · "+esc(A.grund):""}</span></div>`
+        : `<p class="dim" style="font-size:11px;margin:6px 0 0">Noch nichts gesichert.</p>`; })()}
+      <div class="row" style="margin-top:7px">
+        <button class="sm" id="autoNow">Jetzt sichern</button>
+        <button class="sm" id="autoDel">Zwischenspeicher löschen</button></div></div>
     ${S.eventsOn!==false?`<div class="kv" style="margin-top:7px"><span>Bisher eingetreten</span>
       <span>${(S.inbox||[]).filter(m=>["stoerung","behoerde","markt","chance","personal"].includes(m.kind)).length} Ereignisse</span></div>`:""}
     ${crewRealism()&&S.fleet.length?`<div class="kv" style="margin-top:7px"><span>Auswärtsnächte pro Woche</span>
@@ -8819,6 +9414,10 @@ function paneData(p){
     <div class="kv"><span>Höchstdienstzeit der Besatzung</span><span>${BAL.maxDuty/60} h je Tag</span></div>
     <div class="kv"><span>Zeitfluss</span><span>1 Realsekunde = 1 Spielstunde bei 1×</span></div>
     <div class="kv"><span>Wettbewerb</span><span>${(S.rivals||[]).length} benannte Gesellschaften, wöchentliche Reaktion</span></div></div>`;
+  const an=$("#autoNow");
+  if(an) an.onclick=()=>{ toast(autoSave("von Hand")?"Stand gesichert.":"Sichern misslungen — Gerätespeicher voll?"); renderPane(); };
+  const ad=$("#autoDel");
+  if(ad) ad.onclick=()=>{ autoLoeschen(); toast("Zwischenspeicher gelöscht."); renderPane(); };
   const et=$("#evtTgl");
   if(et) et.onclick=()=>{
     S.eventsOn = S.eventsOn===false;
@@ -8834,6 +9433,8 @@ function paneData(p){
   };
   const lb=$("#lohnBtn"); if(lb) lb.onclick=lohnDialog;
   const cs=$("#csBtn"); if(cs) cs.onclick=crewStationDialog;
+  const pm=$("#persBtn"); if(pm) pm.onclick=()=>personalMarkt();
+  const pm3=$("#persBtn2"); if(pm3) pm3.onclick=()=>personalMarkt();
   const bt=$("#boardTgl");
   if(bt) bt.onclick=()=>{
     S.boardOn=!S.boardOn;
@@ -8843,6 +9444,7 @@ function paneData(p){
   };
   const lb2=$("#lohnBtn"); if(lb2) lb2.onclick=lohnDialog;
   const cs2=$("#csBtn"); if(cs2) cs2.onclick=crewStationDialog;
+  const pm2=$("#persBtn"); if(pm2) pm2.onclick=()=>personalMarkt();
   p.querySelectorAll("[data-df]").forEach(b=>b.onclick=()=>{
     applyDifficulty(b.dataset.df);
     logg(`Schwierigkeit auf ${diffCfg().n} gestellt.`,"warn"); render();});
@@ -8863,6 +9465,8 @@ function paneData(p){
     MISC.decals=[]; MISC.logo=null; MISC.splash=null; MISC.airports={};
     ["tail","box","long"].forEach(k=>{AIRLINE_ART[k]={}; ART_INDEX[k]={};});
     scanAirlineArt();
+  scanStaffArt();
+  scanCateringArt();
 scanScenarios();
     scanMisc();
 scanAirlineArt();
@@ -8993,6 +9597,89 @@ function download(name,text){
   const a=document.createElement("a"); a.href=u; a.download=name; a.click();
   setTimeout(()=>URL.revokeObjectURL(u),1500);
 }
+
+/* ================================================ Zwischenspeicher ======
+   Bisher gab es nur den Download als Datei und die Cloud. Wer die App am
+   Telefon schloss, fing von vorne an. Jetzt sichert das Spiel den Stand
+   selbsttätig im Gerät — beim Wegblenden, beim Schliessen, bei jedem
+   Monatsabschluss und regelmässig nebenher. */
+const AUTO_KEY="skyline.auto", AUTO_META="skyline.auto.meta";
+let autoLetzte=0;
+/** Grosse, entbehrliche Teile kürzen, damit der Platz im Gerät reicht. */
+function autoSchlank(){
+  const d=JSON.parse(JSON.stringify(S));
+  if(d.flightHistory && d.flightHistory.length>150) d.flightHistory=d.flightHistory.slice(-150);
+  if(d.inbox && d.inbox.length>60){
+    /* Offene Entscheidungen bleiben in jedem Fall erhalten */
+    const offen=d.inbox.filter(m=>m.optionen && m.entschieden==null);
+    const rest=d.inbox.filter(m=>!(m.optionen && m.entschieden==null)).slice(0,60-offen.length);
+    d.inbox=offen.concat(rest);
+  }
+  if(d.log && d.log.length>60) d.log=d.log.slice(0,60);
+  if(d.ticker && d.ticker.length>30) d.ticker=d.ticker.slice(0,30);
+  if(d.reviews && d.reviews.length>40) d.reviews=d.reviews.slice(0,40);
+  delete d.speedBefore;
+  return d;
+}
+function autoSave(grund){
+  if(!S || !S.name) return false;
+  try{
+    const roh=JSON.stringify(autoSchlank());
+    localStorage.setItem(AUTO_KEY, roh);
+    localStorage.setItem(AUTO_META, JSON.stringify({
+      t:Date.now(), name:S.name, code:S.code, jahr:S.year, monat:S.month,
+      cash:S.cash, flotte:S.fleet.length, strecken:S.routes.length,
+      groesse:roh.length, grund:grund||""
+    }));
+    autoLetzte=Date.now();
+    return true;
+  }catch(e){
+    /* Speicher voll: erst kürzen, dann aufgeben — aber nie das Spiel stören */
+    try{
+      localStorage.removeItem("skyline.assets");
+      localStorage.setItem(AUTO_KEY, JSON.stringify(autoSchlank()));
+      return true;
+    }catch(e2){ return false; }
+  }
+}
+function autoMeta(){
+  try{ const raw=localStorage.getItem(AUTO_META);
+    if(!raw || !localStorage.getItem(AUTO_KEY)) return null;
+    return JSON.parse(raw);
+  }catch(e){ return null; }
+}
+function autoLaden(){
+  try{
+    const raw=localStorage.getItem(AUTO_KEY);
+    if(!raw) return false;
+    const d=JSON.parse(raw);
+    if(!d || !d.name || !Array.isArray(d.bases)) return false;
+    adoptSave(d);
+    return true;
+  }catch(e){ return false; }
+}
+function autoLoeschen(){
+  try{ localStorage.removeItem(AUTO_KEY); localStorage.removeItem(AUTO_META); }catch(e){}
+}
+/** Wie lange ist das her? */
+function autoAlter(t){
+  const m=Math.round((Date.now()-t)/60000);
+  if(m<1) return "gerade eben";
+  if(m<60) return `vor ${m} Minute${m>1?"n":""}`;
+  const h=Math.round(m/60);
+  if(h<24) return `vor ${h} Stunde${h>1?"n":""}`;
+  const tg=Math.round(h/24);
+  return `vor ${tg} Tag${tg>1?"en":""}`;
+}
+function autoStart(){
+  /* regelmässig nebenher, aber nur wenn sich etwas geändert hat */
+  setInterval(()=>{ if(S && Date.now()-autoLetzte>25000) autoSave("laufend"); }, 25000);
+  /* die drei Momente, in denen ein Telefon die Seite wegräumt */
+  document.addEventListener("visibilitychange",()=>{ if(document.hidden) autoSave("weggeblendet"); });
+  window.addEventListener("pagehide", ()=>autoSave("geschlossen"));
+  window.addEventListener("beforeunload", ()=>autoSave("geschlossen"));
+}
+
 function saveGame(){
   download(`${S.code||"airline"}-${S.year}-${String(S.month+1).padStart(2,"0")}.json`,JSON.stringify(S));
   toast("Spielstand heruntergeladen.");
@@ -9041,6 +9728,10 @@ function adoptSave(d){
   if(S.boardOn==null) S.boardOn=true;
   if(S.boardTrust==null) S.boardTrust=50;
   if(!S.staff) S.staff=rollStaff(S.bases[0]);
+  /* Gesichter erst zuteilen, wenn die Ordnersuche fertig ist */
+  fuehrungNachruesten();
+  if(STAFF_READY) portraetsZuteilen();
+  else setTimeout(()=>{ portraetsZuteilen(); render(); }, 1400);
   if(!S.feud) S.feud={};
   if(!S.zeitung) S.zeitung=[];
   if(!S.chronik) S.chronik=[];
@@ -9048,6 +9739,7 @@ function adoptSave(d){
   if(S.eventsOn==null) S.eventsOn=true;
   if(!S.lohn) S.lohn="markt";
   if(!S.crewStations) S.crewStations={};
+  if(!S.bewerber) S.bewerber={};
   if(!S.evtLast) S.evtLast={};
   if(!S.feeCut) S.feeCut={};
   S.fleet.forEach(ac=>{ if(!ac.plan) ac.plan={start:390,dests:[],days:[1,1,1,1,1,1,1],nums:[]};
@@ -10073,7 +10765,7 @@ function setTab(t){
 
 /* Fassungskennung — steht im Hauptmenü und unter Daten. So lässt sich auf
    einen Blick prüfen, welcher Stand tatsächlich auf dem Server liegt. */
-const APP_VERSION = "2026-09-05 · Partnerschaften";
+const APP_VERSION = "2026-09-07b · Personalmarkt";
 
 
 
@@ -10236,24 +10928,28 @@ function initBreitgriff(){
   if(!g||!sd) return;
   const mass=document.getElementById("breitmass");
   const setzen=(px)=>{
-    const min=300, max=Math.min(window.innerWidth-240, 1400);
+    /* Der Karte müssen mindestens 260 Pixel bleiben, sonst ist sie unbrauchbar */
+    const min=300, max=Math.max(min, window.innerWidth-260);
     const b=Math.round(clamp(px, min, max));
     document.documentElement.style.setProperty("--sidew", b+"px");
-    g.style.right=(b+12)+"px";
     if(mass) mass.textContent=`Menü ${b} px · Karte ${Math.round((window.innerWidth-b-24)/window.innerWidth*100)}%`;
     if(S) S.sidePx=b;
     return b;
   };
   const jetzt=()=> (S&&S.sidePx) || parseInt(getComputedStyle(document.documentElement)
-    .getPropertyValue("--sidew")) || 430;
+    .getPropertyValue("--sidew")) || 460;
   setzen(jetzt());
   let zieht=false;
   const start=e=>{ if(istMobil()) return;
     zieht=true; g.classList.add("zieht");
     document.body.style.userSelect="none"; e.preventDefault(); };
+  let letzte=0;
   const zug=e=>{ if(!zieht) return;
     const x=(e.touches?e.touches[0]:e).clientX;
-    setzen(window.innerWidth-x-12);
+    setzen(window.innerWidth-x);
+    /* Die Karte höchstens alle 90 ms neu zeichnen, sonst ruckelt es */
+    const jetztMs=Date.now();
+    if(jetztMs-letzte>90){ letzte=jetztMs; if(typeof renderMap==="function" && S) renderMap(); }
     e.preventDefault(); };
   const ende=()=>{ if(!zieht) return; zieht=false;
     g.classList.remove("zieht"); document.body.style.userSelect="";
@@ -10265,7 +10961,7 @@ function initBreitgriff(){
   g.addEventListener("touchmove",zug,{passive:false});
   g.addEventListener("touchend",ende);
   /* Doppelklick setzt zurück */
-  g.addEventListener("dblclick",()=>{ setzen(430); if(S) renderMap(); });
+  g.addEventListener("dblclick",()=>{ setzen(460); if(S) renderMap(); });
   window.addEventListener("resize",()=>{ if(!istMobil()) setzen(jetzt()); });
 }
 
@@ -10910,7 +11606,7 @@ function updateRelations(M){
   dc += reserve>1.12 ? 1.6 : reserve>1.03 ? 0.5 : -2.2;
   const stdProCrew = S.fleet.length ? S.fleet.reduce((a,x)=>a+acWeeklyBlock(x),0)/Math.max(S.cabin,1)*4.345 : 0;
   dc += stdProCrew>78 ? -1.8 : stdProCrew<58 ? 0.8 : 0;
-  dc += lohnWirkung().stimmung;
+  dc += lohnWirkung().stimmung + ressortAbw("crew")*1.1;
   if(gavAktiv()) dc += 0.8;
   dc -= (M.cancel||0)*7;
   if(S.rel.crew<50 && (S.acc||{}).cancel) dc-=0.6;
@@ -10932,6 +11628,8 @@ function updateRelations(M){
   R.partners=clamp(R.partners+dp, 0, 100);
 }
 /** Wirkung auf die Störungshäufigkeit. */
+/* Der Flugbetrieb schlägt sich in der Pünktlichkeit nieder. */
+function opsBonus(){ return ressortAbw("ops")*0.035; }
 function relRisk(){
   const R=S.rel||{crew:70,airports:70,partners:55};
   return {
@@ -11345,6 +12043,8 @@ function rollDisruptions(){
   const wochentag=weekdayIdx();
 
   /* 1 — Technische Störung: Wahrscheinlichkeit steigt mit Alter und Stunden */
+  /* Ein starker Technikchef senkt das Ausfallrisiko spürbar. */
+  const techF = 1 - ressortAbw("tech")*0.35;
   aktiv.forEach(ac=>{
     if(blockActive("ac",ac.id)) return;
     const alter=ac.age/12, nutzung=(ac.hours||0)/BAL.heavyCheckHrs;
@@ -11415,7 +12115,9 @@ function rollDisruptions(){
   /* Eine Grippewelle ist ein seltenes Ereignis, kein Wochenrhythmus: nur bei
      echter Unterdeckung, höchstens einmal im Quartal. */
   const seuchePause = (S.clock - (S.lastSeuche||0)) > DAYMS*90;
-  if(reserve<0.99 && seuchePause && Math.random()<0.0022*relRisk().crew && !blockActive("crew","all")){
+  if(reserve<0.99 && seuchePause
+     && Math.random()<0.0022*relRisk().crew*lohnWirkung().krankheit*(1-ressortAbw("crew")*0.30)
+     && !blockActive("crew","all")){
     S.lastSeuche=S.clock;
     addBlock({art:"crew", wert:"all", bis:S.clock+DAYMS*3, grund:"Krankheitswelle"});
     const betroffen=aktiv.slice(0,Math.max(1,Math.round(aktiv.length*0.25)));
@@ -11706,11 +12408,14 @@ const LAND_POOL = {
   "Rumänien":"hr", "Bulgarien":"hr", "Albanien":"hr", "Nordmazedonien":"hr", "Malta":"it"
 };
 const REGION_POOL = {EU:"de", NA:"us", SA:"latam", AF:"af", ME:"me", AS:"as", OC:"oc"};
-function namePool(iata){
+function poolKey(iata){
   const a=AP[iata];
-  if(!a) return NAME_POOLS.de;
-  return NAME_POOLS[LAND_POOL[a.country]] || NAME_POOLS[REGION_POOL[a.region]] || NAME_POOLS.de;
+  if(!a) return "de";
+  return (LAND_POOL[a.country] && NAME_POOLS[LAND_POOL[a.country]] ? LAND_POOL[a.country] : null)
+      || (REGION_POOL[a.region] && NAME_POOLS[REGION_POOL[a.region]] ? REGION_POOL[a.region] : null)
+      || "de";
 }
+function namePool(iata){ return NAME_POOLS[poolKey(iata)] || NAME_POOLS.de; }
 /** Zieht die Belegschaft passend zum Heimatland. */
 function rollStaff(home){
   const P=namePool(home);
@@ -11789,8 +12494,10 @@ function mailShow(id){
   const offen=m.optionen && m.entschieden==null;
   modal(m.subj,
     `<div class="row" style="justify-content:space-between;margin-bottom:9px;align-items:flex-start">
-       <div><b style="color:${P.col}">${P.ic} ${esc(P.n)}</b><br>
-         <span class="dim" style="font-size:10.5px">${esc(P.r)}</span></div>
+       <div class="row" style="gap:10px;align-items:center;margin:0">
+         ${staffAvatar(P, 46, m.von)}
+         <div><b style="color:${P.col}">${P.ic} ${esc(P.n)}</b><br>
+           <span class="dim" style="font-size:10.5px">${esc(P.r)}</span></div></div>
        <div style="text-align:right"><span class="pill" style="border-color:${K.col};color:${K.col}">${K.n}</span><br>
          <span class="dim mono" style="font-size:10px">${mailDate(m)}</span></div></div>
      <div>${m.body}</div>
@@ -11856,7 +12563,10 @@ function zumHauptmenu(){
      }}]);
 }
 function mainMenu(){
+  const A=autoMeta();
   const cards=[
+    ...(A ? [{k:"weiter", t:"Fortsetzen",
+      d:`${A.name} · ${MONTHS[A.monat]} ${A.jahr} · ${A.flotte} Flugzeuge, ${A.strecken} Strecken · zuletzt gesichert ${autoAlter(A.t)}`}] : []),
     {k:"neu",  t:"Neue Airline gründen",
      d:"Von null anfangen: Name, Heimatstation, Bemalung und Schwierigkeit frei wählen. Der offenste Weg, aber auch der längste."},
     {k:"best", t:"Bestehende Airline führen",
@@ -11869,7 +12579,7 @@ function mainMenu(){
   modal("Skyline Manager",
     `${MISC.splash?`<div class="planebox" style="padding:0;margin-bottom:12px"><img src="${esc(MISC.splash)}" style="width:100%;display:block" alt=""></div>`:""}
      <p class="dim">Airline-Simulation in Echtzeit. Flotte beschaffen, Tagespläne bauen, gegen echte Wettbewerber bestehen.</p>
-     <div id="mm">${cards.map(c=>`<div class="choice" data-k="${c.k}" ${c.k==="szen"&&!SCENARIOS.length?'style="opacity:.6"':''}>
+     <div id="mm">${cards.map(c=>`<div class="choice ${c.k==="weiter"?"on":""}" data-k="${c.k}" ${c.k==="szen"&&!SCENARIOS.length?'style="opacity:.6"':''}>
        <div><div class="t">${c.t}${c.k==="szen"&&!SCENARIOS.length?" — noch leer":""}</div><div class="d">${c.d}</div></div>
        <div class="mono amb">›</div></div>`).join("")}</div>
      <p class="dim" style="font-size:10.5px;text-align:right;margin-top:9px">
@@ -11878,7 +12588,18 @@ function mainMenu(){
   $("#mm").onclick=e=>{
     const c=e.target.closest(".choice"); if(!c) return;
     const k=c.dataset.k;
-    if(k==="neu"){ startDialog(); }
+    if(k==="weiter"){
+      if(autoLaden()){
+        $("#veil").classList.remove("on"); $("#veil").dataset.fest="0";
+        $("#mX").style.display="";
+        render(); renderMap();
+        toast(`${S.name} fortgesetzt — ${monthLabel()}`);
+      } else {
+        toast("Der Zwischenspeicher liess sich nicht lesen.");
+        autoLoeschen(); mainMenu();
+      }
+    }
+    else if(k==="neu"){ startDialog(); }
     else if(k==="best"){ legacyDialog(); }
     else if(k==="szen"){ scenarioDialog(); }
     else if(k==="load"){ loadMenu(); }
@@ -12103,6 +12824,8 @@ cloudLoadCfg();
 scanAssets(false);
 scanMisc();
 scanAirlineArt();
+scanStaffArt();
+scanCateringArt();
 scanScenarios();
 if("serviceWorker" in navigator && location.protocol.startsWith("http")){
   navigator.serviceWorker.register("sw.js").then(reg=>{
@@ -12119,6 +12842,7 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
   }).catch(()=>{});
 }
 buildTabs();
+autoStart();
 baueWeltMini();
 initStreifen();
 initGriff();
