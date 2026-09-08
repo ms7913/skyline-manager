@@ -5,7 +5,7 @@
    Die Firebase-Aufrufe werden bewusst nicht angefasst — sie brauchen das
    Netz und dürfen niemals aus dem Cache beantwortet werden. */
 
-const CACHE = "skyline-v34";
+const CACHE = "skyline-v35";
 const ASSETS = [
   "./",
   "./index.html",

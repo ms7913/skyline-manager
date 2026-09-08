@@ -9054,6 +9054,26 @@ function fsUrl(slot){
   return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(CLOUD.cfg.projectId)}`
     +`/databases/(default)/documents/skyline/${encodeURIComponent(CLOUD.uid)}/saves/${encodeURIComponent(slot||"aktuell")}`;
 }
+
+/* -------- Selbsttätige Sicherung in die Cloud --------------------------
+   Der Zwischenspeicher im Gerät bleibt als schneller Rückfall bestehen; die
+   Cloud kommt zusätzlich dazu, seltener und nur wenn angemeldet. Sonst
+   entstünden bei jedem Wegblenden Schreibzugriffe, und das kostet Kontingent. */
+let CLOUD_LETZTE=0;
+function cloudAutoAn(){ return !!(CLOUD.cfg && CLOUD.cfg.auto); }
+function cloudAutoSetzen(an){
+  CLOUD.cfg=CLOUD.cfg||{}; CLOUD.cfg.auto=!!an; cloudSaveCfg();
+}
+/** Wird von autoSave mitgerufen. Drosselt auf höchstens alle fünf Minuten. */
+function cloudAutoSichern(grund){
+  if(!cloudAutoAn() || !cloudReady() || !cloudSignedIn() || !S || !S.name) return;
+  const eilig = grund==="geschlossen" || grund==="weggeblendet" || grund==="Monatsabschluss";
+  if(!eilig && Date.now()-CLOUD_LETZTE < 300000) return;
+  if(eilig && Date.now()-CLOUD_LETZTE < 45000) return;
+  CLOUD_LETZTE=Date.now();
+  cloudPush("aktuell", true);
+}
+
 async function cloudPush(slot, silent){
   if(!cloudReady()) { if(!silent) toast("Zuerst die Firebase-Zugangsdaten hinterlegen."); return; }
   if(CLOUD.busy) return;
@@ -9111,8 +9131,35 @@ async function cloudList(){
   }catch(e){ return []; }
 }
 /** Automatische Sicherung beim Monatswechsel. */
+
+/** Vergleicht den geladenen Stand mit dem in der Cloud und bietet den
+    neueren an. Wer auf zwei Geräten spielt, verliert so keinen Fortschritt. */
+async function cloudNeuerPruefen(){
+  try{
+    const tok=await cloudToken();
+    const r=await fetch(fsUrl("aktuell"), {headers:{"Authorization":"Bearer "+tok}});
+    if(!r.ok) return;
+    const f=(await r.json()).fields||{};
+    const wann=f.gespeichert && f.gespeichert.timestampValue
+      ? Date.parse(f.gespeichert.timestampValue) : 0;
+    const A=autoMeta();
+    if(!wann || !A || wann <= A.t + 60000) return;
+    modal("Neuerer Stand in der Cloud",
+      `<p>In der Cloud liegt ein Spielstand von <b>${autoAlter(wann)}</b>, der Stand im Gerät ist von ${autoAlter(A.t)}.</p>
+       <div class="card">
+         <div class="kv"><span>Cloud</span><span>${esc(f.airline?f.airline.stringValue:"")} · ${esc(f.datum?f.datum.stringValue:"")}</span></div>
+         <div class="kv"><span>Dieses Gerät</span><span>${esc(A.name)} · ${MONTHS[A.monat]} ${A.jahr}</span></div>
+       </div>
+       <p class="dim">Wahrscheinlich haben Sie zuletzt auf einem anderen Gerät gespielt.</p>`,
+      [{t:"Gerätestand behalten",f:()=>$("#veil").classList.remove("on")},
+       {t:"Cloud-Stand laden",p:true,f:async()=>{
+          $("#veil").classList.remove("on");
+          await cloudPull("aktuell"); render(); renderMap(); }}]);
+  }catch(e){}
+}
+
 function cloudAuto(){
-  if(!S || !S.cloudAuto || !cloudReady() || !cloudSignedIn()) return;
+  if(!S || !cloudAutoAn() || !cloudReady() || !cloudSignedIn()) return;
   cloudPush("aktuell", true);
 }
 
@@ -9517,6 +9564,14 @@ scanScenarios(); forgetAssets(); };
   };
 }
 
+function cloudAutoZeile(){
+  return `<div class="row" style="justify-content:space-between;align-items:flex-start;
+      margin-top:10px;padding-top:9px;border-top:1px solid var(--line)">
+    <div style="flex:1"><b>Selbsttätig in die Cloud sichern</b><br>
+      <span class="dim" style="font-size:10.5px">Zusätzlich zum Zwischenspeicher im Gerät. Beim Wegblenden, beim Schliessen und bei jedem Monatsabschluss, höchstens alle 45 Sekunden — sonst alle fünf Minuten.</span></div>
+    <button class="sm ${cloudAutoAn()?'primary':''}" id="cAuto">${cloudAutoAn()?"an":"aus"}</button></div>
+    ${CLOUD_LETZTE?`<div class="kv"><span>Zuletzt hochgeladen</span><span>${autoAlter(CLOUD_LETZTE)}</span></div>`:""}`;
+}
 function renderCloudBox(){
   const box=document.getElementById("cloudBox"); if(!box) return;
   if(!cloudReady()){
@@ -9562,14 +9617,14 @@ function renderCloudBox(){
       <button id="cPull">Aus der Cloud laden</button>
       <button id="cSlots">Weitere Stände</button>
       <button id="cOut">Abmelden</button></div>
-    <div class="row" style="margin-top:9px;justify-content:space-between">
-      <span class="dim" style="font-size:11.5px">Beim Monatswechsel automatisch sichern</span>
-      <button class="sm ${S&&S.cloudAuto?'primary':''}" id="cAuto">${S&&S.cloudAuto?"aktiv":"aus"}</button></div>`;
+    ${cloudAutoZeile()}`;
   box.querySelector("#cPush").onclick=()=>cloudPush("aktuell");
   box.querySelector("#cPull").onclick=()=>cloudPull("aktuell");
   box.querySelector("#cOut").onclick=()=>{ CLOUD.tok=null; CLOUD.uid=null; CLOUD.exp=0; CLOUD.refresh=null;
     try{ localStorage.removeItem("skyline.session"); }catch(e){} renderCloudBox(); };
-  box.querySelector("#cAuto").onclick=()=>{ if(S){ S.cloudAuto=!S.cloudAuto; renderCloudBox(); } };
+  box.querySelector("#cAuto").onclick=()=>{ cloudAutoSetzen(!cloudAutoAn());
+    toast(cloudAutoAn()?"Selbsttätige Cloud-Sicherung eingeschaltet.":"Selbsttätige Cloud-Sicherung aus.");
+    renderCloudBox(); };
   box.querySelector("#cSlots").onclick=async()=>{
     const list=await cloudList();
     modal("Spielstände in der Cloud",
@@ -9632,6 +9687,7 @@ function autoSave(grund){
       groesse:roh.length, grund:grund||""
     }));
     autoLetzte=Date.now();
+    cloudAutoSichern(grund);
     return true;
   }catch(e){
     /* Speicher voll: erst kürzen, dann aufgeben — aber nie das Spiel stören */
@@ -10765,7 +10821,7 @@ function setTab(t){
 
 /* Fassungskennung — steht im Hauptmenü und unter Daten. So lässt sich auf
    einen Blick prüfen, welcher Stand tatsächlich auf dem Server liegt. */
-const APP_VERSION = "2026-09-07b · Personalmarkt";
+const APP_VERSION = "2026-09-08 · Cloud-Sicherung";
 
 
 
@@ -12590,6 +12646,8 @@ function mainMenu(){
     const k=c.dataset.k;
     if(k==="weiter"){
       if(autoLaden()){
+        /* Liegt in der Cloud ein neuerer Stand, wird er angeboten */
+        if(cloudAutoAn() && cloudReady() && cloudSignedIn()) setTimeout(cloudNeuerPruefen, 900);
         $("#veil").classList.remove("on"); $("#veil").dataset.fest="0";
         $("#mX").style.display="";
         render(); renderMap();
