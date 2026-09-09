@@ -2732,6 +2732,13 @@ function routeDiagnose(r){
   const m=marketDemand(A,B,S.month);
   const befund=[];
   const legs=(weeklyLegs()[r.key]||[]);
+  /* Fehlender Rückflug ist eine der häufigsten Ursachen und wird zuerst
+     genannt — er kostet Nachfrage, bevor irgendetwas anderes greift. */
+  const rf=rueckflugGuete(r);
+  if(rf.biz<0.85 && (B.biz||1)>0.95)
+    befund.push(`${rueckflugText(rf)} Geschäftsreisende buchen Hin- und Rückflug zusammen; ohne passende Rückkehr entsteht die Buchung nicht. Das kostet hier rund ${fmt((1-rf.biz)*100,0)}% der Nachfrage in Business und First.`);
+  else if(rf.eco<0.9)
+    befund.push(`${rueckflugText(rf)} Das kostet rund ${fmt((1-rf.eco)*100,0)}% der Nachfrage.`);
   const muster=Array.from(new Set(legs.map(e=>e.ac.type)));
   const sitze=L.seats.total/Math.max(L.flights,1);
 
@@ -4633,6 +4640,65 @@ function utility(fare, rep, freq, comfort){
        + LOGIT.comf*comfort;
 }
 /** Anteil des Spielers und der Wettbewerber auf einer Strecke. */
+
+/* ============================================ Hin- und Rückflug =========
+   Reisende buchen fast immer beides. Wer hinfliegt, will zurück — und wenn
+   die Rückkehr nicht passt, kommt die Buchung gar nicht erst zustande.
+   Entscheidend ist die Aufenthaltsdauer, die der eigene Flugplan zulässt:
+
+   Geschäftsreisende brauchen die Rückkehr am selben Abend oder am Folgetag.
+   Ferienreisende brauchen sie nach einer oder zwei Wochen — dafür genügt eine
+   Wochenfrequenz, weshalb dort fast immer etwas passt.
+
+   Das belohnt genau die Planung, die auch in Wirklichkeit zählt: früh hin,
+   spät zurück. Wer nur einen Mittagsumlauf fliegt, verliert das Geschäft. */
+function rueckflugGuete(r){
+  if(!S) return {tag:0, folge:0, woche:0, biz:1, eco:1};
+  /* Streckenschlüssel sind alphabetisch sortiert — welche Richtung «hin» ist,
+     sagt er nicht. Reisende starten ohnehin an beiden Enden, deshalb wird die
+     Güte für beide Richtungen gerechnet und gemittelt. */
+  const legs={};
+  S.fleet.filter(a=>a.status==="aktiv").forEach(ac=>{
+    scheduleOf(ac).week.forEach((tag,d)=>tag.legs.forEach(l=>{
+      const k=l.from+">"+l.to;
+      (legs[k]=legs[k]||[]).push({d, dep:l.dep, arr:l.arr});
+    }));
+  });
+  const richtung=(A,B)=>{
+    const hin=legs[A+">"+B]||[], zur=legs[B+">"+A]||[];
+    if(!hin.length || !zur.length) return null;
+    let mitTag=0, mitFolge=0;
+    hin.forEach(h=>{
+      /* Am selben Tag zurück: mindestens zweieinhalb Stunden vor Ort,
+         Rückkehr noch vor Mitternacht. */
+      if(zur.some(z => z.d===h.d && z.dep >= h.arr+150 && z.arr <= 1439)){ mitTag++; mitFolge++; return; }
+      if(zur.some(z => z.d===(h.d+1)%7 || (z.d===h.d && z.dep>=h.arr+150))) mitFolge++;
+    });
+    return {tag:mitTag/hin.length, folge:mitFolge/hin.length, woche:1};
+  };
+  const a=richtung(r.from, r.to), b=richtung(r.to, r.from);
+  if(!a && !b) return {tag:0, folge:0, woche:0, biz:0.55, eco:0.72};
+  const mittel=(k)=>{
+    const v=[a,b].filter(Boolean).map(x=>x[k]);
+    return v.reduce((s2,x)=>s2+x,0)/v.length;
+  };
+  const tag=mittel("tag"), folge=mittel("folge"), woche=mittel("woche");
+  return {
+    tag, folge, woche,
+    /* Geschäftsverkehr hängt am Tages- und Folgetagsrückflug */
+    biz: clamp(0.55 + 0.30*tag + 0.15*folge, 0.55, 1),
+    /* Ferienverkehr braucht nur überhaupt eine Rückkehr, Auswahl hilft etwas */
+    eco: clamp(0.80 + 0.14*woche + 0.06*folge, 0.80, 1)
+  };
+}
+/** Kurze Beurteilung für Streckendetail und Befund. */
+function rueckflugText(g){
+  if(g.tag>=0.75) return "Fast alle Hinflüge haben eine Rückkehr am selben Tag — ideal für Geschäftsreisende.";
+  if(g.tag>=0.35) return "Nur ein Teil der Hinflüge hat eine Rückkehr am selben Tag. Ein später Rückflug würde Geschäftsreisende bringen.";
+  if(g.folge>=0.6) return "Rückkehr erst am Folgetag möglich. Ferienreisende stört das nicht, Geschäftsreisende schon.";
+  return "Es gibt kaum brauchbare Rückflüge. Ohne Rückkehr kommt die Buchung gar nicht zustande.";
+}
+
 function marketSplit(r, myFare, myFreq, myComfort, loyal){
   /* Ein Vielfliegerprogramm macht die eigenen Gäste preisunempfindlicher. */
   const fareBeta = loyal ? LOGIT.fare*0.72 : LOGIT.fare;
@@ -5429,10 +5495,10 @@ function partnerDialog(){
               <span class="${cls(b.saldo)}">${sgn(b.saldo)} im Monat</span></div>
             <div class="row" style="margin-top:6px">
               <button class="sm" data-kuend="${id}">Vorzeitig kündigen</button></div></div>`;}).join("")}`:""}
-      <h3 class="sub">Neue Partnerschaft</h3>
+      <h3 class="sub">Selbst anfragen</h3>
       ${!reif
         ? `<div class="card" style="border-color:var(--amber)">
-             <b class="warn2">Noch zu früh</b><br>
+             <b class="warn2">Noch zu früh für eigene Anfragen</b><br>
              <span class="dim" style="font-size:11px">Grosse Häuser reden mit Gesellschaften, die etwas zu bieten haben. Es fehlt: ${esc(partnerReifText())}.</span>
              <p class="dim" style="font-size:11px;margin:6px 0 0">Angebote von aussen können trotzdem eintreffen — dann entscheiden Sie ebenso.</p></div>`
         : (kand.length
@@ -5702,6 +5768,9 @@ function simRoute(r, legList, monthIdx, ctx){
   const svcPull = svcW/flights;
 
   const m=marketDemand(A,B,monthIdx), sh=classShares(m);
+  /* Ohne passenden Rückflug kommt ein Teil der Buchungen nicht zustande. */
+  const rf=rueckflugGuete(r);
+  out.rueck=rf;
   const preis = campaignOn(r.key,"preis"), bekannt = campaignOn(r.key,"bekanntheit");
   const fareEff = r.fare * (preis?0.80:1);
   /* Der Vertrieb hebt die Durchsetzungskraft im Markt. */
@@ -5718,8 +5787,9 @@ function simRoute(r, legList, monthIdx, ctx){
   const sold={eco:0,prem:0,biz:0,first:0};
   for(const k of ["eco","prem","biz","first"]){
     const lounge = ((hasUpgrade(r.from,"lounge")||hasUpgrade(r.to,"lounge")) && (k==="biz"||k==="first")) ? 1.20 : 1;
+    const rueckF = (k==="biz"||k==="first") ? rf.biz : (k==="prem" ? (rf.biz+rf.eco)/2 : rf.eco);
     const svcK = k==="eco" ? Math.pow(svcPull,0.5) : Math.pow(svcPull,1.6);
-    const dem=m.weekly*sh[k]*share*elast*svcK*lounge*(k==="eco"?1:Math.pow(m.inc,0.4));
+    const dem=m.weekly*sh[k]*share*elast*svcK*lounge*rueckF*(k==="eco"?1:Math.pow(m.inc,0.4));
     const p=Math.min(out.seats[k],dem);
     const loungeYield = ((hasUpgrade(r.from,"lounge")||hasUpgrade(r.to,"lounge")) && (k==="biz"||k==="first")) ? 1.12 : 1;
     const fare=baseFare(d,k)*fareEff*Math.pow(m.inc,0.35)*loungeYield;
@@ -6931,11 +7001,22 @@ function baseDialog(){
 function paneNet(p){
   const map=syncRoutes();
   let h=`<h2 class="sec">Streckennetz</h2>
-  <div class="row" style="margin-bottom:9px">${S.bases.map(b=>
-    `<button class="sm primary" data-assi="${b}">Strecke planen ab ${b}</button>`).join("")}
-    <button class="sm" id="partnerBtn">Partnerschaften${partnerAnzahl()?" ("+partnerAnzahl()+")":""}${
-      (S.partnerAngebote||[]).filter(a=>a.frist>S.clock).length
-        ? ` · ${(S.partnerAngebote||[]).filter(a=>a.frist>S.clock).length} Anfrage` : ""}</button></div>`;
+  <div class="row" style="margin-bottom:7px">${S.bases.map(b=>
+    `<button class="sm primary" data-assi="${b}">Strecke planen ab ${b}</button>`).join("")}</div>
+  <div class="card" style="padding:8px 11px;margin-bottom:10px">
+    <div class="row" style="justify-content:space-between;align-items:center;margin:0">
+      <div style="flex:1"><b>Partnerschaften</b>
+        ${partnerAnzahl()?`<span class="pill ok">${partnerAnzahl()} aktiv</span>`:""}<br>
+        <span class="dim" style="font-size:10.5px">${
+          partnerAnzahl()
+            ? partnerListe().filter(id=>partnerAktiv(id)).map(id=>{
+                const x=rivalById(id); return x?esc(x.name):""; }).filter(Boolean).join(", ")
+            : partnerReif()
+              ? "Interline, Codeshare oder Allianz — Sie können jetzt selbst auf andere zugehen."
+              : "Interline, Codeshare oder Allianz. Für eigene Anfragen fehlt noch: "+esc(partnerReifText())
+        }</span></div>
+      <button class="sm ${partnerReif()&&!partnerAnzahl()?'primary':''}" id="partnerBtn">${
+        partnerReif()||partnerAnzahl() ? "Öffnen" : "Ansehen"}</button></div></div>`;
   h+=`
   <div class="row" style="margin-bottom:10px">
     <button id="analyse" class="primary">Marktanalyse</button>
@@ -7046,6 +7127,12 @@ function routeDetail(key){
         <button class="hlp" data-hlp="freq">?</button></span>
         <span>${e.f} Flüge pro Tag mit ${esc(ACT[tid].name)} · ${e.flz} Flugzeug${e.flz>1?"e":""} gebunden${
           jetzt?` · zurzeit ${fmt(jetzt,1)}`:""}</span></div>`;})()}
+    ${(()=>{ const g=rueckflugGuete(r);
+      return `<div class="kv"><span>Rückflug am selben Tag</span>
+        <span class="${g.tag>0.7?'pos':g.tag>0.3?'warn2':'neg'}">${fmt(g.tag*100,0)}% der Hinflüge</span></div>
+      <div class="kv"><span>Wirkung auf die Nachfrage</span>
+        <span>Geschäft ${fmt(g.biz*100,0)}% · Ferien ${fmt(g.eco*100,0)}%</span></div>
+      <p class="dim" style="font-size:11px;margin:4px 0 8px">${esc(rueckflugText(g))}</p>`; })()}
     ${shareSpark(r)}
     <div class="kv"><span>Wettbewerb gesamt</span><span>${fmt(r.comp/7,1)} Flüge pro Tag</span></div>
     <div class="kv"><span>Wettbewerber auf der Strecke</span><span>${
@@ -8391,6 +8478,12 @@ function paneStaff(p){
     S.cash-=c; S.pilotsTrain.push({r,n:nn,m:BAL.trainMonths});
     logg(`${nn} Cockpitmitglieder für ${RATING_NAME[r]||r} eingestellt.`,""); render();});
   p.querySelectorAll("[data-retrain]").forEach(b=>b.onclick=()=>retrainDialog(b.dataset.retrain));
+  /* Diese drei Knöpfe stehen im Personalreiter — die Verdrahtung lag
+     versehentlich in den Einstellungen und lief deshalb ins Leere. */
+  { const lb=$("#lohnBtn"); if(lb) lb.onclick=lohnDialog;
+    const cs=$("#csBtn"); if(cs) cs.onclick=crewStationDialog;
+    const pm=$("#persBtn"); if(pm) pm.onclick=()=>personalMarkt();
+    const pm2=$("#persBtn2"); if(pm2) pm2.onclick=()=>personalMarkt(); }
   p.querySelectorAll("[data-fire]").forEach(b=>b.onclick=()=>{
     const r=b.dataset.fire, nn=Math.min(S.pilots[r]||0,Math.max(1,+$("#hp_"+r).value||1));
     if(!nn){toast("Keine Crews auf diesem Muster.");return;}
@@ -10821,7 +10914,7 @@ function setTab(t){
 
 /* Fassungskennung — steht im Hauptmenü und unter Daten. So lässt sich auf
    einen Blick prüfen, welcher Stand tatsächlich auf dem Server liegt. */
-const APP_VERSION = "2026-09-08 · Cloud-Sicherung";
+const APP_VERSION = "2026-09-08b · Rückflüge";
 
 
 
